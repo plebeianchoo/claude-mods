@@ -1,0 +1,80 @@
+{
+  "name": "cat-clawd-duo",
+  "version": "1.10.0-clawd0.5.0",
+  "description": "cat-spinner and clawd-spinner merged: the pixel cat and Clawd share one row above the spinner (stacked when the terminal is too narrow).",
+  "author": {
+    "name": "Jeremy (fork of Scott Wicken cat-spinner + Sai Rudra clawd-spinner)"
+  },
+  "userConfig": {
+    "coat": {
+      "type": "string",
+      "title": "Cat",
+      "description": "Which cat walks above the spinner",
+      "default": "siamese",
+      "options": [
+        "siamese",
+        "orange",
+        "tuxedo",
+        "black",
+        "russian-blue",
+        "white",
+        "calico",
+        "tortoiseshell"
+      ]
+    },
+    "animation": {
+      "type": "string",
+      "title": "Animation",
+      "description": "What the cat does while Claude works",
+      "default": "walk",
+      "options": [
+        "walk",
+        "yarn",
+        "pounce",
+        "random"
+      ]
+    },
+    "width": {
+      "type": "string",
+      "title": "Width",
+      "description": "How much of the terminal's width the cat walks across",
+      "default": "full",
+      "options": [
+        "full",
+        "compact"
+      ]
+    },
+    "align": {
+      "type": "string",
+      "title": "Alignment",
+      "description": "Where a compact track sits: left, center, or right",
+      "default": "left",
+      "options": [
+        "left",
+        "center",
+        "right"
+      ]
+    },
+    "season": {
+      "type": "string",
+      "title": "Season",
+      "description": "Seasonal extras: auto (Halloween through October), halloween, or plain",
+      "default": "auto",
+      "options": [
+        "auto",
+        "halloween",
+        "plain"
+      ]
+    },
+    "between": {
+      "type": "string",
+      "title": "Between turns",
+      "description": "What the cat does between turns: nap above the prompt, or hide",
+      "default": "hide",
+      "options": [
+        "nap",
+        "hide"
+      ]
+    }
+  }
+}
