@@ -32,3 +32,11 @@ build/cat-clawd-duo.sh --pristine /tmp/pristine
 mkdir /tmp/cur && cp -r cat-clawd-duo/hooks cat-clawd-duo/tests cat-clawd-duo/LICENSE-* /tmp/cur/
 (cd /tmp && diff -ruN pristine cur) > build/cat-clawd-duo.patch
 ```
+
+## Making a new spinner
+
+[`docs/spinner-engine-api.md`](docs/spinner-engine-api.md) writes up the engine
+API the spinners use (Spinner render, Raster cells, `$.ui.blit`, timers, the
+AbovePrompt band, settings). [`templates/blink-spinner/`](templates/blink-spinner/)
+is a minimal spinner that validates, tests and type-checks: copy it and start
+from there.
