@@ -5,7 +5,7 @@ A local Claude Code plugin marketplace (`claudebro-mods`) for my own mods.
 | Mod | What it is |
 | --- | --- |
 | `cat-clawd-duo` | [cat-spinner](https://github.com/swicken/cat-spinner) and [clawd-spinner](https://github.com/saiharsha03/clawd-spinner) merged, so the pixel cat and Clawd share one row above the spinner (stacked below 102 columns). Both MIT; their licenses ship in the mod. |
-| `spinner` | A fork of [hoobnn's spinner](https://github.com/hoobnn/hoobnn-agent-mods) 0.6.1: fifteen themes, a stage band above the prompt, a finale and a companion pet. MIT; the license ships in the mod. |
+| `spinner` | A fork of [hoobnn's spinner](https://github.com/hoobnn/hoobnn-agent-mods) 0.6.1, plus a `rotate` theme choice (the next theme each turn): fifteen themes, a stage band above the prompt, a finale and a companion pet. MIT; the license ships in the mod. |
 
 Both are mine now: the files in this repo are the source of truth. Edit them in place,
 run `claude plugin validate <mod>/.claude-plugin/plugin.json` and `claude plugin test <mod>`,

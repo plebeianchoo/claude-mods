@@ -5,12 +5,12 @@ import { flag, oneOf, text } from './kit/options'
 import { THEME_NAMES } from './themes'
 import type { ThemeName } from './themes'
 
-export type Choice = ThemeName | 'random'
+export type Choice = ThemeName | 'random' | 'rotate'
 
-export const CHOICES: readonly Choice[] = ['random', ...THEME_NAMES]
+export const CHOICES: readonly Choice[] = ['random', 'rotate', ...THEME_NAMES]
 
 export type Config = {
-  /** A theme, or `random` for a new one each session. */
+  /** A theme, `random` for a new one each session, or `rotate` for the next one each turn. */
   theme: Choice
   isVisible: boolean
   /** A Spinner button in the prompt footer. */

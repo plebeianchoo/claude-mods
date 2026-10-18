@@ -12,7 +12,7 @@ import { resolveLanguage } from './kit/lang'
 import { keptRows, migrateStore, persist } from './kit/prefs'
 import type { Prefs } from './kit/prefs'
 import { bubbleOf, busyLabel, finaleOf, formatDuration, levelOf, newsOf, toolLabel } from './pet'
-import { FINALE_MS, THEMES, THEME_NAMES, isThemeName, pickRandom, textWidth } from './themes'
+import { FINALE_MS, THEMES, THEME_NAMES, isThemeName, nextTheme, pickRandom, textWidth } from './themes'
 import type { Act, Mood, ThemeName } from './themes'
 import { PET_ROWS, dockPetOf, petArtOf } from './pets'
 import type { PetState } from './pets'
@@ -23,7 +23,7 @@ import type { StageProps } from './stage'
 // The theme drawn this session ('' until session.start, or the first turn of a
 // session resumed or cleared, which gets no session.start, picks one).
 const theme = atom({ plugin: 'spinner', key: 'theme' } as const, '')
-// The `theme` row: a theme, or `random`.
+// The `theme` row: a theme, `random` or `rotate`.
 const choice = atom({ plugin: 'spinner', key: 'choice' } as const, 'random')
 // Session mirrors of the `visible`, `stage` and `companion` rows, so a command shows at once;
 // null in a session resumed or cleared, which gets no session.start: the rows' then.
@@ -76,14 +76,19 @@ function prefsOf($: EngineInterface): Prefs {
 }
 
 /**
- * The theme a choice names. `random` keeps the one this session already drew
- * at random (a reload brought by another row's change), unless `isFresh`.
+ * The theme a choice names. `random` and `rotate` draw one at random, but keep
+ * the one this session already has under the same choice (a reload brought by
+ * another row's change), unless `isFresh`; `rotate` then moves on each turn.
  */
 async function choose($: EngineInterface, picked: Choice, isFresh = false): Promise<ThemeName> {
   const current = await read($, theme)
-  const wasRandom = (await read($, choice)) === 'random'
+  const isSame = (await read($, choice)) === picked
   const name =
-    picked !== 'random' ? picked : !isFresh && wasRandom && isThemeName(current) ? current : pickRandom(await $.clock.now())
+    picked !== 'random' && picked !== 'rotate'
+      ? picked
+      : !isFresh && isSame && isThemeName(current)
+        ? current
+        : pickRandom(await $.clock.now())
   await update($, choice, () => picked)
   await update($, theme, () => name)
   await publishPet($)
@@ -283,12 +288,24 @@ async function setSwitch($: EngineInterface, field: 'visible' | 'stage' | 'compa
   await persist(prefsOf($), field, isOn)
 }
 
+/** What the status adds after the theme when it changes by itself. */
+function noteOf(picked: string): string {
+  return picked === 'random' ? m('cmd.randomNote') : picked === 'rotate' ? m('cmd.rotateNote') : ''
+}
+
+/** What `/spinner <choice>` answers. */
+function switchedTo(picked: Choice, name: ThemeName): string {
+  if (picked === 'random') return m('cmd.random', { theme: name })
+  if (picked === 'rotate') return m('cmd.rotate', { theme: name })
+  return m('cmd.switched', { theme: name })
+}
+
 /** `/spinner` with no arguments: the theme, the pet, what is off, the themes and the usage. */
 async function status($: EngineInterface): Promise<string> {
   const current = await read($, theme)
   const stats = await read($, pet)
   const lines = [
-    m('cmd.status', { theme: `${current}${(await read($, choice)) === 'random' ? m('cmd.randomNote') : ''}` }),
+    m('cmd.status', { theme: `${current}${noteOf(await read($, choice))}` }),
     m('cmd.petStats', { theme: current, level: levelOf(stats.xp), xp: stats.xp, love: stats.love }),
   ]
   if (await read($, isHidden)) lines.push(m('cmd.hidden'))
@@ -316,7 +333,7 @@ async function seed($: EngineInterface, rows: Config): Promise<void> {
 
 // What versions before 0.3 kept in the store, as `/config` rows.
 const STORE_MOVES = {
-  theme: (kept: unknown) => (kept === 'random' || isThemeName(kept) ? (['theme', kept] as const) : null),
+  theme: (kept: unknown) => (kept === 'random' || kept === 'rotate' || isThemeName(kept) ? (['theme', kept] as const) : null),
   isHidden: (kept: unknown) => ['visible', kept !== true] as const,
   isStageOff: (kept: unknown) => ['stage', kept !== true] as const,
   isCompanionOff: (kept: unknown) => ['companion', kept !== true] as const,
@@ -351,6 +368,12 @@ export const register: Register = (on, options) => {
   on('turn.start', async ($, e, next) => {
     // A session resumed or cleared: no session.start came to pick its theme or read its pet.
     if ((await read($, theme)) === '') await seed($, config)
+    // `rotate`: each turn draws the next theme.
+    const current = await read($, theme)
+    if ((await read($, choice)) === 'rotate' && isThemeName(current)) {
+      await update($, theme, () => nextTheme(current))
+      await syncTap($)
+    }
     running.clear()
     sleepTimer?.cancel()
     await update($, activity, () => ({ act: 'think' as Act }))
@@ -494,17 +517,17 @@ export const register: Register = (on, options) => {
           // Dismissed, or no one to ask (-p): what `/spinner` alone says.
           return { text: await status($) }
         }
-        if (answer !== 'random' && !isThemeName(answer)) return { text: m('cmd.unknown', { name: answer, list }) }
+        if (answer !== 'random' && answer !== 'rotate' && !isThemeName(answer)) return { text: m('cmd.unknown', { name: answer, list }) }
         const name = await choose($, answer, true)
         await syncTap($)
         await persist(prefsOf($), 'theme', answer)
-        return { text: answer === 'random' ? m('cmd.random', { theme: name }) : m('cmd.switched', { theme: name }) }
+        return { text: switchedTo(answer, name) }
       }
       case 'theme': {
         const name = await choose($, command.theme, true)
         await syncTap($)
         await persist(prefsOf($), 'theme', command.theme)
-        return { text: command.theme === 'random' ? m('cmd.random', { theme: name }) : m('cmd.switched', { theme: name }) }
+        return { text: switchedTo(command.theme, name) }
       }
       case 'unknown':
         return { text: m('cmd.unknown', { name: command.name, list }) }

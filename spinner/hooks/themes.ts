@@ -84,6 +84,12 @@ export function pickRandom(seed: number): ThemeName {
   return pool[Math.floor(noise(seed) * pool.length)]!
 }
 
+/** The theme after `current`, for the `rotate` choice: the same pool as random, wrapping. */
+export function nextTheme(current: ThemeName): ThemeName {
+  const pool = THEME_NAMES.filter(n => !OPT_IN.includes(n))
+  return pool[(pool.indexOf(current) + 1) % pool.length]!
+}
+
 // ---- scenes --------------------------------------------------------------
 
 function catScene(t: number, w: number): Grid {

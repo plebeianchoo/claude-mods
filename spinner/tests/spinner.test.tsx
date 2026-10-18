@@ -4,7 +4,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import { AUDIO_BANDS, AudioMeter, lineSplitter, parseTapLine } from '../hooks/audio'
 import { parseCommand } from '../hooks/command'
 import { busyLabel, formatDuration, levelOf, newsOf, toolLabel } from '../hooks/pet'
-import { FINALE_MS, SPRITE_MS, STAGE_MS, THEMES, THEME_NAMES, finaleScene, petRow, pickRandom, segments, textWidth } from '../hooks/themes'
+import { FINALE_MS, SPRITE_MS, STAGE_MS, THEMES, THEME_NAMES, finaleScene, nextTheme, petRow, pickRandom, segments, textWidth } from '../hooks/themes'
 import type { Act } from '../hooks/themes'
 
 const START = { cwd: '/tmp', surface: 'terminal', isInteractive: true } as const
@@ -584,4 +584,32 @@ test('a resumed session picks its theme on its first turn', { options: { theme: 
   const band = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
   expect(await drawn(band, 'work')).toContain('HI 00000')
   await band.unmount()
+})
+
+// `rotate`: a random start, then the next theme each turn, never the opt-in ones.
+test('nextTheme walks the drawable themes in order and wraps', () => {
+  const pool = THEME_NAMES.filter(n => n !== 'audio')
+  expect(nextTheme(pool[0]!)).toBe(pool[1]!)
+  expect(nextTheme(pool[pool.length - 1]!)).toBe(pool[0]!)
+  expect(nextTheme('audio')).toBe(pool[0]!)
+})
+
+test('rotate moves to the next theme on each turn', { options: { theme: 'rotate' } }, async ($, on) => {
+  host(on)
+  await $.session.start(START)
+  const themeNow = async () => /当前主题：(\w+)/.exec((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text)![1]!
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  const first = await themeNow()
+  await $.turn.complete({ ...DONE, turnId: 't1' })
+  await $.turn.start({ text: 'again', turnId: 't2' })
+  expect(await themeNow()).toBe(nextTheme(first as never))
+})
+
+test('/spinner rotate switches to rotating and persists the row', async ($, on) => {
+  host(on)
+  await $.session.start(START)
+  expect(parseCommand('rotate')).toEqual({ kind: 'theme', theme: 'rotate' })
+  expect(parseCommand('theme rotate')).toEqual({ kind: 'theme', theme: 'rotate' })
+  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'rotate' })).text).toContain('每轮换一个主题')
+  expect(rows).toContainEqual(['spinner.theme', 'rotate'])
 })
