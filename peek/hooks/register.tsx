@@ -47,7 +47,7 @@ async function prepare($: EngineInterface, given: string): Promise<{ path: strin
   if (!source) throw new Error(`could not convert ${name} (python3 with Pillow is needed for anything but a small PNG)`)
 
   const { base64 } = await $.fs.read(source, { as: 'bytes' })
-  const size = pngSize(Uint8Array.fromBase64(base64.slice(0, 44)))
+  const size = pngSize(Uint8Array.from(atob(base64.slice(0, 44)), c => c.charCodeAt(0)))
   if (!size) throw new Error(`${name} is not a readable PNG`)
   const picture = { png: base64, ...size, name }
   prepared.set(key, picture)
@@ -95,7 +95,8 @@ export const register: Register = on => {
     return started
   })
 
-  on('tool.call', { tool: TOOL }, async ($, e) => {
+  // A regex: the generated tool-name types don't list a mod's own tools.
+  on('tool.call', { tool: /^mcp__peek__show_image$/ }, async ($, e) => {
     const given = (e as unknown as { path?: unknown }).path
     if (typeof given !== 'string' || !given) return { deny: 'peek: a path is needed.' }
     try {
