@@ -4,6 +4,7 @@ import { canvas, DEF, PH, put, ROWS, toCells, type Moment, type Scene, type Stat
 import { H } from '../hooks/rig'
 import { sky } from '../hooks/scenery/sky'
 import { city } from '../hooks/scenery/city'
+import { ocean } from '../hooks/scenery/ocean'
 
 // A frame's Raster cells, as words: [codePoint, fg, bg] per cell.
 const words = (cells: string) => new Uint32Array(Uint8Array.from(atob(cells), ch => ch.charCodeAt(0)).buffer)
@@ -89,3 +90,4 @@ describe('scenery pixels', () => {
 
 sceneSuite('sky', sky)
 sceneSuite('city', city)
+sceneSuite('ocean', ocean)
