@@ -3,6 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { canvas, DEF, PH, put, ROWS, toCells, type Moment, type Scene, type State } from '../hooks/scenery/pixels'
 import { H } from '../hooks/rig'
 import { sky } from '../hooks/scenery/sky'
+import { city } from '../hooks/scenery/city'
 
 // A frame's Raster cells, as words: [codePoint, fg, bg] per cell.
 const words = (cells: string) => new Uint32Array(Uint8Array.from(atob(cells), ch => ch.charCodeAt(0)).buffer)
@@ -87,3 +88,4 @@ describe('scenery pixels', () => {
 })
 
 sceneSuite('sky', sky)
+sceneSuite('city', city)
