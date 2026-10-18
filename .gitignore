@@ -1,1 +1,3 @@
 */.claude-plugin/types/
+# upstream clones are reference copies, recreated by upstream/check.sh
+upstream/*/
