@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { boxFor, expand, keyOf, markOf, pathOfMark, pngSize, SHOWABLE } from '../hooks/fit'
+import { boxFor, expand, idAboveCaption, keyOf, markOf, pathOfMark, pngSize, SHOWABLE } from '../hooks/fit'
 
 test('a marker round-trips a path with spaces and newlines', () => {
   const path = '/tmp/my shots/a\nb.png'
@@ -46,4 +46,12 @@ test('a small picture is not blown up past its pixels', () => {
 test('keys differ when the file changes', () => {
   expect(keyOf('/a.png|10|1')).not.toBe(keyOf('/a.png|10|2'))
   expect(keyOf('/a.png|10|1')).toHaveLength(8)
+})
+
+test('idAboveCaption reads a 256-colour id from the rows above the newest caption', () => {
+  const row = (sgr: string) => `\x1b[${sgr}m\u{10EEEE}̅̅\u{10EEEE}̅̍\x1b[39m`
+  const shot = ['old.png · 10×10', row('38;5;3'), row('38;5;1'), '\x1b[2mbig.jpg · 1600×1000\x1b[22m', '❯ '].join('\n')
+  expect(idAboveCaption(shot, 'big.jpg · 1600×1000')).toBe(1)
+  expect(idAboveCaption(`${row('38:2:0:1:44')}\nx.png · 1×1`, 'x.png · 1×1')).toBe(300)
+  expect(idAboveCaption('no picture here', 'big.jpg · 1600×1000')).toBe(null)
 })

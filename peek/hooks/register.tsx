@@ -4,7 +4,7 @@
 // nothing is added to the prompt.
 import type { EngineInterface, Register, RenderInput } from 'claude-code'
 
-import { boxFor, expand, keyOf, markOf, pathOfMark, pngSize, SHOWABLE } from './fit'
+import { boxFor, expand, idAboveCaption, keyOf, markOf, pathOfMark, pngSize, SHOWABLE } from './fit'
 
 const TOOL = 'mcp__peek__show_image'
 // Claude Code refuses PNG bytes over 2 MiB; a 1600 px side is sharp enough
@@ -14,7 +14,7 @@ const MAX_PX = 1600
 const MAX_COLS = 100
 const MAX_ROWS = 30
 
-type Picture = { png: string; width: number; height: number; name: string }
+type Picture = { png: string; width: number; height: number; name: string; file: string }
 // Prepared pictures by file version, so a redraw doesn't convert again.
 const prepared = new Map<string, Picture>()
 let cacheDir = ''
@@ -49,7 +49,7 @@ async function prepare($: EngineInterface, given: string): Promise<{ path: strin
   const { base64 } = await $.fs.read(source, { as: 'bytes' })
   const size = pngSize(Uint8Array.from(atob(base64.slice(0, 44)), c => c.charCodeAt(0)))
   if (!size) throw new Error(`${name} is not a readable PNG`)
-  const picture = { png: base64, ...size, name }
+  const picture = { png: base64, ...size, name, file: source }
   prepared.set(key, picture)
   // A handful is plenty for a scrollback; the oldest goes first.
   if (prepared.size > 12) prepared.delete(prepared.keys().next().value!)
@@ -64,14 +64,38 @@ async function draw($: EngineInterface, e: RenderInput<'ToolResult' | 'CommandOu
     const { picture } = await prepare($, path)
     const maxCols = Math.min(MAX_COLS, (e.viewport?.columns ?? 80) - 4)
     const { columns, rows } = boxFor(picture.width, picture.height, maxCols, MAX_ROWS)
+    const caption = `${picture.name} · ${picture.width}×${picture.height}`
+    void resendInTmux($, picture, caption, columns, rows).catch(() => undefined)
     return (
       <Box flexDirection="column">
         <Image source={{ png: picture.png }} columns={columns} rows={rows} alt={`[image: ${picture.name}]`} />
-        <Text dimColor>{`${picture.name} · ${picture.width}×${picture.height}`}</Text>
+        <Text dimColor>{caption}</Text>
       </Box>
     )
   } catch (err) {
     return <Text dimColor>{`peek: ${(err as Error).message}`}</Text>
+  }
+}
+
+// Inside tmux Claude Code's own upload never reaches the terminal (it isn't
+// wrapped for passthrough), so after the placeholders are on screen peek reads
+// the id they carry and sends the same picture wrapped, to its own pane.
+// Each id is sent once per picture; a reused id gets the new picture.
+const sentById = new Map<number, string>()
+async function resendInTmux($: EngineInterface, picture: Picture, caption: string, columns: number, rows: number) {
+  const pane = await $.env.get('TMUX_PANE')
+  if (!(await $.env.get('TMUX')) || !pane) return
+  for (const wait of [150, 400, 1000]) {
+    await $.clock.sleep(wait)
+    const shot = await $.process.run(['tmux', 'capture-pane', '-p', '-e', '-t', pane]).catch(() => null)
+    const id = shot?.exitCode === 0 ? idAboveCaption(shot.stdout, caption) : null
+    if (id === null) continue
+    if (sentById.get(id) === picture.file) return
+    const tty = (await $.process.run(['tmux', 'display', '-p', '-t', pane, '#{pane_tty}']).catch(() => null))?.stdout.trim()
+    if (!tty?.startsWith('/dev/')) return
+    const sent = await $.process.run(['python3', '-I', `${$.plugin.root}/scripts/tmux_upload.py`, picture.file, tty, String(id), String(columns), String(rows)]).catch(() => null)
+    if (sent?.exitCode === 0) sentById.set(id, picture.file)
+    return
   }
 }
 
