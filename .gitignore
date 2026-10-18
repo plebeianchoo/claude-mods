@@ -2,3 +2,4 @@
 # upstream clones are reference copies, recreated by upstream/check.sh
 upstream/*/
 upstream/.port/
+!upstream/maps/
