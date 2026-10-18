@@ -9,7 +9,7 @@ A local Claude Code plugin marketplace (`claudebro-mods`) for my own mods.
 | `peek` | Images inline in the terminal through Claude Code's own `Image` element: a `show_image` tool for Claude and `/img <path>`. Converts with Pillow and sends PNG bytes, so it works over ssh and inside tmux (`allow-passthrough on`). No network, no updater, nothing added to the prompt. Written from scratch after reviewing [show-your-work](https://github.com/iamumeransari/claude-show-your-work). |
 
 All of them are mine: the files in this repo are the source of truth. Edit them in place,
-run `claude plugin validate <mod>/.claude-plugin/plugin.json` and `claude plugin test <mod>`,
+run `claude plugin validate <mod>/.claude-plugin/plugin.json`, `claude plugin test <mod>` and `pnpm typecheck` (after `pnpm install`; TypeScript is a dev dependency here),
 commit, then `claude plugin marketplace update claudebro-mods && claude plugin update <mod>@claudebro-mods`
 and `/reload-plugins` in open sessions.
 
