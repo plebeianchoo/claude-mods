@@ -27,7 +27,7 @@ New module `hooks/scenery/`, pure (no state, no I/O, no network):
 |---|---|
 | `pixels.ts` | A canvas 18 px (9 rows) tall, `put`/`rect`/`sprite` on it, and packing to Raster cells the same way the cat packs (half blocks ▀ ▄ █, `DEF` = transparent). Reuses `rnd`, `mix`, `wave` from `clawd/acts.ts` by import; Clawd's files are not edited. |
 | `sky.ts` `city.ts` `ocean.ts` `space.ts` | One scene each: `(c: Canvas, t: number, state: State, seed: number) => void`. |
-| `index.ts` | `SCENES` (rotation order), `nextScene(name)`, `sceneryCells(name, t, columns, state, seed): Uint32Array`. |
+| `index.ts` | `SCENES` (rotation order), `nextScene(name)`, `PACE`, `stateOf(...)`, `sceneryCells(name, columns, moment)`: base64 Raster cells, the same as `sceneCells`. A `Moment` is `{ t, dist, state, seed }`: `dist` is how far the layers have scrolled, advanced by `cat.tsx` at a pace that eases toward the state's (the ~500 ms blend). |
 
 `State` = `think` | `tool` | `say`, derived in `cat.tsx`: `tool` while a `tool.call` is
 running (`doing` is set), else `think` when the Spinner's `mode` is `thinking`, else `say`.
@@ -53,7 +53,7 @@ turn picks the variant. Speeds and densities blend toward the new state over ~50
 | Scene | Seed picks | think | tool | say |
 |---|---|---|---|---|
 | sky | day / dusk / night; clear / cloudy / rain / storm | clouds drift slowly; stars twinkle at night | wind up, heavier rain, lightning in a storm | a bird or balloon crosses; sun or moon glows |
-| city | skyline, window palette, day / night | few lit windows, slow traffic | windows flicker on, traffic speeds up, cranes swing | fireworks or a billboard sweep |
+| city | skyline, window palette, day / night | few lit windows, slow traffic | windows flicker on, traffic speeds up | fireworks or a billboard sweep |
 | ocean | water tint, fish mix, kelp density | fish idle, slow bubbles | a school darts past, bubble stream | a whale or jellyfish surfaces |
 | space | starfield, planet colours, nebula tint | ship drifts, stars crawl | warp streaks, stars stretch into lines | a planet rises, a comet passes |
 
