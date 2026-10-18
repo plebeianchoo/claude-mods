@@ -5,11 +5,12 @@
 export const SHOWABLE = /\.(png|jpe?g|webp|gif|bmp|tiff?)$/i
 
 // The line a tool result or /img row carries, so the render hook knows what
-// to draw. The path is URI-encoded so it stays on one line.
-export const MARK = 'peek:'
+// to draw. The path is URI-encoded so it stays on one line. Not 'peek:': the
+// engine heads a command's row with the plugin's name, which would match.
+export const MARK = 'peek-image:'
 export const markOf = (path: string) => `${MARK}${encodeURIComponent(path)}`
 export function pathOfMark(text: string): string | null {
-  const line = text.split('\n').find(l => l.startsWith(MARK))
+  const line = text.split('\n').findLast(l => l.startsWith(MARK))
   if (!line) return null
   try {
     return decodeURIComponent(line.slice(MARK.length))

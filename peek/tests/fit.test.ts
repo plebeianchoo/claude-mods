@@ -8,6 +8,10 @@ test('a marker round-trips a path with spaces and newlines', () => {
   expect(pathOfMark('no marker here')).toBe(null)
 })
 
+test("the engine's 'peek: ' row heading is not taken for the marker", () => {
+  expect(pathOfMark(`peek: big.jpg\n${markOf('/tmp/big.jpg')}`)).toBe('/tmp/big.jpg')
+})
+
 test('paths expand against home and the working folder', () => {
   expect(expand('~/a.png', '/w', '/home/u')).toBe('/home/u/a.png')
   expect(expand('b.png', '/w/', '/home/u')).toBe('/w/b.png')
