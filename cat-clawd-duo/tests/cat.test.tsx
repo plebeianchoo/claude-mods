@@ -107,7 +107,7 @@ const colorsOf = (cells: unknown) => {
   return new Set(words.filter((_, i) => i % 3 !== 0))
 }
 
-test('draws the cat above the engine spinner line', async ($, on) => {
+test('draws the cat above the engine spinner line', { options: { left: 'cat' } }, async ($, on) => {
   await engineSpinner($, on)
   const ui = await $.ui.mount(SPINNER)
   expect(await ui.find({ type: 'Raster', key: 'cat' })).toBeDefined()
@@ -116,7 +116,7 @@ test('draws the cat above the engine spinner line', async ($, on) => {
 })
 
 describe('coats', () => {
-  test('is a Siamese by default', { options: { season: 'plain' } }, async ($, on) => {
+  test('is a Siamese by default', { options: { left: 'cat', season: 'plain' } }, async ($, on) => {
     await engineSpinner($, on)
     const ui = await $.ui.mount(SPINNER)
     const colors = colorsOf((await ui.find({ type: 'Raster', key: 'cat' }))?.props.cells)
@@ -126,7 +126,7 @@ describe('coats', () => {
   })
 
   for (const [name, palette] of Object.entries(COATS)) {
-    test(`draws the ${name} in its own coat color`, { options: { season: 'plain', coat: name } }, async ($, on) => {
+    test(`draws the ${name} in its own coat color`, { options: { left: 'cat', season: 'plain', coat: name } }, async ($, on) => {
       await engineSpinner($, on)
       const ui = await $.ui.mount(SPINNER)
       const colors = colorsOf((await ui.find({ type: 'Raster', key: 'cat' }))?.props.cells)
@@ -148,7 +148,7 @@ describe('coats', () => {
   })
 
   for (const name of ['calico', 'tortoiseshell'] as const) {
-    test(`breaks the ${name} coat into patches of both colors`, { options: { season: 'plain', coat: name } }, async ($, on) => {
+    test(`breaks the ${name} coat into patches of both colors`, { options: { left: 'cat', season: 'plain', coat: name } }, async ($, on) => {
       await engineSpinner($, on)
       const ui = await $.ui.mount(SPINNER)
       const colors = colorsOf((await ui.find({ type: 'Raster', key: 'cat' }))?.props.cells)
@@ -184,7 +184,7 @@ describe('coats', () => {
     }
   })
 
-  test('is an orange tabby with coat set to orange', { options: { season: 'plain', coat: 'orange' } }, async ($, on) => {
+  test('is an orange tabby with coat set to orange', { options: { left: 'cat', season: 'plain', coat: 'orange' } }, async ($, on) => {
     await engineSpinner($, on)
     const ui = await $.ui.mount(SPINNER)
     const colors = colorsOf((await ui.find({ type: 'Raster', key: 'cat' }))?.props.cells)
@@ -276,7 +276,7 @@ describe('the yarn animation', () => {
     })
   })
 
-  test('draws the ball from the first frame', { options: { season: 'plain', animation: 'yarn' } }, async ($, on) => {
+  test('draws the ball from the first frame', { options: { left: 'cat', season: 'plain', animation: 'yarn' } }, async ($, on) => {
     await engineSpinner($, on)
     const ui = await $.ui.mount(SPINNER)
     const colors = colorsOf((await ui.find({ type: 'Raster', key: 'cat' }))?.props.cells)
@@ -284,7 +284,7 @@ describe('the yarn animation', () => {
     await ui.unmount()
   })
 
-  test('has no ball in the walk animation', { options: { season: 'plain' } }, async ($, on) => {
+  test('has no ball in the walk animation', { options: { left: 'cat', season: 'plain' } }, async ($, on) => {
     await engineSpinner($, on)
     const ui = await $.ui.mount(SPINNER)
     const colors = colorsOf((await ui.find({ type: 'Raster', key: 'cat' }))?.props.cells)
@@ -386,7 +386,7 @@ describe('random', () => {
     expect(position(back.run, track)).toEqual({ x, isFacingRight })
   })
 
-  test('switches with /cat-spinner random and says what it picked', { options: { season: 'plain', animation: 'random' } }, async ($, on) => {
+  test('switches with /cat-spinner random and says what it picked', { options: { left: 'cat', season: 'plain', animation: 'random' } }, async ($, on) => {
     const RUN = { command: 'cat-spinner', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 } } as const
     const { text } = await $.command.run({ ...RUN, args: '' })
     expect(text).toMatch(/random \((walk|yarn|pounce) right now\)/)
@@ -402,7 +402,7 @@ describe('the settings dialog', () => {
     props: { title: 'cat-spinner', isFocused: true, bodyColumns: 70, placement: 'inline', scroll: { offset: 0, bodyRows: 14 }, view: {} },
   } as const
 
-  test('lists each setting with its current choice', { options: { season: 'plain', coat: 'orange', animation: 'pounce' } }, async $ => {
+  test('lists each setting with its current choice', { options: { left: 'cat', season: 'plain', coat: 'orange', animation: 'pounce' } }, async $ => {
     const ui = await $.ui.mount(DIALOG)
     expect(await ui.find({ type: 'Raster', key: 'preview' })).toBeDefined()
     expect((await ui.find({ type: 'Button', key: 'edit-coat' }))?.text).toContain('Cat: Orange tabby')
@@ -411,7 +411,7 @@ describe('the settings dialog', () => {
     await ui.unmount()
   })
 
-  test('opens a setting to its options, the current one checked', { options: { season: 'plain', animation: 'yarn' } }, async $ => {
+  test('opens a setting to its options, the current one checked', { options: { left: 'cat', season: 'plain', animation: 'yarn' } }, async $ => {
     const ui = await $.ui.mount(DIALOG)
     await ui.press({ key: 'edit-animation' })
     expect(await ui.find({ type: 'Button', key: 'edit-coat' })).toBeUndefined()
@@ -420,7 +420,7 @@ describe('the settings dialog', () => {
     await ui.unmount()
   })
 
-  test('saves an option when picked, and goes back on the current one', async ($, on) => {
+  test('saves an option when picked, and goes back on the current one', { options: { left: 'cat' } }, async ($, on) => {
     const writes: unknown[] = []
     on('config.set', (_$, e) => {
       writes.push({ key: e.key, value: e.value })
@@ -540,7 +540,7 @@ describe('width', () => {
   })
 
   // Below 102 columns the cat and Clawd stack, and the cat's own width setting applies.
-  test('draws a compact track centered when asked', { options: { season: 'plain', width: 'compact', align: 'center' } }, async ($, on) => {
+  test('draws a compact track centered when asked', { options: { left: 'cat', season: 'plain', width: 'compact', align: 'center' } }, async ($, on) => {
     await engineSpinner($, on)
     const ui = await $.ui.mount({ ...SPINNER, viewport: { columns: 100, rows: 40 } } as typeof SPINNER)
     expect((await ui.find({ type: 'Raster', key: 'cat' }))?.props.columns).toBe(90)
@@ -553,13 +553,13 @@ describe('width', () => {
     props: { title: 'cat-spinner', isFocused: true, bodyColumns: 70, placement: 'inline', scroll: { offset: 0, bodyRows: 14 }, view: {} },
   } as const
 
-  test('offers Alignment in the dialog once the track is compact', { options: { season: 'plain', width: 'compact' } }, async $ => {
+  test('offers Alignment in the dialog once the track is compact', { options: { left: 'cat', season: 'plain', width: 'compact' } }, async $ => {
     const ui = await $.ui.mount(DIALOG_PANE)
     expect((await ui.find({ type: 'Button', key: 'edit-align' }))?.text).toContain('Alignment: Left')
     await ui.unmount()
   })
 
-  test('offers Alignment in the dialog only for a compact track', async $ => {
+  test('offers Alignment in the dialog only for a compact track', { options: { left: 'cat' } }, async $ => {
     const dialog = {
       plugin: 'cat-clawd-duo', surface: 'terminal', component: 'Pane', requestId: 'cat-spinner-settings',
       props: { title: 'cat-spinner', isFocused: true, bodyColumns: 70, placement: 'inline', scroll: { offset: 0, bodyRows: 14 }, view: {} },
@@ -570,14 +570,14 @@ describe('width', () => {
     await ui.unmount()
   })
 
-  test('draws the track as wide as the terminal allows when stacked', async ($, on) => {
+  test('draws the track as wide as the terminal allows when stacked', { options: { left: 'cat' } }, async ($, on) => {
     await engineSpinner($, on)
     const ui = await $.ui.mount({ ...SPINNER, viewport: { columns: 100, rows: 40 } } as typeof SPINNER)
     expect((await ui.find({ type: 'Raster', key: 'cat' }))?.props.columns).toBe(98)
     await ui.unmount()
   })
 
-  test('puts the cat and Clawd side by side in one row on a wide terminal', async ($, on) => {
+  test('puts the cat and Clawd side by side in one row on a wide terminal', { options: { left: 'cat' } }, async ($, on) => {
     await engineSpinner($, on)
     const split = splitColumns(135)!
     const ui = await $.ui.mount({ ...SPINNER, viewport: { columns: 135, rows: 40 } } as typeof SPINNER)
@@ -701,7 +701,7 @@ describe('napping between turns', () => {
     })
   }
 
-  test('curls up in the band above the prompt between turns', { options: { season: 'plain', between: 'nap' } }, async ($, on) => {
+  test('curls up in the band above the prompt between turns', { options: { left: 'cat', season: 'plain', between: 'nap' } }, async ($, on) => {
     await quietEngine($, on)
     const ui = await $.ui.mount(BAND)
     const nap = await ui.find({ type: 'Raster', key: 'nap' })
@@ -710,7 +710,7 @@ describe('napping between turns', () => {
     await ui.unmount()
   })
 
-  test('leaves the band alone while Claude works, during a survey, or without room', { options: { between: 'nap' } }, async ($, on) => {
+  test('leaves the band alone while Claude works, during a survey, or without room', { options: { left: 'cat', between: 'nap' } }, async ($, on) => {
     await quietEngine($, on)
     for (const props of [{ ...BAND.props, isWorking: true }, { ...BAND.props, maxRows: 4 }, { ...BAND.props, hasSurvey: true }]) {
       const ui = await $.ui.mount({ ...BAND, props })
@@ -719,7 +719,7 @@ describe('napping between turns', () => {
     }
   })
 
-  test('stays out of sight between turns by default (Hide)', async ($, on) => {
+  test('stays out of sight between turns by default (Hide)', { options: { left: 'cat' } }, async ($, on) => {
     await quietEngine($, on)
     const ui = await $.ui.mount(BAND)
     expect(await ui.find({ type: 'Raster', key: 'nap' })).toBeUndefined()
@@ -763,5 +763,74 @@ describe('waking up', () => {
   test('gives way to a tool, or to a failure', () => {
     expect(advance(STRETCHING, false, W + 10, Math.random, { doing: 'dig' }).act?.kind).toBe('dig')
     expect(advance(STRETCHING, false, W + 10, Math.random, { isStartled: true }).act?.kind).toBe('startle')
+  })
+})
+
+describe('scenes on the left', () => {
+  const RUN = { command: 'cat-spinner', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 } } as const
+  const BAND = {
+    plugin: 'cat-clawd-duo',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: { hasSurvey: false, isWorking: false, maxRows: 20, bodyColumns: 100, scroll: { offset: 0, bodyRows: 20 }, view: {} },
+  } as const
+  const DIALOG = {
+    plugin: 'cat-clawd-duo',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'cat-spinner-settings',
+    props: { title: 'cat-spinner', isFocused: true, bodyColumns: 70, placement: 'inline', scroll: { offset: 0, bodyRows: 14 }, view: {} },
+  } as const
+
+  test('draws a scene in the cat\'s place by default, side by side with Clawd', { options: { season: 'plain' } }, async ($, on) => {
+    await engineSpinner($, on)
+    const split = splitColumns(135)!
+    const ui = await $.ui.mount({ ...SPINNER, viewport: { columns: 135, rows: 40 } } as typeof SPINNER)
+    const left = await ui.find({ type: 'Raster', key: 'cat' })
+    expect(left?.props.columns).toBe(split.cat)
+    expect(colorsOf(left?.props.cells).has(0x9c8e82)).toBe(false) // no Siamese
+    expect((await ui.find({ type: 'Raster', key: 'act' }))?.props.columns).toBe(split.clawd)
+    await ui.unmount()
+  })
+
+  test('leaves the band above the prompt alone, even with the nap on', { options: { between: 'nap' } }, async ($, on) => {
+    on('ui.render', ($, e) => {
+      const { Text } = $.ui.resolve(e)
+      return <Text>engine band</Text>
+    })
+    const ui = await $.ui.mount(BAND)
+    expect(await ui.find({ type: 'Raster', key: 'nap' })).toBeUndefined()
+    await ui.unmount()
+  })
+
+  test('lists Left first in the dialog, and hides the cat\'s own settings', async $ => {
+    const ui = await $.ui.mount(DIALOG)
+    expect((await ui.find({ type: 'Button', key: 'edit-left' }))?.text).toContain('Left: Scenes')
+    expect(await ui.find({ type: 'Button', key: 'edit-coat' })).toBeUndefined()
+    expect(await ui.find({ type: 'Button', key: 'edit-between' })).toBeUndefined()
+    expect(await ui.find({ type: 'Button', key: 'edit-width' })).toBeDefined()
+    await ui.unmount()
+  })
+
+  test('brings the cat back with /cat-spinner cat', async ($, on) => {
+    const writes: unknown[] = []
+    on('config.set', (_$, e) => {
+      writes.push({ key: e.key, value: e.value })
+      return { value: e.value }
+    })
+    const { text } = await $.command.run({ ...RUN, args: 'cat' })
+    expect(writes).toEqual([{ key: 'cat-clawd-duo.left', value: 'cat' }])
+    expect(text).toBe('The cat is back on the left.')
+  })
+
+  test('says so when the scenes are already on', async ($, on) => {
+    const writes: unknown[] = []
+    on('config.set', (_$, e) => {
+      writes.push(e.key)
+      return { value: e.value }
+    })
+    const { text } = await $.command.run({ ...RUN, args: 'scenes' })
+    expect(writes).toEqual([])
+    expect(text).toBe('The left half already shows scenes.')
   })
 })
