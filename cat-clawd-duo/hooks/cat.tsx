@@ -13,6 +13,7 @@ import {
 import { drawBall, playPose, rollBall, startPlay, stepPlay, type Play, type Rng } from './yarn'
 import { GAP, splitColumns } from './layout'
 import { clawdTurnComplete } from './clawd/clawd'
+import { nextScene, PACE, SCENES as SCENERY, sceneryCells, stateOf, type Moment, type SceneName } from './scenery'
 
 const FRAME_MS = 90
 const KEY = 'cat'
@@ -37,6 +38,10 @@ export const ALIGNS = ['left', 'center', 'right'] as const
 export type Align = (typeof ALIGNS)[number]
 export const BETWEENS = ['nap', 'hide'] as const
 export type Between = (typeof BETWEENS)[number]
+
+// What the left half of the row shows: the turn's scene, or the cat.
+export const LEFTS = ['scenes', 'cat'] as const
+export type Left = (typeof LEFTS)[number]
 
 // The most a Raster takes, and the compact track's cap.
 const MAX_TRACK = 512
@@ -298,6 +303,12 @@ const SEASON_LABELS: Record<Season, string> = {
   halloween: 'Halloween',
   plain: 'Plain: no seasonal extras',
 }
+const LEFT_LABELS: Record<Left, string> = {
+  scenes: 'Scenes: sky, city, ocean and space, the next one each turn',
+  cat: 'Cat: the pixel cat',
+}
+// The cat's own settings, listed only while the cat is on the left.
+const CAT_ONLY: readonly string[] = ['coat', 'animation', 'season', 'between']
 
 // The dialog's live preview: its own cat, playing while the dialog is open.
 // A setting change reloads the module (and this state with it), so
@@ -308,12 +319,20 @@ let preview: { timer: { cancel: () => void }; cat: Cat; playing: Playable; frame
 let isHalloween = false
 const sceneSeed = Math.floor(Math.random() * 2 ** 31)
 
-function startPreview($: EngineInterface, animation: Animation, playing: Playable) {
+// The dialog's scenes: each in turn for 70 frames, as while Claude writes.
+const previewScenery = (frame: number, track: number) =>
+  sceneryCells(SCENERY[Math.floor(frame / 70) % SCENERY.length]!, track, { t: frame * FRAME_MS, dist: frame * FRAME_MS * PACE.say, state: 'say', seed: sceneSeed })
+
+function startPreview($: EngineInterface, animation: Animation, playing: Playable, left: Left) {
   if (preview) return
   const state = { cat: { run: 0, think: 0, sit: 0 } as Cat, playing, frame: 0, track: 0 }
   const timer = $.clock.every(FRAME_MS, () => {
     if (!state.track) return
     state.frame += 1
+    if (left === 'scenes') {
+      void $.ui.blit({ requestId: SETTINGS, key: PREVIEW_KEY, columns: state.track, rows: ROWS, cells: previewScenery(state.frame, state.track) })
+      return
+    }
     if (animation === 'random' && state.frame % 70 === 0) state.playing = pickAnimation(state.playing)
     state.cat = advance(inAnimation(state.cat, state.playing, state.track), false, state.track)
     void $.ui.blit({ requestId: SETTINGS, key: PREVIEW_KEY, columns: state.track, rows: ROWS, cells: sceneCells(state.cat, state.track, { isHalloween, time: state.frame, seed: sceneSeed }) })
@@ -323,7 +342,7 @@ function startPreview($: EngineInterface, animation: Animation, playing: Playabl
 
 // Which setting the dialog is showing the options of, or none for the list of
 // settings. A pick reloads the module, which puts the dialog back on the list.
-let editing: 'coat' | 'animation' | 'width' | 'align' | 'season' | 'between' | undefined
+let editing: 'left' | 'coat' | 'animation' | 'width' | 'align' | 'season' | 'between' | undefined
 
 function stopPreview() {
   preview?.timer.cancel()
@@ -337,6 +356,7 @@ const isWidth = (name: string): name is Width => (WIDTHS as readonly string[]).i
 const isAlign = (name: string): name is Align => (ALIGNS as readonly string[]).includes(name)
 const isSeason = (name: string): name is Season => (SEASONS as readonly string[]).includes(name)
 const isBetween = (name: string): name is Between => (BETWEENS as readonly string[]).includes(name)
+const isLeft = (name: string): name is Left => (LEFTS as readonly string[]).includes(name)
 
 export const register: Register = (on, options) => {
   const coatOption = String(options.coat ?? 'siamese')
@@ -352,6 +372,8 @@ export const register: Register = (on, options) => {
   isHalloween = isHalloweenOn(season, new Date())
   const betweenOption = String(options.between ?? 'hide')
   const between: Between = isBetween(betweenOption) ? betweenOption : 'hide'
+  const leftOption = String(options.left ?? 'scenes')
+  const left: Left = isLeft(leftOption) ? leftOption : 'scenes'
   useCoat(coat)
   let playing: Playable = animation === 'random' ? pickAnimation(undefined) : animation
 
@@ -360,9 +382,9 @@ export const register: Register = (on, options) => {
       name: 'cat-spinner',
       description: 'Pick your cat and its animation (or /cat-spinner orange, /cat-spinner pounce, ...)',
     })
-    if ((await $.ui.panes()).some(pane => pane.id === SETTINGS)) startPreview($, animation, playing)
+    if ((await $.ui.panes()).some(pane => pane.id === SETTINGS)) startPreview($, animation, playing, left)
     // The nap's own slow timer runs all session and draws only between turns.
-    if (between === 'nap') {
+    if (between === 'nap' && left === 'cat') {
       $.clock.every(NAP_MS, () => {
         napFrame += 1
         if (isWorking || !napRequest || !napTrack) return
@@ -401,6 +423,7 @@ export const register: Register = (on, options) => {
       $.clock.after(50, () => void $.ui.focus({ requestId: SETTINGS, key: focus }))
     }
     const every = [
+      { key: 'left', label: 'Left', current: left as string, names: LEFTS as readonly string[], labels: LEFT_LABELS as Record<string, string> },
       { key: 'coat', label: 'Cat', current: coat as string, names: COAT_NAMES as readonly string[], labels: COAT_LABELS as Record<string, string> },
       { key: 'animation', label: 'Animation', current: animation as string, names: ANIMATIONS as readonly string[], labels: ANIMATION_LABELS as Record<string, string> },
       { key: 'width', label: 'Width', current: width as string, names: WIDTHS as readonly string[], labels: WIDTH_LABELS as Record<string, string> },
@@ -408,8 +431,9 @@ export const register: Register = (on, options) => {
       { key: 'season', label: 'Season', current: season as string, names: SEASONS as readonly string[], labels: SEASON_LABELS as Record<string, string> },
       { key: 'between', label: 'Between turns', current: between as string, names: BETWEENS as readonly string[], labels: BETWEEN_LABELS as Record<string, string> },
     ] as const
-    // Alignment only matters for a compact track, which is narrower than the terminal.
-    const settings = every.filter(setting => setting.key !== 'align' || width === 'compact')
+    // Alignment only matters for a compact track, which is narrower than the
+    // terminal; the cat's own settings only while the cat is on the left.
+    const settings = every.filter(setting => (setting.key !== 'align' || width === 'compact') && (left === 'cat' || !CAT_ONLY.includes(setting.key)))
     const open = settings.find(setting => setting.key === editing)
 
     // The list of settings, each showing its current choice; or the options
@@ -451,7 +475,7 @@ export const register: Register = (on, options) => {
 
     return (
       <Box flexDirection="column">
-        <Raster key={PREVIEW_KEY} columns={track} rows={ROWS} cells={sceneCells(preview?.cat ?? { run: 0, think: 0, sit: 0 }, track)} />
+        <Raster key={PREVIEW_KEY} columns={track} rows={ROWS} cells={left === 'scenes' ? previewScenery(preview?.frame ?? 0, track) : sceneCells(preview?.cat ?? { run: 0, think: 0, sit: 0 }, track)} />
         {body}
       </Box>
     )
@@ -463,7 +487,8 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'cat-spinner' }, async ($, e) => {
     const choice = e.args.trim().toLowerCase()
     const list = (names: readonly string[]) => names.map(name => `/cat-spinner ${name}`).join(' or ')
-    const usage = `Switch cats with ${list(COAT_NAMES)}, animations with ${list(ANIMATIONS)}, the width with ${list(WIDTHS)}, a compact track's alignment with ${list(ALIGNS)}, the season with ${list(SEASONS)}, and what it does between turns with ${list(BETWEENS)}.`
+    const usage = `Switch the left half with ${list(LEFTS)}, cats with ${list(COAT_NAMES)}, animations with ${list(ANIMATIONS)}, the width with ${list(WIDTHS)}, a compact track's alignment with ${list(ALIGNS)}, the season with ${list(SEASONS)}, and what it does between turns with ${list(BETWEENS)}.`
+    const shows = left === 'scenes' ? 'The left half shows scenes (sky, city, ocean, space, the next each turn). ' : ''
     const where = width === 'compact' ? `compact width, ${align}-aligned` : 'full width'
     const festive = season === 'auto' ? (isHalloween ? ', dressed for Halloween (auto)' : '') : season === 'halloween' ? ', dressed for Halloween' : ''
     const now = `${animation === 'random' ? `random (${playing} right now)` : animation}, at ${where}${festive}`
@@ -473,10 +498,16 @@ export const register: Register = (on, options) => {
         .open({ id: SETTINGS, title: 'cat-spinner', focus: true, closeOnEscape: true, holdToasts: true, rows: ROWS + 10 })
         .catch(() => undefined)
       if (opened?.isPlaced) {
-        startPreview($, animation, playing)
-        return { text: `Your cat is the ${coat}, and the animation is ${now}. The cat-spinner settings are open.` }
+        startPreview($, animation, playing, left)
+        return { text: `${shows}Your cat is the ${coat}, and the animation is ${now}. The cat-spinner settings are open.` }
       }
-      return { text: `Your cat is the ${coat}, and the animation is ${now}. ${usage}` }
+      return { text: `${shows}Your cat is the ${coat}, and the animation is ${now}. ${usage}` }
+    }
+    if (isLeft(choice)) {
+      if (choice === left) return { text: `The left half already shows ${choice === 'cat' ? 'the cat' : 'scenes'}.` }
+      const { deny } = await $.config.set({ key: 'cat-clawd-duo.left', value: choice })
+      if (deny) return { text: `Couldn't switch the left half: ${deny}` }
+      return { text: choice === 'cat' ? 'The cat is back on the left.' : 'The left half shows scenes now: sky, city, ocean and space, the next one each turn.' }
     }
     if (isCoat(choice)) {
       if (choice === coat) return { text: `Your cat is already the ${coat}.` }
@@ -541,19 +572,38 @@ export const register: Register = (on, options) => {
   let napTrack = 0
   let napFrame = 0
   const decor = () => ({ isHalloween, time: frame, seed: sceneSeed })
+  // With scenes on the left: this turn's scene, and how far it has run.
+  let scene: SceneName | undefined
+  let view = { t: 0, dist: 0, pace: PACE.think, seed: 0 }
+  const moment = (): Moment => ({ t: view.t, dist: view.dist, state: stateOf(doing !== undefined, isThinking), seed: view.seed })
+  // The left half's cells: the turn's scene, or the cat.
+  const leftCells = (columns: number) =>
+    left === 'scenes' ? sceneryCells((scene ??= nextScene(undefined)), columns, moment()) : sceneCells(cat, columns, decor())
 
   on('prompt.submit', ($, e, next) => {
     if (animation === 'random') playing = pickAnimation(playing)
+    // Scenes take turns: the next one, from its start, with a new variant.
+    if (left === 'scenes') {
+      scene = nextScene(scene)
+      view = { t: 0, dist: 0, pace: PACE.think, seed: Math.floor(Math.random() * 2 ** 31) }
+    }
     // Waking from a nap: the turn starts with a stretch, and the band clears.
     if (between === 'nap') cat = { ...cat, act: { kind: 'stretch', frame: 0 } }
     isWorking = true
     $.ui.invalidate('ui.render')
     timer ??= $.clock.every(FRAME_MS, () => {
       if (!requestId || !track) return
-      cat = advance(inAnimation(cat, playing, track), isThinking, track, Math.random, { doing, isStartled })
+      if (left === 'scenes') {
+        // The pace eases toward what Claude is doing, over about half a second.
+        view.pace += (PACE[moment().state] - view.pace) * 0.2
+        view.t += FRAME_MS
+        view.dist += view.pace * FRAME_MS
+      } else {
+        cat = advance(inAnimation(cat, playing, track), isThinking, track, Math.random, { doing, isStartled })
+      }
       isStartled = false
       frame += 1
-      void $.ui.blit({ requestId, key: KEY, columns: track, rows: ROWS, cells: sceneCells(cat, track, decor()) })
+      void $.ui.blit({ requestId, key: KEY, columns: track, rows: ROWS, cells: leftCells(track) })
     })
 
     return next(e)
@@ -571,10 +621,9 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    // The band is the cat's only between turns, when there's room, and it yields
-    // to a survey.
+    // The band is the cat's only between turns, when there's room, and it yields to a survey; scenes leave it alone.
     const isIdle = !e.props.isWorking && !isWorking
-    if (between !== 'nap' || !isIdle || e.surface !== 'terminal' || e.props.hasSurvey || e.props.maxRows < NAP_ROWS) return next(e)
+    if (left === 'scenes' || between !== 'nap' || !isIdle || e.surface !== 'terminal' || e.props.hasSurvey || e.props.maxRows < NAP_ROWS) return next(e)
     napRequest = e.requestId
     const columns = e.props.bodyColumns
     napTrack = trackWidth(columns, width)
@@ -604,7 +653,7 @@ export const register: Register = (on, options) => {
       return (
         <Box flexDirection="row" columnGap={GAP}>
           <Box key="track">
-            <Raster key={KEY} columns={track} rows={ROWS} cells={sceneCells(cat, track, decor())} />
+            <Raster key={KEY} columns={track} rows={ROWS} cells={leftCells(track)} />
           </Box>
           {await next(e)}
         </Box>
@@ -614,7 +663,7 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column">
         <Box key="track" marginLeft={trackOffset(e.viewport?.columns ?? 80, track, align)}>
-          <Raster key={KEY} columns={track} rows={ROWS} cells={sceneCells(cat, track, decor())} />
+          <Raster key={KEY} columns={track} rows={ROWS} cells={leftCells(track)} />
         </Box>
         {await next(e)}
       </Box>

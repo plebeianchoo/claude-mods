@@ -1,11 +1,21 @@
 {
   "name": "cat-clawd-duo",
   "version": "1.10.0-clawd0.5.0",
-  "description": "cat-spinner and clawd-spinner merged: the pixel cat and Clawd share one row above the spinner (stacked when the terminal is too narrow).",
+  "description": "cat-spinner and clawd-spinner merged: rotating pixel scenes (sky, city, ocean, space) or the pixel cat, and Clawd, share one row above the spinner (stacked when the terminal is too narrow).",
   "author": {
     "name": "Jeremy (fork of Scott Wicken cat-spinner + Sai Rudra clawd-spinner)"
   },
   "userConfig": {
+    "left": {
+      "type": "string",
+      "title": "Left",
+      "description": "What the left half shows: scenes (sky, city, ocean, space, the next one each turn) or the cat",
+      "default": "scenes",
+      "options": [
+        "scenes",
+        "cat"
+      ]
+    },
     "coat": {
       "type": "string",
       "title": "Cat",
