@@ -5,33 +5,27 @@ A local Claude Code plugin marketplace (`claudebro-mods`) for my own mods.
 | Mod | What it is |
 | --- | --- |
 | `cat-clawd-duo` | [cat-spinner](https://github.com/swicken/cat-spinner) and [clawd-spinner](https://github.com/saiharsha03/clawd-spinner) merged, so the pixel cat and Clawd share one row above the spinner (stacked below 102 columns). Both MIT; their licenses ship in the mod. |
+| `spinner` | A fork of [hoobnn's spinner](https://github.com/hoobnn/hoobnn-agent-mods) 0.6.0: fifteen themes, a stage band above the prompt, a finale and a companion pet. MIT; the license ships in the mod. |
 
-## Keeping cat-clawd-duo current
+Both are mine now: the files in this repo are the source of truth. Edit them in place,
+run `claude plugin validate <mod>/.claude-plugin/plugin.json` and `claude plugin test <mod>`,
+commit, then `claude plugin marketplace update claudebro-mods && claude plugin update <mod>@claudebro-mods`
+and `/reload-plugins` in open sessions.
 
-`cat-clawd-duo/` is built, not hand-edited: `build/cat-clawd-duo.sh` copies both upstream
-plugins from Claude Code's marketplace clones, applies the mechanical renames, then
-`build/cat-clawd-duo.patch` (the side-by-side layout and its tests), and validates and
-tests the result.
+## Watching upstream (read-only)
 
-The weekly `claude-autoupdate` job refreshes the upstream clones and runs the build. It
-never installs on its own; its log says one of:
-
-- `duo up to date` — nothing to do.
-- `DUO UPDATE READY` — upstream changed, the patch applied and the tests pass. Review the
-  diff it prints, then run `build/cat-clawd-duo.sh --install`.
-- `DUO NEEDS MANUAL MERGE` — upstream changed code the patch touches. Ask Claude to
-  re-apply the change on the new upstream and regenerate the patch.
-- `DUO BUILD FAILS` — the build's validate/test logs are in `.staged/`.
-
-## Changing the duo
-
-Edit a built copy, then regenerate the patch against pristine upstream:
+Nothing pulls upstream in automatically. `build/upstream-diff.sh` shows what the original
+authors changed since each fork's baseline (in `build/upstream.tsv`), so a fix worth having
+can be ported by hand:
 
 ```bash
-build/cat-clawd-duo.sh --pristine /tmp/pristine
-mkdir /tmp/cur && cp -r cat-clawd-duo/hooks cat-clawd-duo/tests cat-clawd-duo/LICENSE-* /tmp/cur/
-(cd /tmp && diff -ruN pristine cur) > build/cat-clawd-duo.patch
+build/upstream-diff.sh                  # new upstream commits per source
+build/upstream-diff.sh hoobnn-spinner   # the full diff for one
+build/upstream-diff.sh --mark hoobnn-spinner   # after porting (or skipping): mark it reviewed
 ```
+
+Clones live in `~/.cache/claude-mods-upstream`. The duo's original build-from-upstream
+script and patch were retired on 2026-10-18 (git history, and `~/_attic/2026-10-18/claude-mods-build/`).
 
 ## Making a new spinner
 

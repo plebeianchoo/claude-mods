@@ -1,0 +1,4 @@
+# name	url	baseline (last upstream commit reviewed)	paths	mod it was forked into
+cat-spinner	https://github.com/swicken/cat-spinner.git	90e644a8b18c04add10d4bcb963743e000ed8925	.	cat-clawd-duo
+clawd-spinner	https://github.com/saiharsha03/clawd-spinner.git	83550929abac306fe71b12588a53e996321b6e76	.	cat-clawd-duo
+hoobnn-spinner	https://github.com/hoobnn/hoobnn-agent-mods.git	a1cdf1e64e42e3c007bdc3dc12a112f23954010d	claude-code/spinner claude-code/kit	spinner

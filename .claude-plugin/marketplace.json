@@ -1,12 +1,21 @@
 {
   "name": "claudebro-mods",
-  "owner": { "name": "Jeremy" },
-  "metadata": { "description": "Jeremy's own Claude Code mods" },
+  "owner": {
+    "name": "Jeremy"
+  },
+  "metadata": {
+    "description": "Jeremy's own Claude Code mods"
+  },
   "plugins": [
     {
       "name": "cat-clawd-duo",
       "source": "./cat-clawd-duo",
       "description": "The pixel cat and Clawd side by side above the spinner (cat-spinner + clawd-spinner, merged)."
+    },
+    {
+      "name": "spinner",
+      "source": "./spinner",
+      "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt, a finale and a pet that levels up, in fifteen themes (fork of hoobnn spinner 0.6.0)."
     }
   ]
 }
