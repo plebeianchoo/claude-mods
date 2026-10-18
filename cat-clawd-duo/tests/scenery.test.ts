@@ -2,6 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import { canvas, DEF, PH, put, ROWS, toCells, type Moment, type Scene, type State } from '../hooks/scenery/pixels'
 import { H } from '../hooks/rig'
+import { sky } from '../hooks/scenery/sky'
 
 // A frame's Raster cells, as words: [codePoint, fg, bg] per cell.
 const words = (cells: string) => new Uint32Array(Uint8Array.from(atob(cells), ch => ch.charCodeAt(0)).buffer)
@@ -22,7 +23,9 @@ export function sceneSuite(name: string, scene: Scene) {
           for (const state of ['think', 'tool', 'say'] as const) {
             const w = words(draw(scene, columns, at(state, 6000, seed)))
             expect(w.length).toBe(columns * ROWS * 3)
-            for (let i = 0; i < w.length; i += 3) expect(w[i]).not.toBe(0x20)
+            let blanks = 0
+            for (let i = 0; i < w.length; i += 3) if (w[i] === 0x20) blanks++
+            expect(blanks).toBe(0)
           }
         }
       }
@@ -82,3 +85,5 @@ describe('scenery pixels', () => {
     for (let i = 0; i < w.length; i += 3) expect([...w.slice(i, i + 3)]).toEqual([0x2580, 0x123456, 0x123456])
   })
 })
+
+sceneSuite('sky', sky)
