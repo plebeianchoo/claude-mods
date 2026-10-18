@@ -15,7 +15,7 @@
     {
       "name": "spinner",
       "source": "./spinner",
-      "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt, a finale and a pet that levels up, in fifteen themes (fork of hoobnn spinner 0.6.0)."
+      "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt, a finale and a pet that levels up, in fifteen themes (fork of hoobnn spinner 0.6.1)."
     }
   ]
 }
