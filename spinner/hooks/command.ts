@@ -9,11 +9,11 @@ export type SpinnerCommand =
   | { kind: 'companion'; isOn: boolean }
   | { kind: 'pat' }
   | { kind: 'preview'; theme: ThemeName | null }
-  | { kind: 'theme'; theme: ThemeName | 'random' }
+  | { kind: 'theme'; theme: ThemeName | 'random' | 'rotate' }
   | { kind: 'pick' }
   | { kind: 'unknown'; name: string }
 
-export const USAGE = '[theme|random|pet|preview|off|on|stage off|companion off]'
+export const USAGE = '[theme|random|rotate|pet|preview|off|on|stage off|companion off]'
 
 export function parseCommand(args: string): SpinnerCommand {
   const [verb = '', arg = ''] = args.trim().toLowerCase().split(/\s+/)
@@ -30,8 +30,8 @@ export function parseCommand(args: string): SpinnerCommand {
   // `theme` alone asks which; `theme <name>` is the same as `<name>`.
   if (verb === 'theme') {
     if (!arg) return { kind: 'pick' }
-    return arg === 'random' || isThemeName(arg) ? { kind: 'theme', theme: arg } : { kind: 'unknown', name: arg }
+    return arg === 'random' || arg === 'rotate' || isThemeName(arg) ? { kind: 'theme', theme: arg } : { kind: 'unknown', name: arg }
   }
-  if (verb === 'random' || isThemeName(verb)) return { kind: 'theme', theme: verb }
+  if (verb === 'random' || verb === 'rotate' || isThemeName(verb)) return { kind: 'theme', theme: verb }
   return { kind: 'unknown', name: verb }
 }
