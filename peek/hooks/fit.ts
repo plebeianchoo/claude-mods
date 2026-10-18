@@ -56,3 +56,24 @@ export function keyOf(text: string): string {
   for (let i = 0; i < text.length; i++) x = Math.imul(x ^ text.charCodeAt(i), 0x01000193) >>> 0
   return x.toString(16).padStart(8, '0')
 }
+
+// Inside tmux Claude Code sends the picture unwrapped, so tmux drops it and only
+// the placeholder cells arrive. The image id is in their foreground colour:
+// this finds it on the placeholder rows just above the newest `caption`, in a
+// `tmux capture-pane -e` of the pane. Null when the caption or rows aren't there.
+const PLACEHOLDER = '\u{10EEEE}'
+const plain = (line: string) => line.replace(/\x1b\[[0-9;:]*m/g, '')
+export function idAboveCaption(capture: string, caption: string): number | null {
+  const lines = capture.split('\n')
+  let at = -1
+  for (let i = lines.length - 1; i >= 0; i--) if (plain(lines[i]!).includes(caption)) { at = i; break }
+  for (let i = at - 1; i >= 0 && lines[i]!.includes(PLACEHOLDER); i--) {
+    const before = lines[i]!.slice(0, lines[i]!.indexOf(PLACEHOLDER))
+    const sgrs = [...before.matchAll(/\x1b\[38[;:](5[;:](\d+)|2[;:]+(\d+)[;:](\d+)[;:](\d+))m/g)]
+    const last = sgrs.at(-1)
+    if (!last) continue
+    if (last[2] !== undefined) return Number(last[2])
+    return (Number(last[3]) << 16) | (Number(last[4]) << 8) | Number(last[5])
+  }
+  return null
+}
