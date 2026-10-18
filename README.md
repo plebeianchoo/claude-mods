@@ -12,20 +12,15 @@ run `claude plugin validate <mod>/.claude-plugin/plugin.json` and `claude plugin
 commit, then `claude plugin marketplace update claudebro-mods && claude plugin update <mod>@claudebro-mods`
 and `/reload-plugins` in open sessions.
 
-## Watching upstream (read-only)
+## The originals (`upstream/`)
 
-Nothing pulls upstream in automatically. `build/upstream-diff.sh` shows what the original
-authors changed since each fork's baseline (in `build/upstream.tsv`), so a fix worth having
-can be ported by hand:
+Nothing pulls upstream in automatically. `upstream/` keeps a reference clone of each
+original mod and `upstream/check.sh` lists what their authors changed since my fork,
+so a fix worth having can be ported by hand. A monthly timer runs it and messages
+Telegram when there is something new. See [`upstream/README.md`](upstream/README.md).
 
-```bash
-build/upstream-diff.sh                  # new upstream commits per source
-build/upstream-diff.sh hoobnn-spinner   # the full diff for one
-build/upstream-diff.sh --mark hoobnn-spinner   # after porting (or skipping): mark it reviewed
-```
-
-Clones live in `~/.cache/claude-mods-upstream`. The duo's original build-from-upstream
-script and patch were retired on 2026-10-18 (git history, and `~/_attic/2026-10-18/claude-mods-build/`).
+The duo's original build-from-upstream script and patch were retired on 2026-10-18
+(git history, and `~/_attic/2026-10-18/claude-mods-build/`).
 
 ## Making a new spinner
 
