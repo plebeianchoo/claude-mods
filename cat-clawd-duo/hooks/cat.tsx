@@ -488,10 +488,13 @@ export const register: Register = (on, options) => {
     const choice = e.args.trim().toLowerCase()
     const list = (names: readonly string[]) => names.map(name => `/cat-spinner ${name}`).join(' or ')
     const usage = `Switch the left half with ${list(LEFTS)}, cats with ${list(COAT_NAMES)}, animations with ${list(ANIMATIONS)}, the width with ${list(WIDTHS)}, a compact track's alignment with ${list(ALIGNS)}, the season with ${list(SEASONS)}, and what it does between turns with ${list(BETWEENS)}.`
-    const shows = left === 'scenes' ? 'The left half shows scenes (sky, city, ocean, space, the next each turn). ' : ''
     const where = width === 'compact' ? `compact width, ${align}-aligned` : 'full width'
     const festive = season === 'auto' ? (isHalloween ? ', dressed for Halloween (auto)' : '') : season === 'halloween' ? ', dressed for Halloween' : ''
     const now = `${animation === 'random' ? `random (${playing} right now)` : animation}, at ${where}${festive}`
+    const status =
+      left === 'scenes'
+        ? `The left half shows scenes${scene ? ` (${scene} now)` : ''}: sky, city, ocean and space, the next one each turn.`
+        : `Your cat is the ${coat}, and the animation is ${now}.`
     if (!choice) {
       // Where no dialog can open (a headless run, say), answer in text instead.
       const opened = await $.ui
@@ -499,9 +502,9 @@ export const register: Register = (on, options) => {
         .catch(() => undefined)
       if (opened?.isPlaced) {
         startPreview($, animation, playing, left)
-        return { text: `${shows}Your cat is the ${coat}, and the animation is ${now}. The cat-spinner settings are open.` }
+        return { text: `${status} The cat-spinner settings are open.` }
       }
-      return { text: `${shows}Your cat is the ${coat}, and the animation is ${now}. ${usage}` }
+      return { text: `${status} ${usage}` }
     }
     if (isLeft(choice)) {
       if (choice === left) return { text: `The left half already shows ${choice === 'cat' ? 'the cat' : 'scenes'}.` }
@@ -550,6 +553,7 @@ export const register: Register = (on, options) => {
   let timer: { cancel: () => void } | undefined
   let isThinking = false
   let doing: Activity | undefined
+  let running = 0
   let frame = 0
   let isStartled = false
 
@@ -558,10 +562,16 @@ export const register: Register = (on, options) => {
   on('tool.call', async ($, e, next) => {
     const activity = activityOf(e.tool)
     if (activity) doing = activity
-    const ran = await next(e)
-    if (ran.deny !== undefined || ran.isError === true) isStartled = true
-    if (activity && doing === activity) doing = undefined
-    return ran
+    // Any running tool, known to the cat or not, makes the scene's pace 'tool'.
+    running += 1
+    try {
+      const ran = await next(e)
+      if (ran.deny !== undefined || ran.isError === true) isStartled = true
+      return ran
+    } finally {
+      running -= 1
+      if (activity && doing === activity) doing = undefined
+    }
   })
   let cat: Cat = { run: 0, think: 0, sit: 0 }
   let requestId = ''
@@ -575,7 +585,7 @@ export const register: Register = (on, options) => {
   // With scenes on the left: this turn's scene, and how far it has run.
   let scene: SceneName | undefined
   let view = { t: 0, dist: 0, pace: PACE.think, seed: 0 }
-  const moment = (): Moment => ({ t: view.t, dist: view.dist, state: stateOf(doing !== undefined, isThinking), seed: view.seed })
+  const moment = (): Moment => ({ t: view.t, dist: view.dist, state: stateOf(running > 0, isThinking), seed: view.seed })
   // The left half's cells: the turn's scene, or the cat.
   const leftCells = (columns: number) =>
     left === 'scenes' ? sceneryCells((scene ??= nextScene(undefined)), columns, moment()) : sceneCells(cat, columns, decor())

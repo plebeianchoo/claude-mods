@@ -834,3 +834,70 @@ describe('scenes on the left', () => {
     expect(text).toBe('The left half already shows scenes.')
   })
 })
+
+describe('scene turns and tool state', () => {
+  const SP = { ...SPINNER, viewport: { columns: 135, rows: 40 } } as typeof SPINNER
+  const host = ($: any, on: any, tool: () => Promise<unknown>) => {
+    const clock = mock.clock(on, { now: 1_000 })
+    on('ui.render', ($: any, e: any) => {
+      const { Text } = $.ui.resolve(e)
+      return <Text>Sauteing…</Text>
+    })
+    on('ui.blit', () => ({ value: undefined }))
+    on('prompt.submit', ($: any, e: any) => ({ text: e.text }))
+    on('tool.call', async () => {
+      await tool()
+      return { result: 'out', text: 'out' }
+    })
+    return clock
+  }
+  const leftCells = async (ui: any) => String((await ui.find({ type: 'Raster', key: 'cat' }))?.props.cells)
+
+  test('prompt.submit moves on to the next scene, from its start', { options: { season: 'plain' } }, async ($, on) => {
+    const clock = host($, on, async () => {})
+    const ui = await $.ui.mount(SP)
+    await $.prompt.submit({ text: 'one' })
+    await clock.advance(500)
+    const first = await leftCells(ui)
+    await $.prompt.submit({ text: 'two' })
+    await clock.advance(50)
+    const second = await leftCells(ui)
+    expect(second).not.toBe(first)
+    await ui.unmount()
+  })
+
+  test('with the cat, a submit draws the cat as before', { options: { left: 'cat', season: 'plain' } }, async ($, on) => {
+    const clock = host($, on, async () => {})
+    const ui = await $.ui.mount(SP)
+    await $.prompt.submit({ text: 'one' })
+    await clock.advance(200)
+    expect(colorsOf(await leftCells(ui)).has(0x9c8e82)).toBe(true)
+    await ui.unmount()
+  })
+
+  // A running tool, one the cat has no act for too, draws the scene in its
+  // 'tool' state: same moment, same seed, different picture.
+  for (const tool of ['TodoWrite', 'mcp__x__y', 'Agent']) {
+    test(`a ${tool} call puts the scene in its tool state until it ends`, { options: { season: 'plain' } }, async ($, on) => {
+      expect(activityOf(tool)).toBeUndefined()
+      const clock = host($, on, () => clock.sleep(2000))
+      const ui = await $.ui.mount(SP)
+      await $.prompt.submit({ text: 'go' })
+      await clock.advance(300)
+      const snap = async () => {
+        const fresh = await $.ui.mount(SP)
+        const cells = await leftCells(fresh)
+        await fresh.unmount()
+        return cells
+      }
+      const before = await snap()
+      const call = $.tool.call({ tool, command: 'x' } as never)
+      await clock.settle()
+      const during = await snap()
+      expect(during).not.toBe(before)
+      await clock.advance(2000)
+      await call
+      await ui.unmount()
+    })
+  }
+})
