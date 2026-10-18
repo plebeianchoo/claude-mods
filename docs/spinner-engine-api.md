@@ -1,6 +1,6 @@
 # Spinner mods: the engine API
 
-How the spinner mods (cat-spinner, clawd-spinner, our cat-clawd-duo) use
+How the spinner mods (cat-spinner, clawd-spinner, our cat-clawd-duo and spinner) use
 Claude Code's plugin engine, written down so a new spinner can be made from
 scratch. Taken from the two upstream sources and this build's type file,
 Claude Code **2.1.301** (2026-10-17). The API is still moving between builds:
@@ -252,7 +252,8 @@ engine's marks and shrinks when a pane is docked. Give way to a survey
   a mod loads. Search them by name: `Spinner: {`, `export type RasterProps`,
   `blit:`, `export type RenderViewport`, `'turn.complete'`.
 - **Long-form guide**: `reference.md` beside the skill.
-- **Working examples**: `~/.claude/plugins/marketplaces/cat-spinner/hooks/register.tsx`
-  (settings pane with live preview, tool reactions, nap band) and
-  `~/.claude/plugins/marketplaces/clawd-spinner/hooks/register.tsx` (the
-  smallest complete spinner, 109 lines).
+- **Working examples** (vendored here): `cat-clawd-duo/hooks/cat.tsx`
+  (settings pane with live preview, tool reactions, nap band),
+  `cat-clawd-duo/hooks/clawd/clawd.tsx` (the smallest complete spinner, from
+  clawd-spinner's register.tsx) and `spinner/hooks/register.tsx` (themes,
+  stage band, companion pet, a `/spinner` command).
