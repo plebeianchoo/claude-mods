@@ -6,6 +6,7 @@ import { sky } from '../hooks/scenery/sky'
 import { city } from '../hooks/scenery/city'
 import { ocean } from '../hooks/scenery/ocean'
 import { space } from '../hooks/scenery/space'
+import { isSceneName, nextScene, PACE, SCENES, sceneryCells, stateOf } from '../hooks/scenery'
 
 // A frame's Raster cells, as words: [codePoint, fg, bg] per cell.
 const words = (cells: string) => new Uint32Array(Uint8Array.from(atob(cells), ch => ch.charCodeAt(0)).buffer)
@@ -93,3 +94,37 @@ sceneSuite('sky', sky)
 sceneSuite('city', city)
 sceneSuite('ocean', ocean)
 sceneSuite('space', space)
+
+describe('the scene rotation', () => {
+  test('goes sky, city, ocean, space, and back to sky', () => {
+    expect([...SCENES]).toEqual(['sky', 'city', 'ocean', 'space'])
+    expect(nextScene('sky')).toBe('city')
+    expect(nextScene('city')).toBe('ocean')
+    expect(nextScene('ocean')).toBe('space')
+    expect(nextScene('space')).toBe('sky')
+  })
+
+  test('starts a session on a random scene', () => {
+    expect(nextScene(undefined, () => 0)).toBe('sky')
+    expect(nextScene(undefined, () => 0.6)).toBe('ocean')
+    expect(nextScene(undefined, () => 0.99)).toBe('space')
+  })
+
+  test('knows its scene names', () => {
+    for (const name of SCENES) expect(isSceneName(name)).toBe(true)
+    expect(isSceneName('cat')).toBe(false)
+  })
+
+  test('reads what Claude is doing: a running tool first, then thinking, else writing', () => {
+    expect(stateOf(true, true)).toBe('tool')
+    expect(stateOf(true, false)).toBe('tool')
+    expect(stateOf(false, true)).toBe('think')
+    expect(stateOf(false, false)).toBe('say')
+    expect(PACE.think).toBeLessThan(PACE.say)
+    expect(PACE.say).toBeLessThan(PACE.tool)
+  })
+
+  test('draws every scene as Raster cells the width asked', () => {
+    for (const name of SCENES) expect(words(sceneryCells(name, 50, at('say'))).length).toBe(50 * ROWS * 3)
+  })
+})
