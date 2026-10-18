@@ -16,6 +16,11 @@
       "name": "spinner",
       "source": "./spinner",
       "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt, a finale and a pet that levels up, in fifteen themes (fork of hoobnn spinner 0.6.1)."
+    },
+    {
+      "name": "peek",
+      "source": "./peek",
+      "description": "Images inline in the terminal: a show_image tool for Claude and /img <path>. Sends PNG bytes, so it works over ssh and in tmux with passthrough; no network, no updater."
     }
   ]
 }

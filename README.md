@@ -6,8 +6,9 @@ A local Claude Code plugin marketplace (`claudebro-mods`) for my own mods.
 | --- | --- |
 | `cat-clawd-duo` | [cat-spinner](https://github.com/swicken/cat-spinner) and [clawd-spinner](https://github.com/saiharsha03/clawd-spinner) merged, so the pixel cat and Clawd share one row above the spinner (stacked below 102 columns). Both MIT; their licenses ship in the mod. |
 | `spinner` | A fork of [hoobnn's spinner](https://github.com/hoobnn/hoobnn-agent-mods) 0.6.1, plus a `rotate` theme choice (the next theme each turn): fifteen themes, a stage band above the prompt, a finale and a companion pet. MIT; the license ships in the mod. |
+| `peek` | Images inline in the terminal through Claude Code's own `Image` element: a `show_image` tool for Claude and `/img <path>`. Converts with Pillow and sends PNG bytes, so it works over ssh and inside tmux (`allow-passthrough on`). No network, no updater, nothing added to the prompt. Written from scratch after reviewing [show-your-work](https://github.com/iamumeransari/claude-show-your-work). |
 
-Both are mine now: the files in this repo are the source of truth. Edit them in place,
+All of them are mine: the files in this repo are the source of truth. Edit them in place,
 run `claude plugin validate <mod>/.claude-plugin/plugin.json` and `claude plugin test <mod>`,
 commit, then `claude plugin marketplace update claudebro-mods && claude plugin update <mod>@claudebro-mods`
 and `/reload-plugins` in open sessions.
