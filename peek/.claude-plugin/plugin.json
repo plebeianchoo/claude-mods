@@ -1,0 +1,10 @@
+{
+  "name": "peek",
+  "version": "0.1.0",
+  "description": "Shows images inline in the terminal: a show_image tool for Claude and /img <path> for you. No network, no updater, nothing added to the prompt.",
+  "author": {
+    "name": "Jeremy"
+  },
+  "license": "MIT",
+  "keywords": ["image", "kitty", "ghostty", "mod"]
+}
