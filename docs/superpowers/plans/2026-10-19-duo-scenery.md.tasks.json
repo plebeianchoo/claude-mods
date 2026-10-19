@@ -4,13 +4,13 @@
     {
       "id": 0,
       "subject": "Task 1: Scenery pixels",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** `hooks/scenery/pixels.ts` gives scenes an 18 px canvas, drawing helpers and packing to Raster cells identical in format to the cat's.\n\n**Files:**\n- Create: `cat-clawd-duo/hooks/scenery/pixels.ts`\n- Create: `cat-clawd-duo/tests/scenery.test.ts`\n\n**Acceptance Criteria:**\n- [ ] `canvas(w).px.length === w * 18`, filled with `DEF`\n- [ ] `put` ignores out-of-range coordinates and rounds fractional ones\n- [ ] `toCells` decodes to `w * 9 * 3` words; blank → `[0x20, DEF, DEF]`, top only → `[0x2580, top, DEF]`, bottom only → `[0x2584, bottom, DEF]`, both → `[0x2580, top, bottom]`\n- [ ] `sceneSuite(name, scene)` helper exists in the test file for later tasks\n\n**Verify:** `claude plugin test cat-clawd-duo 2>&1 | tail -5` → `0 fail`, pass count up by 4\n\n```json:metadata\n{\"files\": [\"cat-clawd-duo/hooks/scenery/pixels.ts\", \"cat-clawd-duo/tests/scenery.test.ts\"], \"verifyCommand\": \"claude plugin test cat-clawd-duo 2>&1 | tail -5\", \"acceptanceCriteria\": [\"`canvas(w).px.length === w * 18`, filled with `DEF`\", \"`put` ignores out-of-range coordinates and rounds fractional ones\", \"`toCells` decodes to `w * 9 * 3` words; blank \\u2192 `[0x20, DEF, DEF]`, top only \\u2192 `[0x2580, top, DEF]`, bottom only \\u2192 `[0x2584, bottom, DEF]`, both \\u2192 `[0x2580, top, bottom]`\", \"`sceneSuite(name, scene)` helper exists in the test file for later tasks\"], \"modelTier\": \"mechanical\"}\n```"
     },
     {
       "id": 1,
       "subject": "Task 2: Sky scene",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** `hooks/scenery/sky.ts` draws a random time of day (day/dusk/night) and weather (clear/cloudy/rain/storm), clouds and hills scrolling with `dist`, rain heavier and lightning while a tool runs, a bird and the sun/moon glow while Claude writes.\n\n**Files:**\n- Create: `cat-clawd-duo/hooks/scenery/sky.ts`\n- Modify: `cat-clawd-duo/tests/scenery.test.ts` (append one line)\n\n**Acceptance Criteria:**\n- [ ] `sceneSuite('sky', sky)` passes: fills every cell at widths 44/60/90/200 × 12 seeds × 3 states; pure; moves; tool ≠ think\n\n**Verify:** `claude plugin test cat-clawd-duo 2>&1 | tail -5` → `114 pass`, `0 fail`\n\n```json:metadata\n{\"files\": [\"cat-clawd-duo/hooks/scenery/sky.ts\", \"cat-clawd-duo/tests/scenery.test.ts\"], \"verifyCommand\": \"claude plugin test cat-clawd-duo 2>&1 | tail -5\", \"acceptanceCriteria\": [\"`sceneSuite('sky', sky)` passes: fills every cell at widths 44/60/90/200 \\u00d7 12 seeds \\u00d7 3 states; pure; moves; tool \\u2260 think\"], \"modelTier\": \"standard\"}\n```",
       "blockedBy": [
         0
@@ -19,7 +19,7 @@
     {
       "id": 2,
       "subject": "Task 3: City scene",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** `hooks/scenery/city.ts` draws a random day/night skyline in two depths scrolling with `dist`, windows lighting and flickering faster while a tool runs, cars on the street (more and faster during tools), fireworks while Claude writes.\n\n**Files:**\n- Create: `cat-clawd-duo/hooks/scenery/city.ts`\n- Modify: `cat-clawd-duo/tests/scenery.test.ts` (append one line)\n\n**Acceptance Criteria:**\n- [ ] `sceneSuite('city', city)` passes all four tests\n\n**Verify:** `claude plugin test cat-clawd-duo 2>&1 | tail -5` → `118 pass`, `0 fail`\n\n```json:metadata\n{\"files\": [\"cat-clawd-duo/hooks/scenery/city.ts\", \"cat-clawd-duo/tests/scenery.test.ts\"], \"verifyCommand\": \"claude plugin test cat-clawd-duo 2>&1 | tail -5\", \"acceptanceCriteria\": [\"`sceneSuite('city', city)` passes all four tests\"], \"modelTier\": \"standard\"}\n```",
       "blockedBy": [
         0
@@ -28,7 +28,7 @@
     {
       "id": 3,
       "subject": "Task 4: Ocean scene",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** `hooks/scenery/ocean.ts` draws a random water tint underwater, light rays, sand and swaying kelp, fish drifting with `dist`, a school darting past and faster bubbles while a tool runs, a whale or jellyfish while Claude writes.\n\n**Files:**\n- Create: `cat-clawd-duo/hooks/scenery/ocean.ts`\n- Modify: `cat-clawd-duo/tests/scenery.test.ts` (append one line)\n\n**Acceptance Criteria:**\n- [ ] `sceneSuite('ocean', ocean)` passes all four tests\n\n**Verify:** `claude plugin test cat-clawd-duo 2>&1 | tail -5` → `122 pass`, `0 fail`\n\n```json:metadata\n{\"files\": [\"cat-clawd-duo/hooks/scenery/ocean.ts\", \"cat-clawd-duo/tests/scenery.test.ts\"], \"verifyCommand\": \"claude plugin test cat-clawd-duo 2>&1 | tail -5\", \"acceptanceCriteria\": [\"`sceneSuite('ocean', ocean)` passes all four tests\"], \"modelTier\": \"standard\"}\n```",
       "blockedBy": [
         0
@@ -37,7 +37,7 @@
     {
       "id": 4,
       "subject": "Task 5: Space scene",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** `hooks/scenery/space.ts` draws a random nebula tint, stars in three depths scrolling with `dist` (stretching into warp streaks while a tool runs), a bobbing ship with a flickering flame, and a rising planet plus a comet while Claude writes.\n\n**Files:**\n- Create: `cat-clawd-duo/hooks/scenery/space.ts`\n- Modify: `cat-clawd-duo/tests/scenery.test.ts` (append one line)\n\n**Acceptance Criteria:**\n- [ ] `sceneSuite('space', space)` passes all four tests\n\n**Verify:** `claude plugin test cat-clawd-duo 2>&1 | tail -5` → `126 pass`, `0 fail`\n\n```json:metadata\n{\"files\": [\"cat-clawd-duo/hooks/scenery/space.ts\", \"cat-clawd-duo/tests/scenery.test.ts\"], \"verifyCommand\": \"claude plugin test cat-clawd-duo 2>&1 | tail -5\", \"acceptanceCriteria\": [\"`sceneSuite('space', space)` passes all four tests\"], \"modelTier\": \"standard\"}\n```",
       "blockedBy": [
         0
@@ -46,7 +46,7 @@
     {
       "id": 5,
       "subject": "Task 6: Scenery index (rotation, state, pace)",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** `hooks/scenery/index.ts` exposes the rotation order, `nextScene`, the per-state scroll `PACE`, `stateOf`, and `sceneryCells(name, columns, moment)`.\n\n**Files:**\n- Create: `cat-clawd-duo/hooks/scenery/index.ts`\n- Modify: `cat-clawd-duo/tests/scenery.test.ts`\n\n**Acceptance Criteria:**\n- [ ] `SCENES` is `['sky', 'city', 'ocean', 'space']`\n- [ ] `nextScene('space') === 'sky'`, `nextScene('sky') === 'city'`; `nextScene(undefined, () => 0.6) === 'ocean'`\n- [ ] `stateOf(true, true) === 'tool'`, `stateOf(false, true) === 'think'`, `stateOf(false, false) === 'say'`\n- [ ] `PACE.think < PACE.say < PACE.tool`\n- [ ] `sceneryCells(name, 50, m)` decodes to `50 * 9 * 3` words for every name; `isSceneName` accepts the four and rejects others\n\n**Verify:** `claude plugin test cat-clawd-duo 2>&1 | tail -5` → `131 pass`, `0 fail`\n\n```json:metadata\n{\"files\": [\"cat-clawd-duo/hooks/scenery/index.ts\", \"cat-clawd-duo/tests/scenery.test.ts\"], \"verifyCommand\": \"claude plugin test cat-clawd-duo 2>&1 | tail -5\", \"acceptanceCriteria\": [\"`SCENES` is `['sky', 'city', 'ocean', 'space']`\", \"`nextScene('space') === 'sky'`, `nextScene('sky') === 'city'`; `nextScene(undefined, () => 0.6) === 'ocean'`\", \"`stateOf(true, true) === 'tool'`, `stateOf(false, true) === 'think'`, `stateOf(false, false) === 'say'`\", \"`PACE.think < PACE.say < PACE.tool`\", \"`sceneryCells(name, 50, m)` decodes to `50 * 9 * 3` words for every name; `isSceneName` accepts the four and rejects others\"], \"modelTier\": \"mechanical\"}\n```",
       "blockedBy": [
         1,
@@ -58,7 +58,7 @@
     {
       "id": 6,
       "subject": "Task 7: Wire scenes into the duo (`left` option)",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** `cat.tsx` and `plugin.json` gain the `left` option (`scenes` default, `cat`), drawing the turn's scene in the cat's slot, rotating it each `prompt.submit`, skipping the nap with scenes, and exposing it in the dialog and `/cat-spinner`.\n\n**Files:**\n- Modify: `cat-clawd-duo/hooks/cat.tsx` (imports at top; exports after `BETWEENS` ~line 38; labels after `SEASON_LABELS` ~line 290; `startPreview` ~line 306; `editing` ~line 326; `is*` guards ~line 340; `register` options ~line 345; `session.start` nap timer ~line 365; dialog ~lines 389–455; command ~lines 463–520; timer state and `prompt.submit` ~lines 527–560; `AbovePrompt` ~line 573; `Spinner` ~lines 590–623)\n- Modify: `cat-clawd-duo/.claude-plugin/plugin.json`\n- Modify: `cat-clawd-duo/tests/cat.test.tsx`\n\n**Acceptance Criteria:**\n- [ ] With default options, the Spinner's `Raster key=\"cat\"` has the same columns as before but none of the Siamese coat colour `0x9c8e82`\n- [ ] With `left: 'cat'`, the Raster has `0x9c8e82` (the cat), and every existing cat test passes with `left: 'cat'` added\n- [ ] With `between: 'nap'` and default `left`, the band above the prompt has no `Raster key=\"nap\"`\n- [ ] The dialog lists `Left: Scenes: …` first, and hides Cat/Animation/Season/Between turns when `left = scenes`\n- [ ] `/cat-spinner cat` writes `cat-clawd-duo.left = cat`; `/cat-spinner scenes` with `left = scenes` writes nothing\n- [ ] `claude plugin validate cat-clawd-duo/.claude-plugin/plugin.json` passes\n\n**Verify:** `claude plugin validate cat-clawd-duo/.claude-plugin/plugin.json && claude plugin test cat-clawd-duo 2>&1 | tail -5` → validation OK, `136 pass`, `0 fail`\n\n```json:metadata\n{\"files\": [\"cat-clawd-duo/hooks/cat.tsx\", \"cat-clawd-duo/.claude-plugin/plugin.json\", \"cat-clawd-duo/tests/cat.test.tsx\"], \"verifyCommand\": \"claude plugin validate cat-clawd-duo/.claude-plugin/plugin.json && claude plugin test cat-clawd-duo 2>&1 | tail -5\", \"acceptanceCriteria\": [\"With default options, the Spinner's `Raster key=\\\"cat\\\"` has the same columns as before but none of the Siamese coat colour `0x9c8e82`\", \"With `left: 'cat'`, the Raster has `0x9c8e82` (the cat), and every existing cat test passes with `left: 'cat'` added\", \"With `between: 'nap'` and default `left`, the band above the prompt has no `Raster key=\\\"nap\\\"`\", \"The dialog lists `Left: Scenes: \\u2026` first, and hides Cat/Animation/Season/Between turns when `left = scenes`\", \"`/cat-spinner cat` writes `cat-clawd-duo.left = cat`; `/cat-spinner scenes` with `left = scenes` writes nothing\", \"`claude plugin validate cat-clawd-duo/.claude-plugin/plugin.json` passes\"], \"modelTier\": \"standard\"}\n```",
       "blockedBy": [
         5
@@ -67,7 +67,7 @@
     {
       "id": 7,
       "subject": "Task 8: Golden scenery fingerprints",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** Each scene in each state gets a golden fingerprint, and `scripts/fingerprints.ts` regenerates `tests/golden.ts` without changing the cat's entries.\n\n**Files:**\n- Create: `cat-clawd-duo/scripts/fingerprints.ts`, `cat-clawd-duo/scripts/stub/react/{package.json,jsx-dev-runtime.js}`\n- Modify: `cat-clawd-duo/tests/scenes.ts`\n- Modify: `cat-clawd-duo/tests/golden.ts` (regenerated)\n\n**Acceptance Criteria:**\n- [ ] `tests/scenes.ts` has 12 new entries named `scenery: <scene>, <state>`\n- [ ] `git diff cat-clawd-duo/tests/golden.ts` shows only `+` lines (the 17 cat entries unchanged)\n- [ ] The golden test \"covers every scene it has a fingerprint for\" passes\n\n**Verify:** `git diff cat-clawd-duo/tests/golden.ts | grep -c '^-  '` → `0`; `claude plugin test cat-clawd-duo 2>&1 | tail -5` → `148 pass`, `0 fail`\n\n```json:metadata\n{\"files\": [\"cat-clawd-duo/scripts/fingerprints.ts\", \"cat-clawd-duo/scripts/stub/react/{package.json,jsx-dev-runtime.js}\", \"cat-clawd-duo/tests/scenes.ts\", \"cat-clawd-duo/tests/golden.ts\"], \"verifyCommand\": \"git diff cat-clawd-duo/tests/golden.ts | grep -c '^-  '\", \"acceptanceCriteria\": [\"`tests/scenes.ts` has 12 new entries named `scenery: <scene>, <state>`\", \"`git diff cat-clawd-duo/tests/golden.ts` shows only `+` lines (the 17 cat entries unchanged)\", \"The golden test \\\"covers every scene it has a fingerprint for\\\" passes\"], \"modelTier\": \"mechanical\"}\n```",
       "blockedBy": [
         6
@@ -76,7 +76,7 @@
     {
       "id": 8,
       "subject": "Task 9: ANSI preview for Jeremy",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** `scripts/preview-scenery.ts` animates any scene in a truecolor terminal, cycling think → tool → say, and Jeremy looks at all four in the bottom tmux pane before release; requested tweaks are made and goldens regenerated.\n\n**Files:**\n- Create: `cat-clawd-duo/scripts/preview-scenery.ts`\n- Modify (only if Jeremy asks for tweaks): `cat-clawd-duo/hooks/scenery/*.ts`, `cat-clawd-duo/tests/golden.ts`\n\n**Acceptance Criteria:**\n- [ ] `bun scripts/preview-scenery.ts sky 3` exits 0 after ~3 s, having drawn 9 rows per frame\n- [ ] Jeremy has seen all four scenes and said they're fine, or each tweak he asked for is made, tests pass, goldens regenerated with only scenery lines changed\n\n**Verify:** `cd cat-clawd-duo && timeout 10 bun scripts/preview-scenery.ts space 2 > /dev/null; echo $?` → `0`\n\n```json:metadata\n{\"files\": [\"cat-clawd-duo/scripts/preview-scenery.ts\", \"cat-clawd-duo/hooks/scenery/*.ts\", \"cat-clawd-duo/tests/golden.ts\"], \"verifyCommand\": \"cd cat-clawd-duo && timeout 10 bun scripts/preview-scenery.ts space 2 > /dev/null; echo $?\", \"acceptanceCriteria\": [\"`bun scripts/preview-scenery.ts sky 3` exits 0 after ~3 s, having drawn 9 rows per frame\", \"Jeremy has seen all four scenes and said they're fine, or each tweak he asked for is made, tests pass, goldens regenerated with only scenery lines changed\"], \"modelTier\": \"standard\"}\n```",
       "blockedBy": [
         7
@@ -92,5 +92,5 @@
       ]
     }
   ],
-  "lastUpdated": "2026-10-19T00:50:28"
+  "lastUpdated": "2026-10-18T17:04:49Z"
 }
