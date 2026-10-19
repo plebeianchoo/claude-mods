@@ -77,3 +77,10 @@ export function idAboveCaption(capture: string, caption: string): number | null 
   }
   return null
 }
+
+// Whether the terminal tmux is attached to draws kitty graphics placeholders,
+// going by its TERM (`tmux display -p '#{client_termname}'`). Only kitty and
+// Ghostty are known to; WezTerm announces itself when its terminfo is installed.
+// xterm-256color says nothing (WezTerm's default, and also Windows consoles),
+// so it is taken as no: those see symbols and raw escape bytes instead.
+export const drawsGraphics = (termname: string) => /ghostty|kitty|wezterm/i.test(termname)
