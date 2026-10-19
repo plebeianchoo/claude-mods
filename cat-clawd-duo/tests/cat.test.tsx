@@ -866,6 +866,38 @@ describe('scene turns and tool state', () => {
     await ui.unmount()
   })
 
+  test('keeps moving when a subagent finishes mid-turn, stops when the turn does', { options: { season: 'plain' } }, async ($, on) => {
+    // Not host(): that mocks ui.blit, and the blits are what this counts.
+    const clock = mock.clock(on, { now: 1_000 })
+    on('ui.render', ($: any, e: any) => {
+      const { Text } = $.ui.resolve(e)
+      return <Text>Sauteing…</Text>
+    })
+    let blits = 0
+    on('ui.blit', (_$: any, e: any) => {
+      if (e.key === 'cat') blits += 1
+      return { value: undefined }
+    })
+    on('prompt.submit', ($: any, e: any) => ({ text: e.text }))
+    on('turn.complete', () => ({ text: 'ok' }))
+    const ui = await $.ui.mount(SP)
+    await $.prompt.submit({ text: 'one' })
+    await clock.advance(500)
+    const n1 = blits
+    expect(n1).toBeGreaterThan(0)
+    // A Task subagent's turn ends: not ours.
+    await $.turn.complete({ turnId: 't1', reason: 'answer', answer: 'done', durationMs: 100, isAborted: false, agentId: 'a1' } as never)
+    await clock.advance(500)
+    expect(blits).toBeGreaterThan(n1)
+    // The main turn ends: the left half stops.
+    await $.turn.complete({ turnId: 't1', reason: 'answer', answer: 'done', durationMs: 100, isAborted: false } as never)
+    await clock.advance(50)
+    const n2 = blits
+    await clock.advance(500)
+    expect(blits).toBe(n2)
+    await ui.unmount()
+  })
+
   test('with the cat, a submit draws the cat as before', { options: { left: 'cat', season: 'plain' } }, async ($, on) => {
     const clock = host($, on, async () => {})
     const ui = await $.ui.mount(SP)

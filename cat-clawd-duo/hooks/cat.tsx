@@ -622,6 +622,9 @@ export const register: Register = (on, options) => {
   })
 
   on('turn.complete', async ($, e, next) => {
+    // A Task subagent's turn ending is not the end of ours: the left half
+    // keeps moving. (clawdTurnComplete ignores subagents too.)
+    if (e.agentId) return next(e)
     timer?.cancel()
     timer = undefined
     isWorking = false
