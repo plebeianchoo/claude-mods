@@ -569,7 +569,7 @@ export const register: Register = (on, options) => {
       if (ran.deny !== undefined || ran.isError === true) isStartled = true
       return ran
     } finally {
-      running -= 1
+      running = Math.max(0, running - 1)
       if (activity && doing === activity) doing = undefined
     }
   })
@@ -596,6 +596,8 @@ export const register: Register = (on, options) => {
     if (left === 'scenes') {
       scene = nextScene(scene)
       view = { t: 0, dist: 0, pace: PACE.think, seed: Math.floor(Math.random() * 2 ** 31) }
+      // A tool call that never settled (interrupted) mustn't keep the new turn in 'tool'.
+      running = 0
     }
     // Waking from a nap: the turn starts with a stretch, and the band clears.
     if (between === 'nap') cat = { ...cat, act: { kind: 'stretch', frame: 0 } }
