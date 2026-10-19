@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { boxFor, expand, idAboveCaption, keyOf, markOf, pathOfMark, pngSize, SHOWABLE } from '../hooks/fit'
+import { boxFor, drawsGraphics, expand, idAboveCaption, keyOf, markOf, pathOfMark, pngSize, SHOWABLE } from '../hooks/fit'
 
 test('a marker round-trips a path with spaces and newlines', () => {
   const path = '/tmp/my shots/a\nb.png'
@@ -54,4 +54,12 @@ test('idAboveCaption reads a 256-colour id from the rows above the newest captio
   expect(idAboveCaption(shot, 'big.jpg · 1600×1000')).toBe(1)
   expect(idAboveCaption(`${row('38:2:0:1:44')}\nx.png · 1×1`, 'x.png · 1×1')).toBe(300)
   expect(idAboveCaption('no picture here', 'big.jpg · 1600×1000')).toBe(null)
+})
+
+test('drawsGraphics knows the outer terminals that render kitty placeholders', () => {
+  expect(drawsGraphics('xterm-ghostty')).toBe(true)
+  expect(drawsGraphics('xterm-kitty')).toBe(true)
+  expect(drawsGraphics('wezterm')).toBe(true)
+  expect(drawsGraphics('xterm-256color')).toBe(false)
+  expect(drawsGraphics('')).toBe(false)
 })

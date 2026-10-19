@@ -4,7 +4,7 @@
 // nothing is added to the prompt.
 import type { EngineInterface, Register, RenderInput } from 'claude-code'
 
-import { boxFor, expand, idAboveCaption, keyOf, markOf, pathOfMark, pngSize, SHOWABLE } from './fit'
+import { boxFor, drawsGraphics, expand, idAboveCaption, keyOf, markOf, pathOfMark, pngSize, SHOWABLE } from './fit'
 
 const TOOL = 'mcp__peek__show_image'
 // Claude Code refuses PNG bytes over 2 MiB; a 1600 px side is sharp enough
@@ -56,7 +56,21 @@ async function prepare($: EngineInterface, given: string): Promise<{ path: strin
   return { path, picture }
 }
 
-// The picture and its name under it, sized to the room the row has.
+// Inside tmux, whether the terminal it is attached to draws kitty graphics:
+// tmux hides the real terminal, so its TERM is the only clue. Outside tmux the
+// engine's own detection decides, so this says yes. Cached for the session.
+let outer: Promise<boolean> | null = null
+function outerDraws($: EngineInterface): Promise<boolean> {
+  return (outer ??= (async () => {
+    const pane = await $.env.get('TMUX_PANE')
+    if (!(await $.env.get('TMUX')) || !pane) return true
+    const r = await $.process.run(['tmux', 'display', '-p', '-t', pane, '#{client_termname}']).catch(() => null)
+    return r?.exitCode === 0 ? drawsGraphics(r.stdout.trim()) : true
+  })())
+}
+
+// The picture and its name under it, sized to the room the row has; just the
+// name when the terminal can't draw it (Windows consoles show symbols instead).
 // Only the terminal has an Image element; other surfaces draw the row as usual.
 async function draw($: EngineInterface, e: RenderInput<'ToolResult' | 'CommandOutput', 'terminal'>, path: string) {
   const { Box, Text, Image } = $.ui.resolve(e)
@@ -65,6 +79,7 @@ async function draw($: EngineInterface, e: RenderInput<'ToolResult' | 'CommandOu
     const maxCols = Math.min(MAX_COLS, (e.viewport?.columns ?? 80) - 4)
     const { columns, rows } = boxFor(picture.width, picture.height, maxCols, MAX_ROWS)
     const caption = `${picture.name} · ${picture.width}×${picture.height}`
+    if (!(await outerDraws($))) return <Text dimColor>{`peek: ${caption} (this terminal does not draw images)`}</Text>
     void resendInTmux($, picture, caption, columns, rows).catch(() => undefined)
     return (
       <Box flexDirection="column">
@@ -125,7 +140,11 @@ export const register: Register = on => {
     if (typeof given !== 'string' || !given) return { deny: 'peek: a path is needed.' }
     try {
       const { path, picture } = await prepare($, given)
-      return { result: `Shown to the user: ${picture.name} (${picture.width}×${picture.height}). You did not see it.\n${markOf(path)}` }
+      const size = `${picture.name} (${picture.width}×${picture.height})`
+      const told = (await outerDraws($))
+        ? `Shown to the user: ${size}. You did not see it.`
+        : `Not drawn: the user's terminal does not render images, so only "${size}" was shown. Describe the picture in words if it matters.`
+      return { result: `${told}\n${markOf(path)}` }
     } catch (err) {
       return { deny: `peek: ${(err as Error).message}` }
     }
