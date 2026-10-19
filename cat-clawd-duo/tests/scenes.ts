@@ -1,7 +1,7 @@
 // Scripted scenes for the golden test: each is a run of frames drawn exactly
 // as the terminal receives them. Their fingerprints live in golden.ts; a scene
 // whose pixels change fails the test until golden.ts is regenerated on purpose
-// (npx tsx scripts/fingerprints.ts > tests/golden.ts).
+// (NODE_PATH=scripts/stub bun scripts/fingerprints.ts > tests/golden.ts).
 
 import { advance, napCells, sceneCells, type Cat, type Work } from '../hooks/cat'
 import { COATS, useCoat, W, type Coat } from '../hooks/rig'
