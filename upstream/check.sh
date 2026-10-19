@@ -69,6 +69,7 @@ applies() { git -C "$REPO" apply --include="$mod/*" "$@"; }
 # Triage tries commits in order on a scratch copy of the mod ($WORK, in /tmp),
 # applying each clean one, so a commit is judged on top of the clean ones before it.
 WORK="/tmp/claude-mods-triage.$$"
+trap 'rm -rf "$WORK"' EXIT
 trial() { GIT_CEILING_DIRECTORIES="$WORK" git -C "$WORK" apply --include="$mod/*" "$@"; }
 
 # The triage label for one commit (see the header).
@@ -109,6 +110,11 @@ triage() {
       out+="$name ($mod): FETCH FAILED"$'\n'
       continue
     fi
+    if ! git -C "$HERE/$name" cat-file -e "$base^{commit}" 2>/dev/null; then
+      failed+="$name "
+      out+="$name ($mod): BASELINE ${base:0:7} NOT IN CLONE (history rewritten? review the diff by hand, then $0 --mark $name)"$'\n'
+      continue
+    fi
     # shellcheck disable=SC2086
     mapfile -t commits < <(git -C "$HERE/$name" log --reverse --format=%h "$base..HEAD" -- $paths)
     if [ "${#commits[@]}" = 0 ]; then
@@ -126,7 +132,7 @@ triage() {
       [[ "$l" = conflict\ * ]] && out+=$'\n'"               conflicts in: ${l#conflict }"
       out+=$'\n'
     done
-    rm -rf "/tmp/claude-mods-triage.$$"
+    rm -rf "$WORK"
     if [ "$n" = 0 ]; then
       out+="  nothing to port: $0 --mark $name"$'\n'
     else
@@ -193,8 +199,11 @@ case "${1:-}" in
   ""|--notify)
     triage
     if [ "${1:-}" = "--notify" ] && { [ "$ACTIONABLE" -gt 0 ] || [ -n "$FAILED" ]; }; then
-      printf '[claude-mods] %s upstream change(s) worth a look:\n%s\nIn Claude: "port upstream <name> <commit>".' \
-        "$ACTIONABLE" "$REPORT" | tg-notify
+      if ! printf '[claude-mods] %s upstream change(s) worth a look:\n%s\nIn Claude: "port upstream <name> <commit>".' \
+             "$ACTIONABLE" "$REPORT" | tg-notify; then
+        echo "check.sh: tg-notify failed" >&2
+        FAILED="$FAILED tg-notify"
+      fi
     fi
     [ -z "$FAILED" ]
     ;;
