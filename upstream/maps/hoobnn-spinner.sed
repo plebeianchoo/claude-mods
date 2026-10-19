@@ -1,7 +1,7 @@
-# hoobnn-agent-mods paths -> spinner/. The kit's sources are copied into
-# spinner/hooks/kit/ with a one-line header, so their patches apply at an offset.
+# hoobnn-agent-mods paths -> spinner/. Only claude-code/spinner is tracked:
+# upstream syncs its shared kit into claude-code/spinner/hooks/kit/, which is
+# byte-identical to spinner/hooks/kit/ here, so the kit's own sources
+# (claude-code/kit/) would only diff the same files a second time.
 /^\(diff --git\|---\|+++\) /{
-s# \([ab]\)/claude-code/kit/\(README\.md\|tsconfig\.json\)# \1/DROPPED/\2#g
 s# \([ab]\)/claude-code/spinner/# \1/spinner/#g
-s# \([ab]\)/claude-code/kit/# \1/spinner/hooks/kit/#g
 }
