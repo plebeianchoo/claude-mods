@@ -1,7 +1,10 @@
 // Ocean: underwater, kelp swaying over the sand and fish drifting at the
 // turn's pace; a school darts past and the bubbles stream while a tool runs;
-// a whale or a jellyfish swims through while Claude writes.
-import { gradient, mix, mod, PH, pick, put, rect, rnd, sprite, type Scene } from './pixels'
+// a whale or a jellyfish swims through while Claude writes. Clawd is down on
+// the sand in a diving mask and snorkel, bubbles rising; while a tool runs he
+// sweeps a net through the water and now and then has a fish in it.
+import { gradient, mix, mod, PH, pick, put, rect, rnd, sprite, type Canvas, type Moment, type Scene } from './pixels'
+import { handle, visitor, type Outfit, type Visit } from './visitor'
 
 const WATERS = [
   [0x0a3d62, 0x1e7fb5],
@@ -18,6 +21,34 @@ const WHALE = [
   '.bbbbbbbbbbb.tt',
 ]
 const JELLY = ['.jjj.', 'jjjjj', 'j.j.j', '.j.j.']
+const GLASS = 0xbde0fe
+const RUBBER = 0x1d3557
+
+/** A diving mask over his eyes and a snorkel up past his head, with his breath bubbling away. */
+function mask(c: Canvas, v: Visit, m: Moment) {
+  const { x, y } = v.head
+  const at = (i: number) => (v.facing > 0 ? x + i : x + 13 - i)
+  for (let i = 3; i <= 10; i++) put(c, at(i), y + 1, i === 4 || i === 9 ? GLASS : RUBBER)
+  put(c, at(4), y + 2, GLASS)
+  put(c, at(9), y + 2, GLASS)
+  for (let j = -2; j <= 1; j++) put(c, at(12), y + j, RUBBER)
+  put(c, at(11), y - 2, RUBBER)
+  const rise = Math.floor(m.t / 180) % 7
+  if (rise < 5) put(c, at(12) + (rise % 2), y - 3 - rise, mix(GLASS, 0xffffff, 0.5))
+}
+
+/** A net swept through the water while a tool runs; every other sweep a fish is in it. */
+function net(c: Canvas, v: Visit, m: Moment) {
+  if (v.pose !== 'pan') return
+  const sweep = Math.round(Math.sin(m.t / 400) * 2)
+  const [nx, ny] = handle(c, v.hand, v.facing, 0, 3, 0x7a4a24)
+  const x0 = nx + (v.facing > 0 ? 1 : -5)
+  const y0 = ny - 3 + sweep
+  for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) if (i === 0 || i === 4 || j === 0 || j === 4) put(c, x0 + i, y0 + j, 0xdfe7ff)
+  if (Math.floor(m.t / 1500) % 2) sprite(c, FISH, { f: FISH_COLOURS[pick(m.seed, 5, FISH_COLOURS.length)]!, t: 0xffffff }, x0, y0 + 1)
+}
+
+const DIVER: Outfit = { job: 'pan', dress: (c, v, m) => (mask(c, v, m), net(c, v, m)) }
 
 export const ocean: Scene = (c, m) => {
   const [deep, shallow] = WATERS[pick(m.seed, 1, WATERS.length)]!
@@ -42,6 +73,9 @@ export const ocean: Scene = (c, m) => {
     const y = 3 + pick(m.seed, 220 + i, PH - 8) + Math.round(Math.sin(m.t / 500 + i))
     sprite(c, FISH, { f: FISH_COLOURS[pick(m.seed, 230 + i, FISH_COLOURS.length)]!, t: 0xffffff }, x, y)
   }
+
+  // Clawd down on the sand, in front of the kelp and the fish.
+  visitor(c, m, DIVER)
 
   // A school darts past while a tool runs.
   if (m.state === 'tool') {

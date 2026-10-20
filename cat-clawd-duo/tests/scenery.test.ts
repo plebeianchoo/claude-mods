@@ -148,7 +148,12 @@ describe('Clawd in the scenery', () => {
     scene(c, at(state, 3000, seed))
     return c.px.includes(CLAWD)
   }
-  test('visits the sky in every state and weather', () => {
-    for (let seed = 0; seed < 12; seed++) for (const state of ['think', 'tool', 'say'] as const) expect(hasClawd(sky, state, seed)).toBe(true)
-  })
+  const visits = (name: string, scene: Scene) =>
+    test(`visits the ${name} in every state and variant`, () => {
+      for (let seed = 0; seed < 12; seed++) for (const state of ['think', 'tool', 'say'] as const) expect(hasClawd(scene, state, seed)).toBe(true)
+    })
+  visits('sky', sky)
+  visits('city', city)
+  visits('ocean', ocean)
+  visits('space', space)
 })
