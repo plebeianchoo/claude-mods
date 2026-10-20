@@ -1,6 +1,6 @@
 // Animates a scene in this terminal (truecolor), as the duo's left half draws
 // it, cycling what Claude is doing: think, tool, say, a few seconds each.
-//   bun scripts/preview-scenery.ts [sky|city|ocean|space] [seconds] [columns]
+//   bun scripts/preview-scenery.ts [sky|city|ocean|space] [seconds] [columns] [seed]
 import { isSceneName, PACE, SCENES, sceneryCells, type State } from '../hooks/scenery'
 import { ROWS } from '../hooks/scenery/pixels'
 
@@ -12,7 +12,7 @@ const arg = process.argv[2] ?? 'sky'
 const name = isSceneName(arg) ? arg : SCENES[0]
 const seconds = Number(process.argv[3] ?? 12)
 const columns = Number(process.argv[4] ?? 70)
-const seed = Math.floor(Math.random() * 2 ** 31)
+const seed = process.argv[5] ? Number(process.argv[5]) : Math.floor(Math.random() * 2 ** 31)
 
 const fg = (c: number) => (c === DEF ? '\x1b[39m' : `\x1b[38;2;${(c >> 16) & 255};${(c >> 8) & 255};${c & 255}m`)
 const bg = (c: number) => (c === DEF ? '\x1b[49m' : `\x1b[48;2;${(c >> 16) & 255};${(c >> 8) & 255};${c & 255}m`)
