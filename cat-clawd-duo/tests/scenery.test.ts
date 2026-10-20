@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { canvas, DEF, PH, put, ROWS, toCells, type Moment, type Scene, type State } from '../hooks/scenery/pixels'
+import { canvas, DEF, gradient, PH, put, ROWS, toCells, type Moment, type Scene, type State } from '../hooks/scenery/pixels'
 import { H } from '../hooks/rig'
+import { CLAWD } from '../hooks/clawd/acts'
 import { sky } from '../hooks/scenery/sky'
 import { city } from '../hooks/scenery/city'
 import { ocean } from '../hooks/scenery/ocean'
@@ -66,6 +67,17 @@ describe('scenery pixels', () => {
     expect(c.px.every(p => p === DEF)).toBe(true)
     put(c, 1.4, 2.6, 0x00ff00)
     expect(c.px[3 * 4 + 1]).toBe(0x00ff00)
+  })
+
+  test('dithers a gradient so no row is one flat band, yet it still darkens row by row', () => {
+    const c = canvas(16)
+    gradient(c, 0xffffff, 0x000000)
+    const row = (y: number) => [...c.px.subarray(y * 16, (y + 1) * 16)]
+    const mean = (y: number) => row(y).reduce((a, p) => a + (p & 0xff), 0) / 16
+    for (let y = 1; y < PH - 1; y++) expect(new Set(row(y)).size).toBeGreaterThan(1)
+    for (let y = 1; y < PH; y++) expect(mean(y)).toBeLessThan(mean(y - 1))
+    expect(c.px[0]).toBe(0xffffff)
+    expect(c.px[(PH - 1) * 16 + 15]).toBe(0x000000)
   })
 
   test('packs two pixels per cell as half blocks', () => {

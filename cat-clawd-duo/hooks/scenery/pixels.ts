@@ -42,9 +42,29 @@ export function rect(c: Canvas, x: number, y: number, w: number, h: number, colo
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) put(c, x + i, y + j, colour)
 }
 
-/** Rows from `top` down to `bottom`, blended, over rows `from` to `to`. */
+// A 4x4 Bayer matrix: each pixel's threshold, 0 to 15, in a pattern that repeats without visible seams.
+const BAYER = [
+  [0, 8, 2, 10],
+  [12, 4, 14, 6],
+  [3, 11, 1, 9],
+  [15, 7, 13, 5],
+] as const
+
+/**
+ * Rows from `top` down to `bottom`, blended, over rows `from` to `to`. With
+ * only 18 rows a plain blend shows as flat bands, so each pixel is nudged up to
+ * half a row either way by the Bayer pattern: the bands' edges break up and the
+ * sweep reads as smooth, while the first and last rows stay the pure colours.
+ */
 export function gradient(c: Canvas, top: number, bottom: number, from = 0, to = PH) {
-  for (let y = from; y < to; y++) rect(c, 0, y, c.W, 1, mix(top, bottom, (y - from) / Math.max(1, to - from - 1)))
+  const span = Math.max(1, to - from - 1)
+  for (let y = from; y < to; y++) {
+    for (let x = 0; x < c.W; x++) {
+      const nudge = (BAYER[y & 3]![x & 3]! + 0.5) / 16 - 0.5
+      const k = y === from ? 0 : y === to - 1 ? 1 : (y - from + nudge) / span
+      put(c, x, y, mix(top, bottom, k))
+    }
+  }
 }
 
 export function disc(c: Canvas, cx: number, cy: number, r: number, colour: number) {
