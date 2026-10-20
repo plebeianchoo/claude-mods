@@ -13,7 +13,7 @@ import {
 import { drawBall, playPose, rollBall, startPlay, stepPlay, type Play, type Rng } from './yarn'
 import { GAP, splitColumns } from './layout'
 import { clawdTurnComplete } from './clawd/clawd'
-import { nextScene, PACE, SCENES as SCENERY, sceneryCells, stateOf, type Moment, type SceneName } from './scenery'
+import { nextScene, PACE, SCENE_LIST, SCENES as SCENERY, sceneryCells, stateOf, type Moment, type SceneName } from './scenery'
 
 const FRAME_MS = 90
 const KEY = 'cat'
@@ -304,7 +304,7 @@ const SEASON_LABELS: Record<Season, string> = {
   plain: 'Plain: no seasonal extras',
 }
 const LEFT_LABELS: Record<Left, string> = {
-  scenes: 'Scenes: sky, city, ocean and space, the next one each turn',
+  scenes: `Scenes: ${SCENE_LIST}, the next one each turn`,
   cat: 'Cat: the pixel cat',
 }
 // The cat's own settings, listed only while the cat is on the left.
@@ -493,7 +493,7 @@ export const register: Register = (on, options) => {
     const now = `${animation === 'random' ? `random (${playing} right now)` : animation}, at ${where}${festive}`
     const status =
       left === 'scenes'
-        ? `The left half shows scenes${scene ? ` (${scene} now)` : ''}: sky, city, ocean and space, the next one each turn.`
+        ? `The left half shows scenes${scene ? ` (${scene} now)` : ''}: ${SCENE_LIST}, the next one each turn.`
         : `Your cat is the ${coat}, and the animation is ${now}.`
     if (!choice) {
       // Where no dialog can open (a headless run, say), answer in text instead.
@@ -510,7 +510,7 @@ export const register: Register = (on, options) => {
       if (choice === left) return { text: `The left half already shows ${choice === 'cat' ? 'the cat' : 'scenes'}.` }
       const { deny } = await $.config.set({ key: 'cat-clawd-duo.left', value: choice })
       if (deny) return { text: `Couldn't switch the left half: ${deny}` }
-      return { text: choice === 'cat' ? 'The cat is back on the left.' : 'The left half shows scenes now: sky, city, ocean and space, the next one each turn.' }
+      return { text: choice === 'cat' ? 'The cat is back on the left.' : `The left half shows scenes now: ${SCENE_LIST}, the next one each turn.` }
     }
     if (isCoat(choice)) {
       if (choice === coat) return { text: `Your cat is already the ${coat}.` }

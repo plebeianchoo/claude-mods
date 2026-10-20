@@ -1,6 +1,6 @@
 // Animates a scene in this terminal (truecolor), as the duo's left half draws
 // it, cycling what Claude is doing: think, tool, say, a few seconds each.
-//   bun scripts/preview-scenery.ts [sky|city|ocean|space] [seconds] [columns] [seed]
+//   bun scripts/preview-scenery.ts [scene] [seconds] [columns] [seed]   (scenes: see hooks/scenery/index.ts)
 import { isSceneName, PACE, SCENES, sceneryCells, type State } from '../hooks/scenery'
 import { ROWS } from '../hooks/scenery/pixels'
 
