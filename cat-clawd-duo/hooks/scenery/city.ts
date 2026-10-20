@@ -1,7 +1,9 @@
 // City: a skyline in two depths scrolling at the turn's pace, windows lighting
 // up (and flickering faster) while tools run, traffic on the street, and
-// fireworks over the roofs while Claude writes.
-import { gradient, mix, mod, PH, pick, put, rect, rnd, type Scene } from './pixels'
+// fireworks over the roofs while Claude writes. Clawd is on the pavement in a
+// hard hat; while a tool runs he hammers at roadworks behind a striped barrier.
+import { gradient, mix, mod, PH, pick, put, rect, rnd, type Canvas, type Scene } from './pixels'
+import { handle, visitor, type Outfit, type Visit } from './visitor'
 
 const WINDOWS = [
   [0xffd166, 0xffe9a8],
@@ -11,6 +13,32 @@ const WINDOWS = [
 const CARS = [0xe63946, 0xf1faee, 0x457b9d, 0xffb703]
 const SPARKS = [0xff4b3e, 0xffd54f, 0x8ecae6, 0xc77dff]
 const STREET = 3
+const HAT = 0xffb703
+const WOOD = 0x7a4a24
+const STEEL = 0x8a919b
+
+/** A hard hat: a domed crown and a short brim. */
+function hardHat(c: Canvas, v: Visit) {
+  const { x, y } = v.head
+  rect(c, x + 2, y - 1, 10, 1, HAT)
+  rect(c, x + 3, y - 2, 8, 1, HAT)
+  rect(c, x + 4, y - 3, 6, 1, HAT)
+}
+
+/** His hammer, and the barrier and spark of the roadworks while a tool runs. */
+function roadworks(c: Canvas, v: Visit, t: number) {
+  if (v.pose !== 'hammer') return
+  const isUp = t % 700 < 450
+  const [hx, hy] = handle(c, v.hand, v.facing, isUp ? -1 : 0, 2, WOOD)
+  rect(c, hx, hy - 1, 2, 2, STEEL)
+  const bx = v.x + v.facing * 17
+  for (let i = 0; i < 5; i++) rect(c, bx + i, PH - STREET - 3, 1, 2, i % 2 ? 0xf1faee : 0xf77f00)
+  put(c, bx, PH - STREET - 1, STEEL)
+  put(c, bx + 4, PH - STREET - 1, STEEL)
+  if (!isUp) put(c, hx + v.facing, hy + 1, Math.floor(t / 83) % 2 ? 0xffd54f : 0xff4b3e)
+}
+
+const WORKER: Outfit = { job: 'hammer', dress: (c, v, m) => (hardHat(c, v), roadworks(c, v, m.t)) }
 
 export const city: Scene = (c, m) => {
   // Night twice as often as day: the windows are the show.
@@ -55,6 +83,9 @@ export const city: Scene = (c, m) => {
     rect(c, x, PH - 2, 3, 1, CARS[pick(m.seed, 620 + i, CARS.length)]!)
     put(c, x + 3, PH - 2, 0xfff3a0)
   }
+
+  // Clawd on the pavement, in front of the traffic.
+  visitor(c, m, WORKER)
 
   // Fireworks while Claude writes: a burst every 1.2 s, somewhere over the roofs.
   if (m.state === 'say') {
