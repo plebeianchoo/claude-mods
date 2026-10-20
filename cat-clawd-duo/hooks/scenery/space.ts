@@ -69,11 +69,11 @@ export const space: Scene = (c, m) => {
     for (let k = 0; k < length; k++) put(c, x + k, y, mix(colour, nebula, k / length))
   }
 
-  // A planet rising and a comet overhead while Claude writes.
+  // A planet rising from the moment Claude starts writing, and a comet overhead.
   if (m.state === 'say') {
     const tint = PLANETS[pick(m.seed, 2, PLANETS.length)]!
     const px = Math.floor(c.W * 0.7)
-    const py = PH + 2 - Math.min(10, Math.floor(m.t / 250))
+    const py = PH + 2 - Math.min(10, Math.floor(m.since / 250))
     disc(c, px, py, 7, tint)
     disc(c, px - 2, py - 2, 3, mix(tint, 0xffffff, 0.35))
     const cx = mod(Math.floor(m.t * 0.03), c.W + 12) - 6

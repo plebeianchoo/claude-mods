@@ -7,6 +7,7 @@ import { BALL_R, startPlay } from '../hooks/yarn'
 import { isHalloweenOn, LANTERN_ARTS, lanternSpots } from '../hooks/season'
 import { GOLDEN } from './golden'
 import { splitColumns } from '../hooks/layout'
+import { nextScene, sceneryCells, type SceneName } from '../hooks/scenery'
 import { fingerprint, SCENES } from './scenes'
 
 const TRACK = W + 10 // a 10-cell span to walk across
@@ -214,7 +215,7 @@ describe('the /cat-spinner command', () => {
     expect(text).toContain('/cat-spinner orange')
   })
 
-  test('switches by writing the Cat setting', async ($, on) => {
+  test('switches by writing the Cat setting', { options: { left: 'cat' } }, async ($, on) => {
     const writes: unknown[] = []
     on('config.set', (_$, e) => {
       writes.push({ key: e.key, value: e.value })
@@ -296,7 +297,7 @@ describe('the yarn animation', () => {
 describe('switching animations with /cat-spinner', () => {
   const RUN = { command: 'cat-spinner', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 } } as const
 
-  test('writes the Animation setting', async ($, on) => {
+  test('writes the Animation setting', { options: { left: 'cat' } }, async ($, on) => {
     const writes: unknown[] = []
     on('config.set', (_$, e) => {
       writes.push({ key: e.key, value: e.value })
@@ -833,10 +834,19 @@ describe('scenes on the left', () => {
     expect(writes).toEqual([])
     expect(text).toBe('The left half already shows scenes.')
   })
+
+  test("says a cat setting shows once the cat is back, since the scenes hide it", async ($, on) => {
+    on('config.set', (_$, e) => ({ value: e.value }))
+    const hint = '; it shows once the cat is back on the left (/cat-spinner cat).'
+    expect((await $.command.run({ ...RUN, args: 'orange' })).text).toBe(`Switched to the orange${hint}`)
+    expect((await $.command.run({ ...RUN, args: 'yarn' })).text).toBe(`Switched to the yarn animation${hint}`)
+    expect((await $.command.run({ ...RUN, args: 'nap' })).text).toBe(`Between turns, the cat naps${hint}`)
+  })
 })
 
 describe('scene turns and tool state', () => {
   const SP = { ...SPINNER, viewport: { columns: 135, rows: 40 } } as typeof SPINNER
+  const RUN = { command: 'cat-spinner', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 } } as const
   const host = ($: any, on: any, tool: () => Promise<unknown>) => {
     const clock = mock.clock(on, { now: 1_000 })
     on('ui.render', ($: any, e: any) => {
@@ -856,13 +866,16 @@ describe('scene turns and tool state', () => {
   test('prompt.submit moves on to the next scene, from its start', { options: { season: 'plain' } }, async ($, on) => {
     const clock = host($, on, async () => {})
     const ui = await $.ui.mount(SP)
-    await $.prompt.submit({ text: 'one' })
+    // Which scene is up: the command's status names it.
+    const showing = async () => /\((\w+) now\)/.exec((await $.command.run({ ...RUN, args: '' })).text ?? '')?.[1] as SceneName
+    const before = await showing()
     await clock.advance(500)
-    const first = await leftCells(ui)
-    await $.prompt.submit({ text: 'two' })
-    await clock.advance(50)
-    const second = await leftCells(ui)
-    expect(second).not.toBe(first)
+    await $.prompt.submit({ text: 'one' })
+    const after = await showing()
+    expect(after).toBe(nextScene(before))
+    // Drawn from its start: time, distance and state fresh, its variant seeded by the clock (1000 + 500).
+    const split = splitColumns(135)!
+    expect(await leftCells(ui)).toBe(sceneryCells(after, split.cat, { t: 0, since: 0, dist: 0, state: 'say', seed: 1_500 }))
     await ui.unmount()
   })
 

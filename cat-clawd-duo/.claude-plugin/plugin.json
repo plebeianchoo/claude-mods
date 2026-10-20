@@ -1,6 +1,6 @@
 {
   "name": "cat-clawd-duo",
-  "version": "1.12.1-clawd0.5.0",
+  "version": "1.12.2-clawd0.5.0",
   "description": "cat-spinner and clawd-spinner merged: rotating pixel scenes (sky, forest, city, desert, ocean, garden, space, mountains, cave; Clawd out in each, in costume) or the pixel cat, and Clawd, share one row above the spinner (stacked when the terminal is too narrow).",
   "author": {
     "name": "Jeremy (fork of Scott Wicken cat-spinner + Sai Rudra clawd-spinner)"

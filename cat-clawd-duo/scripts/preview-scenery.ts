@@ -42,7 +42,7 @@ for (let f = 0; f < frames; f++) {
   t += FRAME_MS
   dist += pace * FRAME_MS
   if (f > 0) process.stdout.write(`\x1b[${ROWS + 1}A`)
-  process.stdout.write(`${render(sceneryCells(name, columns, { t, dist, state, seed }))}\n\x1b[2K${name}  ${state}  seed ${seed}\n`)
+  process.stdout.write(`${render(sceneryCells(name, columns, { t, since: t, dist, state, seed }))}\n\x1b[2K${name}  ${state}  seed ${seed}\n`)
   await Bun.sleep(FRAME_MS)
 }
 process.stdout.write('\x1b[?25h')

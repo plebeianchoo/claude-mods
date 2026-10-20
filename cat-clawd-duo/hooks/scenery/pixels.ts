@@ -18,9 +18,11 @@ export type State = 'think' | 'tool' | 'say'
 /**
  * One frame's inputs: ms since the turn began, px the layers have scrolled
  * (cat.tsx advances it at a pace that eases toward the state's), what Claude
- * is doing, and the turn's seed, which picks the scene's variant.
+ * is doing and for how long (`since`, ms in that state, so what a state
+ * starts can start when it does), and the turn's seed, which picks the
+ * scene's variant.
  */
-export type Moment = { t: number; dist: number; state: State; seed: number }
+export type Moment = { t: number; since: number; dist: number; state: State; seed: number }
 
 export type Canvas = { W: number; px: Uint32Array }
 export type Scene = (c: Canvas, m: Moment) => void
