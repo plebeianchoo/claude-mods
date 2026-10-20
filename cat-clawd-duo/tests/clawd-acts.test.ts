@@ -29,7 +29,7 @@ test('every act fills exactly columns x rows printable, one-wide cells with vali
   const words = ['Sautéing', 'Pondering', 'Vibing', 'Moonwalking', 'Forging', 'Computing', 'Scurrying', 'Herding',
     'Thundering', 'Gusting', 'Nesting', 'Hyperspacing', 'Levitating', 'Clauding']
   for (const word of words) {
-    for (const columns of [50, 140]) {
+    for (const columns of [48, 140]) {
       for (let t = 0; t < 9000; t += 777) {
         const cells = frame({ word, t }, columns)
         expect(cells.length).toBe(columns * A.ROWS * 3)
@@ -59,7 +59,7 @@ test('every spinner word has its own scene that draws valid cells', () => {
   const missing = WORDS.filter(w => !SCENES[keyOf(w)])
   expect(missing).toEqual([])
   for (const word of WORDS) {
-    for (const columns of [50, 140]) {
+    for (const columns of [48, 140]) {
       for (let t = 0; t < 12000; t += 1111) {
         const cells = frame({ word, t }, columns)
         expect(cells.length).toBe(columns * A.ROWS * 3)
