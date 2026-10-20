@@ -140,3 +140,15 @@ describe('the scene rotation', () => {
     for (const name of SCENES) expect(words(sceneryCells(name, 50, at('say'))).length).toBe(50 * ROWS * 3)
   })
 })
+
+describe('Clawd in the scenery', () => {
+  // His orange, somewhere in the frame, whatever the state or weather.
+  const hasClawd = (scene: Scene, state: State, seed: number) => {
+    const c = canvas(60)
+    scene(c, at(state, 3000, seed))
+    return c.px.includes(CLAWD)
+  }
+  test('visits the sky in every state and weather', () => {
+    for (let seed = 0; seed < 12; seed++) for (const state of ['think', 'tool', 'say'] as const) expect(hasClawd(sky, state, seed)).toBe(true)
+  })
+})
