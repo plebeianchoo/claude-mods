@@ -539,12 +539,12 @@ describe('width', () => {
     expect(trackOffset(200, 198, 'right')).toBe(0) // a full-width track has nothing spare
   })
 
-  // Below 102 columns the cat and Clawd stack, and the cat's own width setting applies.
+  // Below 98 columns the cat and Clawd stack, and the cat's own width setting applies.
   test('draws a compact track centered when asked', { options: { left: 'cat', season: 'plain', width: 'compact', align: 'center' } }, async ($, on) => {
     await engineSpinner($, on)
-    const ui = await $.ui.mount({ ...SPINNER, viewport: { columns: 100, rows: 40 } } as typeof SPINNER)
+    const ui = await $.ui.mount({ ...SPINNER, viewport: { columns: 96, rows: 40 } } as typeof SPINNER)
     expect((await ui.find({ type: 'Raster', key: 'cat' }))?.props.columns).toBe(90)
-    expect((await ui.find({ type: 'Box', key: 'track' }))?.props.marginLeft).toBe(4)
+    expect((await ui.find({ type: 'Box', key: 'track' }))?.props.marginLeft).toBe(2)
     await ui.unmount()
   })
 
@@ -572,8 +572,8 @@ describe('width', () => {
 
   test('draws the track as wide as the terminal allows when stacked', { options: { left: 'cat' } }, async ($, on) => {
     await engineSpinner($, on)
-    const ui = await $.ui.mount({ ...SPINNER, viewport: { columns: 100, rows: 40 } } as typeof SPINNER)
-    expect((await ui.find({ type: 'Raster', key: 'cat' }))?.props.columns).toBe(98)
+    const ui = await $.ui.mount({ ...SPINNER, viewport: { columns: 96, rows: 40 } } as typeof SPINNER)
+    expect((await ui.find({ type: 'Raster', key: 'cat' }))?.props.columns).toBe(94)
     await ui.unmount()
   })
 

@@ -1,15 +1,16 @@
 // How the spinner row is split between the cat (left) and Clawd (right).
 //
-// The cat needs a track at least CAT_MIN wide to walk in, and Clawd's scene needs
+// The scene (or the cat's track) needs at least CAT_MIN columns, and Clawd's act
 // CLAWD_MIN; below that the row falls back to stacking them, as the two original
-// mods did. EDGE is clawd-spinner's clear margin at the right edge.
+// mods did. Clawd takes CLAWD_SHARE of what is left, capped at CLAWD_MAX, so the
+// scenery gets the larger half. EDGE is clawd-spinner's clear margin at the right edge.
 
 export const GAP = 2
 export const EDGE = 4
 export const CAT_MIN = 44
-export const CLAWD_MIN = 50
-const CLAWD_MAX = 90
-const CLAWD_SHARE = 0.55
+export const CLAWD_MIN = 48
+const CLAWD_MAX = 80
+const CLAWD_SHARE = 0.48
 
 export type Split = { cat: number; clawd: number }
 
