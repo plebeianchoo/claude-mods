@@ -45,7 +45,7 @@ export const canvas = (W: number): Canvas => ({ W, px: new Uint32Array(W * PH).f
 export function put(c: Canvas, x: number, y: number, colour: number) {
   x = Math.round(x)
   y = Math.round(y)
-  if (x >= 0 && x < c.W && y >= 0 && y < PH) c.px[y * c.W + x] = colour
+  if (x >= 0 && x < c.W && y >= 0 && y < c.px.length / c.W) c.px[y * c.W + x] = colour
 }
 
 export function rect(c: Canvas, x: number, y: number, w: number, h: number, colour: number) {
@@ -87,16 +87,16 @@ const LEGS = ['..C.C....C.C..', '...C.C..C.C...']
 export const CLAWD_TOP = GROUND - CLAWD_ART.length - 1
 export const START = 3
 
-export type Pose = 'stand' | 'cast' | 'walk' | 'pan' | 'hammer' | 'crank' | 'dance' | 'carry' | 'water' | 'umbrella' | 'float'
+export type Pose = 'stand' | 'idle' | 'cast' | 'walk' | 'pan' | 'hammer' | 'crank' | 'dance' | 'carry' | 'water' | 'umbrella' | 'float'
 export type Hands = { hand: [number, number]; tip: [number, number] | null }
 
-/** Clawd (no hat here) at x, facing right (1) or left (-1), lifted `lift` pixels. */
+/** Clawd (no hat here) at x, facing right (1) or left (-1), lifted `lift` pixels; `idle` is `stand` without the wand. */
 export function clawd(c: Canvas, t: number, pose: Pose, x: number, facing: 1 | -1 = 1, lift = 0): Hands {
   const f = Math.floor(t / 83)
   const blink = f % 47 < 2
   const ox = Math.round(x)
   const hop = pose === 'dance' ? -(Math.floor(t / 300) % 2) : 0
-  const breathe = (pose === 'stand' || pose === 'cast') && Math.floor(t / 700) % 2 ? 1 : 0
+  const breathe = (pose === 'stand' || pose === 'idle' || pose === 'cast') && Math.floor(t / 700) % 2 ? 1 : 0
   const y = CLAWD_TOP + hop + breathe - lift
   c.clawdAt = { x: ox, y }
   const at = (i: number) => (facing > 0 ? ox + i : ox + 13 - i)

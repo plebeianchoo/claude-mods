@@ -78,3 +78,12 @@ test('no two words draw the same scene', () => {
     seen.set(sig, word)
   }
 })
+
+test('draws onto a canvas taller than his own, down to its last row', () => {
+  // The scenery canvas is 18 px tall to Clawd's 16: pixels must land by the canvas, not the constant.
+  const c: A.Canvas = { W: 4, px: new Uint32Array(4 * 18).fill(A.DEF) }
+  A.put(c, 1, 17, 0xabcdef)
+  A.put(c, 1, 18, 0x123456)
+  expect(c.px[17 * 4 + 1]).toBe(0xabcdef)
+  expect(c.px.filter(p => p !== A.DEF).length).toBe(1)
+})
