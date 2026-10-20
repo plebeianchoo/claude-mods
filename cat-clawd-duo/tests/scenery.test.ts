@@ -7,6 +7,7 @@ import { sky } from '../hooks/scenery/sky'
 import { city } from '../hooks/scenery/city'
 import { ocean } from '../hooks/scenery/ocean'
 import { space } from '../hooks/scenery/space'
+import { forest } from '../hooks/scenery/forest'
 import { isSceneName, nextScene, PACE, SCENES, sceneryCells, stateOf } from '../hooks/scenery'
 
 // A frame's Raster cells, as words: [codePoint, fg, bg] per cell.
@@ -106,6 +107,7 @@ sceneSuite('sky', sky)
 sceneSuite('city', city)
 sceneSuite('ocean', ocean)
 sceneSuite('space', space)
+sceneSuite('forest', forest)
 
 describe('the scene rotation', () => {
   test('goes sky, city, ocean, space, and back to sky', () => {
@@ -156,4 +158,5 @@ describe('Clawd in the scenery', () => {
   visits('city', city)
   visits('ocean', ocean)
   visits('space', space)
+  visits('forest', forest)
 })
