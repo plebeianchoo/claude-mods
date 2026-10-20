@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { canvas, DEF, PH, type Canvas, type Moment } from '../hooks/scenery/pixels'
 import { handle, visitor, type Outfit } from '../hooks/scenery/visitor'
 
-const at = (state: Moment['state'], t = 3000, seed = 7): Moment => ({ t, dist: t * 0.008, state, seed })
+const at = (state: Moment['state'], t = 3000, seed = 7): Moment => ({ t, since: t, dist: t * 0.008, state, seed })
 const plain: Outfit = { job: 'hammer' }
 
 // The rows that hold any drawn pixel: on an empty canvas, all of them are his.

@@ -13,7 +13,7 @@ import {
 import { drawBall, playPose, rollBall, startPlay, stepPlay, type Play, type Rng } from './yarn'
 import { GAP, splitColumns } from './layout'
 import { clawdTurnComplete } from './clawd/clawd'
-import { nextScene, PACE, SCENE_LIST, SCENES as SCENERY, sceneryCells, stateOf, type Moment, type SceneName } from './scenery'
+import { nextScene, PACE, SCENE_LIST, SCENES as SCENERY, sceneryCells, stateOf, type Moment, type SceneName, type State } from './scenery'
 
 const FRAME_MS = 90
 const KEY = 'cat'
@@ -321,7 +321,7 @@ const sceneSeed = Math.floor(Math.random() * 2 ** 31)
 
 // The dialog's scenes: each in turn for 70 frames, as while Claude writes.
 const previewScenery = (frame: number, track: number) =>
-  sceneryCells(SCENERY[Math.floor(frame / 70) % SCENERY.length]!, track, { t: frame * FRAME_MS, dist: frame * FRAME_MS * PACE.say, state: 'say', seed: sceneSeed })
+  sceneryCells(SCENERY[Math.floor(frame / 70) % SCENERY.length]!, track, { t: frame * FRAME_MS, since: frame * FRAME_MS, dist: frame * FRAME_MS * PACE.say, state: 'say', seed: sceneSeed })
 
 function startPreview($: EngineInterface, animation: Animation, playing: Playable, left: Left) {
   if (preview) return
@@ -506,6 +506,8 @@ export const register: Register = (on, options) => {
       }
       return { text: `${status} ${usage}` }
     }
+    // The cat's own settings take, but show nothing while the scenes hide it.
+    const hidden = left === 'scenes' ? '; it shows once the cat is back on the left (/cat-spinner cat).' : '.'
     if (isLeft(choice)) {
       if (choice === left) return { text: `The left half already shows ${choice === 'cat' ? 'the cat' : 'scenes'}.` }
       const { deny } = await $.config.set({ key: 'cat-clawd-duo.left', value: choice })
@@ -515,12 +517,12 @@ export const register: Register = (on, options) => {
     if (isCoat(choice)) {
       if (choice === coat) return { text: `Your cat is already the ${coat}.` }
       const { deny } = await $.config.set({ key: 'cat-clawd-duo.coat', value: choice })
-      return { text: deny ? `Couldn't switch cats: ${deny}` : `Switched to the ${choice}.` }
+      return { text: deny ? `Couldn't switch cats: ${deny}` : `Switched to the ${choice}${hidden}` }
     }
     if (isAnimation(choice)) {
       if (choice === animation) return { text: `The animation is already ${animation}.` }
       const { deny } = await $.config.set({ key: 'cat-clawd-duo.animation', value: choice })
-      return { text: deny ? `Couldn't switch animations: ${deny}` : `Switched to the ${choice} animation.` }
+      return { text: deny ? `Couldn't switch animations: ${deny}` : `Switched to the ${choice} animation${hidden}` }
     }
 
     if (isWidth(choice)) {
@@ -539,7 +541,7 @@ export const register: Register = (on, options) => {
     if (isBetween(choice)) {
       if (choice === between) return { text: `Between turns, the cat already does: ${between}.` }
       const { deny } = await $.config.set({ key: 'cat-clawd-duo.between', value: choice })
-      return { text: deny ? `Couldn't switch that: ${deny}` : choice === 'nap' ? 'Between turns, the cat naps.' : 'Between turns, the cat stays out of sight.' }
+      return { text: deny ? `Couldn't switch that: ${deny}` : choice === 'nap' ? `Between turns, the cat naps${hidden}` : 'Between turns, the cat stays out of sight.' }
     }
     if (isSeason(choice)) {
       if (choice === season) return { text: `The season is already ${season}.` }
@@ -582,22 +584,23 @@ export const register: Register = (on, options) => {
   let napTrack = 0
   let napFrame = 0
   const decor = () => ({ isHalloween, time: frame, seed: sceneSeed })
-  // With scenes on the left: this turn's scene, and how far it has run.
+  // With scenes on the left: this turn's scene, how far it has run, and how
+  // long Claude has been doing what it is doing.
   let scene: SceneName | undefined
-  let view = { t: 0, dist: 0, pace: PACE.think, seed: 0 }
-  const moment = (): Moment => ({ t: view.t, dist: view.dist, state: stateOf(running > 0, isThinking), seed: view.seed })
+  let view = { t: 0, since: 0, dist: 0, pace: PACE.think, state: 'think' as State, seed: 0 }
+  const moment = (): Moment => ({ t: view.t, since: view.since, dist: view.dist, state: stateOf(running > 0, isThinking), seed: view.seed })
   // The left half's cells: the turn's scene, or the cat.
   const leftCells = (columns: number) =>
     left === 'scenes' ? sceneryCells((scene ??= nextScene(undefined)), columns, moment()) : sceneCells(cat, columns, decor())
 
-  on('prompt.submit', ($, e, next) => {
+  on('prompt.submit', async ($, e, next) => {
     if (animation === 'random') playing = pickAnimation(playing)
-    // Scenes take turns: the next one, from its start, with a new variant.
+    // Scenes take turns: the next one, from its start, with a new variant (the clock picks it).
     if (left === 'scenes') {
       scene = nextScene(scene)
-      view = { t: 0, dist: 0, pace: PACE.think, seed: Math.floor(Math.random() * 2 ** 31) }
       // A tool call that never settled (interrupted) mustn't keep the new turn in 'tool'.
       running = 0
+      view = { t: 0, since: 0, dist: 0, pace: PACE.think, state: stateOf(false, isThinking), seed: (await $.clock.now()) % 2 ** 31 }
     }
     // Waking from a nap: the turn starts with a stretch, and the band clears.
     if (between === 'nap') cat = { ...cat, act: { kind: 'stretch', frame: 0 } }
@@ -607,7 +610,10 @@ export const register: Register = (on, options) => {
       if (!requestId || !track) return
       if (left === 'scenes') {
         // The pace eases toward what Claude is doing, over about half a second.
-        view.pace += (PACE[moment().state] - view.pace) * 0.2
+        const state = moment().state
+        if (state === view.state) view.since += FRAME_MS
+        else (view.state = state), (view.since = 0)
+        view.pace += (PACE[state] - view.pace) * 0.2
         view.t += FRAME_MS
         view.dist += view.pace * FRAME_MS
       } else {

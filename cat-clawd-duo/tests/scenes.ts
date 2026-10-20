@@ -51,7 +51,7 @@ const reactions = (isHalloween = false) => {
 
 // Each scene for 40 frames of one state, from the turn's start, seed 7.
 const scenery = (name: (typeof SCENERY)[number], state: State) =>
-  Array.from({ length: 40 }, (_, i) => sceneryCells(name, 70, { t: i * 90, dist: i * 90 * PACE[state], state, seed: 7 }))
+  Array.from({ length: 40 }, (_, i) => sceneryCells(name, 70, { t: i * 90, since: i * 90, dist: i * 90 * PACE[state], state, seed: 7 }))
 
 export const SCENES: Record<string, () => string[]> = {
   ...Object.fromEntries((Object.keys(COATS) as Coat[]).map(coat => [`walk and sit: ${coat}`, () => walkAndSit(coat)])),

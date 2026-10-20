@@ -26,7 +26,7 @@ const BACK = 0x202020
 // Each state's frame back as pixels, PH rows of W, from the cells the terminal would get.
 const frames = STATES.map((state, i) => {
   const t = T[i]!
-  const words = new Uint32Array(Uint8Array.from(atob(sceneryCells(name, W, { t, dist: t * PACE[state], state, seed })), ch => ch.charCodeAt(0)).buffer)
+  const words = new Uint32Array(Uint8Array.from(atob(sceneryCells(name, W, { t, since: t, dist: t * PACE[state], state, seed })), ch => ch.charCodeAt(0)).buffer)
   const px = new Uint32Array(W * PH).fill(DEF)
   for (let row = 0; row < ROWS; row++) {
     for (let x = 0; x < W; x++) {

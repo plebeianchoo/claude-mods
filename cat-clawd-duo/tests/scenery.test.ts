@@ -21,7 +21,7 @@ const draw = (scene: Scene, columns: number, m: Moment) => {
   scene(c, m)
   return toCells(c)
 }
-const at = (state: State, t = 6000, seed = 7): Moment => ({ t, dist: t * 0.008, state, seed })
+const at = (state: State, t = 6000, seed = 7): Moment => ({ t, since: t, dist: t * 0.008, state, seed })
 
 // What every scene must do: fill its raster, at any width and seed, the same
 // way for the same moment, and look different while a tool runs.
@@ -170,4 +170,22 @@ describe('Clawd in the scenery', () => {
   visits('mountains', mountains)
   visits('cave', cave)
   visits('garden', garden)
+})
+
+describe("the space scene's planet", () => {
+  // The planet's centre column at 60 wide, on a row only the risen planet reaches.
+  const PX = Math.floor(60 * 0.7)
+  const pixel = (m: Moment) => {
+    const c = canvas(60)
+    space(c, m)
+    return c.px[5 * 60 + PX]
+  }
+
+  test('starts rising when Claude starts writing, however long it thought first', () => {
+    const risen = pixel({ t: 6000, since: 6000, dist: 48, state: 'say', seed: 7 })
+    const fresh = pixel({ t: 0, since: 0, dist: 48, state: 'say', seed: 7 })
+    const afterThinking = pixel({ t: 6000, since: 0, dist: 48, state: 'say', seed: 7 })
+    expect(fresh).not.toBe(risen)
+    expect(afterThinking).toBe(fresh)
+  })
 })
