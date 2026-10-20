@@ -1,6 +1,12 @@
 // The scenes the left half can show instead of the cat, in the order they
-// take turns, and how fast their layers scroll for what Claude is doing.
+// take turns (no two alike in colour side by side), and how fast their layers
+// scroll for what Claude is doing. Clawd is out in every one of them.
+import { cave } from './cave'
 import { city } from './city'
+import { desert } from './desert'
+import { forest } from './forest'
+import { garden } from './garden'
+import { mountains } from './mountains'
 import { ocean } from './ocean'
 import { canvas, toCells, type Moment, type Scene, type State } from './pixels'
 import { sky } from './sky'
@@ -8,10 +14,12 @@ import { space } from './space'
 
 export type { Moment, State } from './pixels'
 
-export const SCENES = ['sky', 'city', 'ocean', 'space'] as const
+export const SCENES = ['sky', 'forest', 'city', 'desert', 'ocean', 'garden', 'space', 'mountains', 'cave'] as const
 export type SceneName = (typeof SCENES)[number]
+/** The scenes as prose: "sky, forest, ... and cave". */
+export const SCENE_LIST = `${SCENES.slice(0, -1).join(', ')} and ${SCENES[SCENES.length - 1]}`
 
-const DRAW: Record<SceneName, Scene> = { sky, city, ocean, space }
+const DRAW: Record<SceneName, Scene> = { sky, forest, city, desert, ocean, garden, space, mountains, cave }
 
 /** Pixels per ms the layers scroll: slow while Claude thinks, fast while a tool runs. */
 export const PACE: Record<State, number> = { think: 0.004, say: 0.008, tool: 0.02 }

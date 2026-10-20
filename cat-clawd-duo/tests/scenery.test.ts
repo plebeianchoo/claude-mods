@@ -118,18 +118,17 @@ sceneSuite('cave', cave)
 sceneSuite('garden', garden)
 
 describe('the scene rotation', () => {
-  test('goes sky, city, ocean, space, and back to sky', () => {
-    expect([...SCENES]).toEqual(['sky', 'city', 'ocean', 'space'])
-    expect(nextScene('sky')).toBe('city')
-    expect(nextScene('city')).toBe('ocean')
-    expect(nextScene('ocean')).toBe('space')
-    expect(nextScene('space')).toBe('sky')
+  test('takes the nine scenes in turn, no two alike in colour side by side, and comes back round', () => {
+    expect([...SCENES]).toEqual(['sky', 'forest', 'city', 'desert', 'ocean', 'garden', 'space', 'mountains', 'cave'])
+    expect(nextScene('sky')).toBe('forest')
+    expect(nextScene('garden')).toBe('space')
+    expect(nextScene('cave')).toBe('sky')
   })
 
   test('starts a session on a random scene', () => {
     expect(nextScene(undefined, () => 0)).toBe('sky')
-    expect(nextScene(undefined, () => 0.6)).toBe('ocean')
-    expect(nextScene(undefined, () => 0.99)).toBe('space')
+    expect(nextScene(undefined, () => 0.6)).toBe('garden')
+    expect(nextScene(undefined, () => 0.99)).toBe('cave')
   })
 
   test('knows its scene names', () => {
