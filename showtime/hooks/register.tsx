@@ -22,33 +22,33 @@ import type { StageProps } from './stage'
 
 // The theme drawn this session ('' until session.start, or the first turn of a
 // session resumed or cleared, which gets no session.start, picks one).
-const theme = atom({ plugin: 'spinner', key: 'theme' } as const, '')
+const theme = atom({ plugin: 'showtime', key: 'theme' } as const, '')
 // The `theme` row: a theme, `random` or `rotate`.
-const choice = atom({ plugin: 'spinner', key: 'choice' } as const, 'random')
+const choice = atom({ plugin: 'showtime', key: 'choice' } as const, 'random')
 // Session mirrors of the `visible`, `stage` and `companion` rows, so a command shows at once;
 // null in a session resumed or cleared, which gets no session.start: the rows' then.
-const hiddenSet = atom({ plugin: 'spinner', key: 'isHidden' } as const, null as boolean | null)
-const stageOffSet = atom({ plugin: 'spinner', key: 'isStageOff' } as const, null as boolean | null)
-const companionOffSet = atom({ plugin: 'spinner', key: 'isCompanionOff' } as const, null as boolean | null)
+const hiddenSet = atom({ plugin: 'showtime', key: 'isHidden' } as const, null as boolean | null)
+const stageOffSet = atom({ plugin: 'showtime', key: 'isStageOff' } as const, null as boolean | null)
+const companionOffSet = atom({ plugin: 'showtime', key: 'isCompanionOff' } as const, null as boolean | null)
 // The rows themselves, set in register.
 let rows: Config | null = null
 const isHidden = derive([hiddenSet], set => set ?? !(rows?.isVisible ?? true))
 const isStageOff = derive([stageOffSet], set => set ?? !(rows?.hasStage ?? true))
 const isCompanionOff = derive([companionOffSet], set => set ?? !(rows?.hasCompanion ?? true))
-const finale = atom({ plugin: 'spinner', key: 'finale' } as const, null)
-const preview = atom({ plugin: 'spinner', key: 'preview' } as const, null)
-const activity = atom({ plugin: 'spinner', key: 'activity' } as const, { act: 'think' as Act })
-const mood = atom({ plugin: 'spinner', key: 'mood' } as const, 'hello' as Mood)
-const pet = atom({ plugin: 'spinner', key: 'pet' } as const, { xp: 0, love: 0 })
-const pat = atom({ plugin: 'spinner', key: 'pat' } as const, null)
-const news = atom({ plugin: 'spinner', key: 'news' } as const, null)
+const finale = atom({ plugin: 'showtime', key: 'finale' } as const, null)
+const preview = atom({ plugin: 'showtime', key: 'preview' } as const, null)
+const activity = atom({ plugin: 'showtime', key: 'activity' } as const, { act: 'think' as Act })
+const mood = atom({ plugin: 'showtime', key: 'mood' } as const, 'hello' as Mood)
+const pet = atom({ plugin: 'showtime', key: 'pet' } as const, { xp: 0, love: 0 })
+const pat = atom({ plugin: 'showtime', key: 'pat' } as const, null)
+const news = atom({ plugin: 'showtime', key: 'news' } as const, null)
 // The pet for whoever draws it (hud beside its rows, or this plugin above the prompt).
-const dock = atom({ plugin: 'spinner', key: 'dock' } as const, null as DockPet | null)
-const isTurn = atom({ plugin: 'spinner', key: 'isTurn' } as const, false)
+const dock = atom({ plugin: 'showtime', key: 'dock' } as const, null as DockPet | null)
+const isTurn = atom({ plugin: 'showtime', key: 'isTurn' } as const, false)
 // True while a picker is open above the band (see kit/band).
-const isPicking = atom({ plugin: 'spinner', key: 'isPicking' } as const, false)
+const isPicking = atom({ plugin: 'showtime', key: 'isPicking' } as const, false)
 // The audio theme's tap: whether anything plays, and why it could not run.
-const tapState = atom({ plugin: 'spinner', key: 'tap' } as const, { isAudible: false, error: null as string | null })
+const tapState = atom({ plugin: 'showtime', key: 'tap' } as const, { isAudible: false, error: null as string | null })
 // hud's say: true while it draws the pet beside its rows.
 const hudDock = atom({ plugin: 'hud', key: 'dock' } as const, false)
 
@@ -71,7 +71,7 @@ function prefsOf($: EngineInterface): Prefs {
   return {
     kept: key => $.store.get(key),
     forget: key => $.store.delete(key),
-    write: (field, value) => $.config.set({ key: `spinner.${field}`, value }),
+    write: (field, value) => $.config.set({ key: `showtime.${field}`, value }),
   }
 }
 
@@ -153,7 +153,7 @@ let isStill = false
 
 const TONE: Partial<Record<PetState, DockPet['tone']>> = { ask: 'ask', error: 'error', aborted: 'aborted', sleep: 'sleep' }
 
-/** Publishes the pet as it is now (`spinner.dock`), or null while it is off. */
+/** Publishes the pet as it is now (`showtime.dock`), or null while it is off. */
 async function publishPet($: EngineInterface): Promise<void> {
   if ((await read($, isHidden)) || (await read($, isCompanionOff))) {
     if ((await read($, dock)) !== null) await update($, dock, () => null)
@@ -206,7 +206,7 @@ async function buildTap($: EngineInterface): Promise<string> {
   return bin
 }
 
-/** Starts the tap: its lines into the meter, `spinner.tap` told when sound starts or stops, or why it ended. */
+/** Starts the tap: its lines into the meter, `showtime.tap` told when sound starts or stops, or why it ended. */
 function startTap($: EngineInterface): { stop: () => void } {
   let isStopped = false
   let stream: AsyncIterator<unknown> | undefined
@@ -293,14 +293,14 @@ function noteOf(picked: string): string {
   return picked === 'random' ? m('cmd.randomNote') : picked === 'rotate' ? m('cmd.rotateNote') : ''
 }
 
-/** What `/spinner <choice>` answers. */
+/** What `/showtime <choice>` answers. */
 function switchedTo(picked: Choice, name: ThemeName): string {
   if (picked === 'random') return m('cmd.random', { theme: name })
   if (picked === 'rotate') return m('cmd.rotate', { theme: name })
   return m('cmd.switched', { theme: name })
 }
 
-/** `/spinner` with no arguments: the theme, the pet, what is off, the themes and the usage. */
+/** `/showtime` with no arguments: the theme, the pet, what is off, the themes and the usage. */
 async function status($: EngineInterface): Promise<string> {
   const current = await read($, theme)
   const stats = await read($, pet)
@@ -357,7 +357,7 @@ export const register: Register = (on, options) => {
       $.env.get('LANG').catch(() => undefined),
     ])
     setLang(resolveLanguage(config.language, settings.language, locale))
-    await $.command.register({ name: 'spinner', description: m('cmd.description'), argumentHint: USAGE })
+    await $.command.register({ name: 'showtime', description: m('cmd.description'), argumentHint: USAGE })
 
     await seed($, readConfig({ ...options, ...(await keptRows(prefsOf($), STORE_MOVES)) }))
     const result = await next(e)
@@ -477,7 +477,7 @@ export const register: Register = (on, options) => {
     return result
   })
 
-  on('command.run', { command: 'spinner' }, async ($, e) => {
+  on('command.run', { command: 'showtime' }, async ($, e) => {
     const command = parseCommand(e.args)
     const list = THEME_NAMES.join(' · ')
     switch (command.kind) {
@@ -514,7 +514,7 @@ export const register: Register = (on, options) => {
         try {
           answer = (await $.ui.ask(m('cmd.pick', { list }), { options: offered, header: 'Theme' })).trim().toLowerCase()
         } catch {
-          // Dismissed, or no one to ask (-p): what `/spinner` alone says.
+          // Dismissed, or no one to ask (-p): what `/showtime` alone says.
           return { text: await status($) }
         }
         if (answer !== 'random' && answer !== 'rotate' && !isThemeName(answer)) return { text: m('cmd.unknown', { name: answer, list }) }
@@ -548,7 +548,7 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // A button in the prompt footer: `/spinner off` / `on`. Mode labels other plugins add stay beside it.
+  // A button in the prompt footer: `/showtime off` / `on`. Mode labels other plugins add stay beside it.
   if (config.hasFooterButton) {
     on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
       const hidden = await read($, isHidden)
@@ -556,7 +556,7 @@ export const register: Register = (on, options) => {
       const { Box, Button } = $.ui.resolve(e)
       return (
         <Box flexDirection="row" alignItems="center" gap={1}>
-          <Button key="spinner-toggle" plain dimColor={hidden} label="Spinner" onPress={() => setSwitch($, 'visible', hidden)} />
+          <Button key="showtime-toggle" plain dimColor={hidden} label="Showtime" onPress={() => setSwitch($, 'visible', hidden)} />
           {below}
         </Box>
       )

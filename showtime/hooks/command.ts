@@ -1,4 +1,4 @@
-// `/spinner`'s arguments to what they ask for; register.tsx carries it out.
+// `/showtime`'s arguments to what they ask for; register.tsx carries it out.
 import { isThemeName } from './themes'
 import type { ThemeName } from './themes'
 

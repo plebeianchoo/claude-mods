@@ -255,5 +255,5 @@ engine's marks and shrinks when a pane is docked. Give way to a survey
 - **Working examples** (vendored here): `cat-clawd-duo/hooks/cat.tsx`
   (settings pane with live preview, tool reactions, nap band),
   `cat-clawd-duo/hooks/clawd/clawd.tsx` (the smallest complete spinner, from
-  clawd-spinner's register.tsx) and `spinner/hooks/register.tsx` (themes,
-  stage band, companion pet, a `/spinner` command).
+  clawd-spinner's register.tsx) and `showtime/hooks/register.tsx` (themes,
+  stage band, companion pet, a `/showtime` command).
