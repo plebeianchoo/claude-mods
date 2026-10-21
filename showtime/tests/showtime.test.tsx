@@ -37,7 +37,7 @@ async function drawn(ui: { drawn: (scope?: { in?: string }) => Promise<unknown> 
 
 // The /config rows the plugin wrote, as `[key, value]`.
 let rows: [string, unknown][] = []
-// What the AskUserQuestion dialog answers (`/spinner theme`); null: dismissed.
+// What the AskUserQuestion dialog answers (`/showtime theme`); null: dismissed.
 let asked: { question: string; options: string[] } | null = null
 let answer: string | null = null
 // The id of the last tool call the host ran, for a check about it.
@@ -184,21 +184,21 @@ test('the audio theme taps the sound output only while drawn, and feeds the band
   await $.session.start(START)
   await clock.settle()
   expect(spawned).toHaveLength(0)
-  await $.command.run({ ...RUN, command: 'spinner', args: 'audio' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'audio' })
   await clock.advance(200)
   expect(ran[0]?.[0]).toBe('swiftc')
   expect(spawned[0]?.[0]).toMatch(/audio-tap$/)
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text).toContain('正在显示本机的声音输出')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text).toContain('正在显示本机的声音输出')
 
   // Between turns the band stays up while sound plays, and asks for levels each frame.
-  const ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...IDLE })
+  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...IDLE })
   expect(await ui.findAll({ type: 'Client' })).toHaveLength(2)
   await ui.post({ audio: true }, { in: 'listen' })
   expect(await drawn(ui, 'listen')).toContain('█')
   await ui.unmount()
 
   // Another theme stops the tap.
-  await $.command.run({ ...RUN, command: 'spinner', args: 'cat' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'cat' })
   await clock.advance(10_000)
   expect(isTapEnded).toBe(true)
   expect(spawned).toHaveLength(1)
@@ -210,11 +210,11 @@ test('the audio theme says why when it cannot tap', async ($, on) => {
   on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: 'error: no such module CoreAudio', isStdoutTruncated: false, isStderrTruncated: false } }))
   await $.session.start(START)
   await clock.settle()
-  await $.command.run({ ...RUN, command: 'spinner', args: 'audio' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'audio' })
   await clock.advance(200)
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text).toContain('音频：无法显示（swiftc: error: no such module CoreAudio）')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text).toContain('音频：无法显示（swiftc: error: no such module CoreAudio）')
   await $.turn.start({ text: 'hi', turnId: 't1' })
-  const ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await drawn(ui, 'work')).toContain('zZ')
   await ui.unmount()
 })
@@ -248,14 +248,14 @@ test('one mascot: in the companion row, or in front of the engine line without i
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
-  await $.command.run({ ...RUN, command: 'spinner', args: 'cat' })
-  const plain = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...SPINNER })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'cat' })
+  const plain = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...SPINNER })
   expect(await plain.findAll({ type: 'Client' })).toHaveLength(0)
   await plain.unmount()
 
-  await $.command.run({ ...RUN, command: 'spinner', args: 'companion off' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'companion off' })
   for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ plugin: 'spinner', surface, ...SPINNER })
+    const ui = await $.ui.mount({ plugin: 'showtime', surface, ...SPINNER })
     expect(await ui.find({ type: 'Text', text: 'Sauteing…' })).toBeDefined()
     expect(await drawn(ui, 'sprite')).toContain('(=^･ω･^=)   ')
     await ui.advance(SPRITE_MS * 3)
@@ -268,11 +268,11 @@ test('band plays the scene and the companion while working, keeps other bands', 
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
-  await $.command.run({ ...RUN, command: 'spinner', args: 'dino' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'dino' })
   await $.turn.start({ text: 'hi', turnId: 't1' })
 
   for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ plugin: 'spinner', surface, ...BAND })
+    const ui = await $.ui.mount({ plugin: 'showtime', surface, ...BAND })
     expect(await ui.find({ type: 'Text', text: 'Sauteing…' })).toBeDefined()
     expect(await drawn(ui, 'work')).toContain('HI 00000')
     expect(await said(ui)).toContain('Lv.1 ♥0')
@@ -284,8 +284,8 @@ test('band plays the scene and the companion while working, keeps other bands', 
     await ui.unmount()
   }
 
-  await $.command.run({ ...RUN, command: 'spinner', args: 'stage off' })
-  const off = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'stage off' })
+  const off = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await off.findAll({ type: 'Client' })).toHaveLength(1)
   expect(await said(off)).toContain('Lv.1 ♥0')
   await off.unmount()
@@ -295,7 +295,7 @@ test('a short band gets the pet in one row', async ($, on) => {
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
-  const ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND, props: { ...BAND.props, maxRows: 2 } })
+  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND, props: { ...BAND.props, maxRows: 2 } })
   expect(await ui.findAll({ type: 'Client' })).toHaveLength(0)
   expect(await said(ui)).toContain('Lv.1 ♥0')
   await ui.unmount()
@@ -305,9 +305,9 @@ test('reduced motion draws one still frame', { options: { reducedMotion: true } 
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
-  await $.command.run({ ...RUN, command: 'spinner', args: 'dino' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'dino' })
   await $.turn.start({ text: 'hi', turnId: 't1' })
-  const ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await drawn(ui, 'work')).toContain('HI 00000')
   await ui.advance(STAGE_MS * 5)
   expect(await drawn(ui, 'work')).toContain('HI 00000')
@@ -322,23 +322,23 @@ test('the companion follows tool calls and permission prompts', async ($, on) =>
 
   const call = $.tool.call({ tool: 'Bash', command: 'npm test' })
   await clock.settle()
-  let ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  let ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).toContain('Bash: npm test')
   await ui.unmount()
 
   // The check asks; the pet says so only once the ask has stood a moment.
   await $.tool.check({ tool: 'Bash', input: { command: 'npm test' }, tool_use_id: lastCallId } as never)
-  ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).not.toContain('等你确认')
   await ui.unmount()
   await clock.advance(600)
-  ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).toContain('等你确认一下～')
   await ui.unmount()
 
   await clock.advance(1000)
   await call
-  ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).not.toContain('Bash: npm test')
   expect(await said(ui)).not.toContain('等你确认')
   await ui.unmount()
@@ -353,7 +353,7 @@ test('tests and commits Claude runs: a word from the pet, xp for good news', asy
   const pass = $.tool.call({ tool: 'Bash', command: 'npm test' })
   await clock.advance(1000)
   await pass
-  let ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  let ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).toContain('测试通过啦！')
   expect(await said(ui)).toContain('Lv.1 ♥0')
   await ui.unmount()
@@ -361,15 +361,15 @@ test('tests and commits Claude runs: a word from the pet, xp for good news', asy
   const fail = $.tool.call({ tool: 'Bash', command: 'pytest' })
   await clock.advance(1000)
   await fail
-  ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).toContain('测试没过')
   await ui.unmount()
   await clock.advance(4000)
-  ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).not.toContain('测试没过')
   await ui.unmount()
   // One xp for the tests that passed, none for those that failed.
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text).toContain('经验 1 ·')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text).toContain('经验 1 ·')
 })
 
 test('an ask the mode settles at once never reaches the pet', async ($, on) => {
@@ -385,7 +385,7 @@ test('an ask the mode settles at once never reaches the pet', async ($, on) => {
   await call
   await $.tool.check({ tool: 'Bash', input: { command: 'npm test' }, tool_use_id: lastCallId } as never)
   await clock.advance(600)
-  const ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).not.toContain('等你确认')
   await ui.unmount()
 })
@@ -397,12 +397,12 @@ test('a finished turn plays the finale, then the companion waits; a click pats i
   await $.turn.start({ text: 'hi', turnId: 't1' })
   await $.turn.complete(DONE)
 
-  const ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...IDLE })
+  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...IDLE })
   expect(await drawn(ui, 'finale-t1')).toContain('完成 · 12s')
   await ui.unmount()
 
   await clock.advance(FINALE_MS)
-  const idle = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...IDLE })
+  const idle = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...IDLE })
   expect(await idle.findAll({ type: 'Client' })).toHaveLength(1)
   expect(await said(idle)).toContain('做完啦，快看看！')
   expect(await said(idle)).toContain('Lv.1 ♥0')
@@ -412,61 +412,61 @@ test('a finished turn plays the finale, then the companion waits; a click pats i
   expect(await drawn(idle, 'pet')).toMatch(/#ff6b9d|#ff8fab/)
   await idle.unmount()
 
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'pet' })).text).toContain('♥2')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'pet' })).text).toContain('♥2')
 
-  await $.command.run({ ...RUN, command: 'spinner', args: 'companion off' })
-  const none = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...IDLE })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'companion off' })
+  const none = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...IDLE })
   expect(await none.findAll({ type: 'Client' })).toHaveLength(0)
   await none.unmount()
 })
 
-test('/spinner switches, hides and reports', async ($, on) => {
+test('/showtime switches, hides and reports', async ($, on) => {
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
 
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'thunder' })).text).toBe('已切换到 thunder')
-  const status = (await $.command.run({ ...RUN, command: 'spinner', args: '' })).text
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'thunder' })).text).toBe('已切换到 thunder')
+  const status = (await $.command.run({ ...RUN, command: 'showtime', args: '' })).text
   expect(status).toContain('当前主题：thunder')
   expect(status).toContain('thunder · Lv.1 · 经验 0 · ♥0')
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'nyancat' })).text).toContain('没有叫 nyancat 的主题')
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'random' })).text).toContain('每个会话随机一个主题')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'nyancat' })).text).toContain('没有叫 nyancat 的主题')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'random' })).text).toContain('每个会话随机一个主题')
 
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'off' })).text).toBe('运行动画已关闭')
-  const ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...SPINNER })
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'off' })).text).toBe('运行动画已关闭')
+  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...SPINNER })
   expect(await ui.findAll({ type: 'Text' })).toHaveLength(1)
   await ui.unmount()
-  const band = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...IDLE })
+  const band = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...IDLE })
   expect(await band.findAll({ type: 'Client' })).toHaveLength(0)
   await band.unmount()
 })
 
-test('/spinner theme asks which: an offered option, one typed under Other, or dismissed', async ($, on) => {
+test('/showtime theme asks which: an offered option, one typed under Other, or dismissed', async ($, on) => {
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
-  await $.command.run({ ...RUN, command: 'spinner', args: 'cat' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'cat' })
 
   answer = 'random'
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'theme' })).text).toContain('每个会话随机一个主题')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'theme' })).text).toContain('每个会话随机一个主题')
   expect(asked?.question).toContain('换哪个主题')
   expect(asked?.options).toHaveLength(4)
   expect(asked?.options[0]).toBe('random')
 
   answer = ' Ocean '
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'theme' })).text).toBe('已切换到 ocean')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'theme' })).text).toBe('已切换到 ocean')
   expect(asked?.options).not.toContain('ocean')
   expect(rows).toEqual([
-    ['spinner.theme', 'cat'],
-    ['spinner.theme', 'random'],
-    ['spinner.theme', 'ocean'],
+    ['showtime.theme', 'cat'],
+    ['showtime.theme', 'random'],
+    ['showtime.theme', 'ocean'],
   ])
 
   answer = 'nyancat'
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'theme' })).text).toContain('没有叫 nyancat 的主题')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'theme' })).text).toContain('没有叫 nyancat 的主题')
 
   answer = null
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'theme' })).text).toContain('当前主题：ocean')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'theme' })).text).toContain('当前主题：ocean')
   expect(rows).toHaveLength(3)
 })
 
@@ -479,17 +479,17 @@ test('a subagent\'s permission ask shows too, until its call ends', async ($, on
   await clock.settle()
   await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf build' }, tool_use_id: lastCallId } as never)
   await clock.advance(600)
-  let ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  let ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).toContain('等你确认一下～')
   await ui.unmount()
   await clock.advance(1000)
   await call
-  ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).not.toContain('等你确认')
   await ui.unmount()
 })
 
-test('/spinner arguments', async () => {
+test('/showtime arguments', async () => {
   expect(parseCommand('')).toEqual({ kind: 'status' })
   expect(parseCommand(' OFF ')).toEqual({ kind: 'visible', isOn: false })
   expect(parseCommand('stage on')).toEqual({ kind: 'stage', isOn: true })
@@ -506,20 +506,20 @@ test('/spinner arguments', async () => {
   expect(parseCommand('theme x')).toEqual({ kind: 'unknown', name: 'x' })
 })
 
-test('/spinner writes its /config rows, once per change', { options: { theme: 'dino' } }, async ($, on) => {
+test('/showtime writes its /config rows, once per change', { options: { theme: 'dino' } }, async ($, on) => {
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
-  await $.command.run({ ...RUN, command: 'spinner', args: 'neon' })
-  await $.command.run({ ...RUN, command: 'spinner', args: 'stage off' })
-  await $.command.run({ ...RUN, command: 'spinner', args: 'stage off' })
-  await $.command.run({ ...RUN, command: 'spinner', args: 'companion off' })
-  await $.command.run({ ...RUN, command: 'spinner', args: 'off' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'neon' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'stage off' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'stage off' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'companion off' })
+  await $.command.run({ ...RUN, command: 'showtime', args: 'off' })
   expect(rows).toEqual([
-    ['spinner.theme', 'neon'],
-    ['spinner.stage', false],
-    ['spinner.companion', false],
-    ['spinner.visible', false],
+    ['showtime.theme', 'neon'],
+    ['showtime.stage', false],
+    ['showtime.companion', false],
+    ['showtime.visible', false],
   ])
 })
 
@@ -528,12 +528,12 @@ test('settings older versions kept in the store move to /config rows', async ($,
   await $.session.start(START)
   await clock.settle()
   expect(rows).toEqual([
-    ['spinner.theme', 'cat'],
-    ['spinner.visible', true],
-    ['spinner.stage', false],
-    ['spinner.companion', true],
+    ['showtime.theme', 'cat'],
+    ['showtime.visible', true],
+    ['showtime.stage', false],
+    ['showtime.companion', true],
   ])
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text).toContain('当前主题：cat')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text).toContain('当前主题：cat')
   // A reload (a row changed) keeps the session's theme; the store holds nothing to move again.
   await $.session.start(START)
   await clock.settle()
@@ -544,27 +544,27 @@ test('random keeps the theme it drew this session across a reload', async ($, on
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
-  const first = (await $.command.run({ ...RUN, command: 'spinner', args: '' })).text?.split('\n')[0]
+  const first = (await $.command.run({ ...RUN, command: 'showtime', args: '' })).text?.split('\n')[0]
   await clock.advance(12_345)
   await $.session.start(START)
   await clock.settle()
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text?.split('\n')[0]).toBe(first)
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text?.split('\n')[0]).toBe(first)
 })
 
 test('the footer button turns the animations off and on, keeping the modes beneath it', async ($, on) => {
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
-  const footer = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', component: 'SessionMode', props: { modes: ['focus'] } })
-  expect(await footer.find({ type: 'Button', key: 'spinner-toggle' })).toBeDefined()
-  await footer.press({ key: 'spinner-toggle' })
-  const band = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...IDLE })
+  const footer = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', component: 'SessionMode', props: { modes: ['focus'] } })
+  expect(await footer.find({ type: 'Button', key: 'showtime-toggle' })).toBeDefined()
+  await footer.press({ key: 'showtime-toggle' })
+  const band = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...IDLE })
   expect(await band.findAll({ type: 'Client' })).toHaveLength(0)
   await band.unmount()
-  await footer.press({ key: 'spinner-toggle' })
+  await footer.press({ key: 'showtime-toggle' })
   expect(rows).toEqual([
-    ['spinner.visible', false],
-    ['spinner.visible', true],
+    ['showtime.visible', false],
+    ['showtime.visible', true],
   ])
   await footer.unmount()
 })
@@ -573,7 +573,7 @@ test('the footer button turns the animations off and on, keeping the modes benea
 test('a resumed session follows the rows', { options: { visible: false } }, async ($, on) => {
   host(on)
   await $.turn.start({ text: 'hi', turnId: 't1' })
-  const band = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  const band = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await band.findAll({ type: 'Client' })).toHaveLength(0)
   await band.unmount()
 })
@@ -581,7 +581,7 @@ test('a resumed session follows the rows', { options: { visible: false } }, asyn
 test('a resumed session picks its theme on its first turn', { options: { theme: 'dino' } }, async ($, on) => {
   host(on)
   await $.turn.start({ text: 'hi', turnId: 't1' })
-  const band = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  const band = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await drawn(band, 'work')).toContain('HI 00000')
   await band.unmount()
 })
@@ -597,7 +597,7 @@ test('nextTheme walks the drawable themes in order and wraps', () => {
 test('rotate moves to the next theme on each turn', { options: { theme: 'rotate' } }, async ($, on) => {
   host(on)
   await $.session.start(START)
-  const themeNow = async () => /当前主题：(\w+)/.exec((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text)![1]!
+  const themeNow = async () => /当前主题：(\w+)/.exec((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text)![1]!
   await $.turn.start({ text: 'hi', turnId: 't1' })
   const first = await themeNow()
   await $.turn.complete({ ...DONE, turnId: 't1' })
@@ -605,11 +605,11 @@ test('rotate moves to the next theme on each turn', { options: { theme: 'rotate'
   expect(await themeNow()).toBe(nextTheme(first as never))
 })
 
-test('/spinner rotate switches to rotating and persists the row', async ($, on) => {
+test('/showtime rotate switches to rotating and persists the row', async ($, on) => {
   host(on)
   await $.session.start(START)
   expect(parseCommand('rotate')).toEqual({ kind: 'theme', theme: 'rotate' })
   expect(parseCommand('theme rotate')).toEqual({ kind: 'theme', theme: 'rotate' })
-  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'rotate' })).text).toContain('每轮换一个主题')
-  expect(rows).toContainEqual(['spinner.theme', 'rotate'])
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'rotate' })).text).toContain('每轮换一个主题')
+  expect(rows).toContainEqual(['showtime.theme', 'rotate'])
 })

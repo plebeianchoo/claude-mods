@@ -8,7 +8,7 @@ export type PetStats = { xp: number; love: number }
 export type DockSeg = { text: string; c?: string; bg?: string; b?: boolean; d?: boolean }
 
 /**
- * The companion as spinner publishes it (`spinner.dock`) for whoever draws it:
+ * The companion as spinner publishes it (`showtime.dock`) for whoever draws it:
  * one loop of its current state. Kept alike in spinner's and hud's contracts.
  */
 export type DockPet = {
@@ -29,7 +29,7 @@ export type DockPet = {
 
 declare module 'claude-code' {
   interface PluginState {
-    spinner: {
+    showtime: {
       theme: string
       choice: string
       isHidden: boolean | null

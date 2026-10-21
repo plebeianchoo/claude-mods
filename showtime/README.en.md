@@ -1,13 +1,13 @@
-# spinner: animations and a companion pet for Claude Code
+# showtime: animations and a companion pet for Claude Code
 
 [简体中文](README.md) · **English**
 
 While Claude works, a little show plays above the prompt: a pixel-art shoot-em-up, Claude's mascot Clawd, a dot-eater, a rainbow cat and more, with a pet that changes pose as Claude thinks, runs tools and replies. When the turn ends, a burst of confetti with the time it took. Fifteen themes, switched any time, one of them a visualizer of whatever your computer is playing.
 
-![spinner: Clawd through a turn, the companion's bubble and the finale](assets/clawd.gif)
+![showtime: Clawd through a turn, the companion's bubble and the finale](assets/clawd.gif)
 
 - **Stage**: an animated scene in the band above the prompt while a turn runs. Other mods' bands (hud, ts-band, hitokoto) stay beneath it.
-- **Companion**: a pet in a row under the stage, in the spirit of Codex's pets, with poses for thinking, using tools, responding and waiting. Its bubble says only what Claude Code's own spinner line doesn't: the tool running (`Bash: npm test`, `Edit: themes.ts`) or a permission prompt waiting on you; while the model thinks it just looks busy. Parallel subagents are counted (`Agent ×3`), a single one shows its task. When Claude runs tests or commits, it says so for a few seconds (tests passed, tests failed, committed). It stays between turns (done, interrupted, failed; dozing after five quiet minutes), gains a level as turns finish and as tests pass and commits land (`Lv.4`), and a click on the band or `/spinner pet` pats it (`♥12`, hearts float up). Its level and affection are kept across sessions, and sessions running side by side all raise the one pet.
+- **Companion**: a pet in a row under the stage, in the spirit of Codex's pets, with poses for thinking, using tools, responding and waiting. Its bubble says only what Claude Code's own spinner line doesn't: the tool running (`Bash: npm test`, `Edit: themes.ts`) or a permission prompt waiting on you; while the model thinks it just looks busy. Parallel subagents are counted (`Agent ×3`), a single one shows its task. When Claude runs tests or commits, it says so for a few seconds (tests passed, tests failed, committed). It stays between turns (done, interrupted, failed; dozing after five quiet minutes), gains a level as turns finish and as tests pass and commits land (`Lv.4`), and a click on the band or `/showtime pet` pats it (`♥12`, hearts float up). Its level and affection are kept across sessions, and sessions running side by side all raise the one pet.
 - **Mascot on the spinner line**: with the companion turned off, the mascot moves in front of Claude Code's own spinner line instead (`[◉_◉]⊃━━ ✢ Choreographing… (4s · ↓ 14 tokens)`), whose word, elapsed time and tokens stay as they are. One mascot shows at a time.
 - **Finale**: for three seconds after a turn ends, confetti bursts around the mascot with the time the turn took (`(=^▽^=)ﾉ  Done · 12s`); an interrupted turn gets a sad face, a failed one a glitch.
 
@@ -28,7 +28,7 @@ Sound, four rows: `audio` turns the sound your Mac is playing (music, a video, a
 
 ![audio, live: the band as music plays](assets/audio-live.png)
 
-`audio` needs macOS 14.2 or later and `swiftc` (Xcode Command Line Tools: `xcode-select --install`). On first use the mod builds a small helper from `hooks/audio-tap.swift` (about two seconds) and runs it while the theme shows: it taps the system output through Core Audio and hands the mod only band levels, twenty times a second; no sound is kept, written or sent. macOS asks once to let your terminal record system audio; denied, the bars stay flat. Without a tap (another OS, the desktop app, a failed build) the band shows a sleeping dancer and `/spinner` says why. Previews and the GIF below play a made-up signal.
+`audio` needs macOS 14.2 or later and `swiftc` (Xcode Command Line Tools: `xcode-select --install`). On first use the mod builds a small helper from `hooks/audio-tap.swift` (about two seconds) and runs it while the theme shows: it taps the system output through Core Audio and hands the mod only band levels, twenty times a second; no sound is kept, written or sent. macOS asks once to let your terminal record system audio; denied, the bars stay flat. Without a tap (another OS, the desktop app, a failed build) the band shows a sleeping dancer and `/showtime` says why. Previews and the GIF below play a made-up signal.
 
 | | |
 | --- | --- |
@@ -41,33 +41,33 @@ Sound, four rows: `audio` turns the sound your Mac is playing (music, a video, a
 | `ocean`<br>![ocean](assets/ocean.gif) | `matrix`<br>![matrix](assets/matrix.gif) |
 | `audio`<br>![audio](assets/audio.gif) | |
 
-Every theme's mascot, stage and companion in one still: [assets/gallery.png](assets/gallery.png); a still per theme sits beside each GIF (`assets/<theme>.png`). `scripts/spinner-shots.ts` at the repository's root renders them all again from `hooks/themes.ts`.
+Every theme's mascot, stage and companion in one still: [assets/gallery.png](assets/gallery.png); a still per theme sits beside each GIF (`assets/<theme>.png`). `scripts/showtime-shots.ts` at the repository's root renders them all again from `hooks/themes.ts`.
 
 `chomp`, `sparky`, `bluecat` and `nyan` are fan-made homages drawn from scratch, under names of their own; `clawd` is drawn as Claude Code draws him on its welcome screen.
 
 ## Install
 
 ```sh
-claude plugin marketplace add hoobnn/hoobnn-agent-mods
-claude plugin install spinner@hoobnn-agent-mods
+claude plugin marketplace add <path-to>/claude-mods
+claude plugin install showtime@claudebro-mods
 ```
 
 The pixel scenes want a terminal with true color (Ghostty, iTerm2, WezTerm, kitty).
 
 ## Commands
 
-`/spinner` shows the theme, the companion's level and affection and the theme list; `/spinner <theme>` or `/spinner random` switches live, `/spinner theme` asks which in a dialog (random and three themes offered, any other typed under Other), `/spinner preview [theme]` plays a scene above the prompt for eight seconds, `/spinner pet` pats the companion, `/spinner off` / `on` turns everything off and on, `/spinner stage off` / `on` the scene alone, `/spinner companion off` / `on` the companion alone. What `/spinner` sets it writes to the options below (`theme`, `visible`, `stage`, `companion`), so `/config` shows it and it is kept across sessions; the change applies at once, and the mod reloads with it. A `random` theme keeps the one it drew for the session through those reloads.
+`/showtime` shows the theme, the companion's level and affection and the theme list; `/showtime <theme>` or `/showtime random` switches live, `/showtime theme` asks which in a dialog (random and three themes offered, any other typed under Other), `/showtime preview [theme]` plays a scene above the prompt for eight seconds, `/showtime pet` pats the companion, `/showtime off` / `on` turns everything off and on, `/showtime stage off` / `on` the scene alone, `/showtime companion off` / `on` the companion alone. What `/showtime` sets it writes to the options below (`theme`, `visible`, `stage`, `companion`), so `/config` shows it and it is kept across sessions; the change applies at once, and the mod reloads with it. A `random` theme keeps the one it drew for the session through those reloads.
 
 ## Options
 
-- `visible`: the animations at all (default on; `/spinner off` / `on`, or the **Spinner** button in the prompt footer).
+- `visible`: the animations at all (default on; `/showtime off` / `on`, or the **Showtime** button in the prompt footer).
 - `footerButton`: that button in the prompt footer (default on).
-- `theme`: the theme (default `random`; `/spinner <theme>` sets it).
+- `theme`: the theme (default `random`; `/showtime <theme>` sets it).
 - `stage`: the animated scene above the prompt (default on).
 - `celebrate`: the finale when a turn ends (default on).
 - `companion`: the companion's row (default on).
 - `reducedMotion`: the mascot, the scene and the companion drawn as still pictures that change with what the model does, without moving (default off).
-- `language`: the language of `/spinner`'s replies, the companion's bubbles and the finale's label (`auto`, `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`); `auto` follows Claude Code's `language` setting, then the system locale, then English.
+- `language`: the language of `/showtime`'s replies, the companion's bubbles and the finale's label (`auto`, `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`); `auto` follows Claude Code's `language` setting, then the system locale, then English.
 
 The band takes the theme's rows plus one for the companion while a turn runs, and one row between turns; when the band has less room, the scene steps aside and the companion stays; under three rows or 60 columns the companion takes one row: the mascot, its bubble and its level. The mascot, the stage and the companion draw on the terminal and the desktop app (the surfaces that run a `Client`); elsewhere Claude Code's own spinner shows unchanged. The pixel scenes want a terminal with true color (Ghostty, iTerm2, WezTerm, kitty).
 
@@ -77,12 +77,12 @@ The band takes the theme's rows plus one for the companion while a turn runs, an
 
 ## Development
 
-- `hooks/register.tsx`: the hooks: the session's start, the turn's events (activity, finale, pet), `/spinner`, the mascot on the spinner line and the band.
+- `hooks/register.tsx`: the hooks: the session's start, the turn's events (activity, finale, pet), `/showtime`, the mascot on the spinner line and the band.
 - `hooks/config.ts`: the options, read once into a typed `Config`.
-- `hooks/command.ts`: `/spinner`'s arguments to what they ask for.
+- `hooks/command.ts`: `/showtime`'s arguments to what they ask for.
 - `hooks/pet.ts`: the companion's level and bubble, tool labels, durations.
 - `hooks/themes.ts`, `hooks/cells.ts`: the themes and the cell grid they draw on; `hooks/stage.tsx`, `hooks/sprite.tsx`: the `Client` modules that animate them.
 - `hooks/audio.ts`, `hooks/audio-tap.swift`: the `audio` theme's meter (gain, peaks, beats) and the tap it reads; register.tsx builds and runs the tap, and the band asks for levels each frame over `ui.message`.
 - `hooks/i18n.ts`: the messages.
 - `hooks/kit/`: copies of `claude-code/kit`; edit the source and run `scripts/sync-kit.sh`.
-- `scripts/spinner-shots.ts` at the repository's root renders every GIF and still again from `hooks/themes.ts`.
+- `scripts/showtime-shots.ts` at the repository's root renders every GIF and still again from `hooks/themes.ts`.

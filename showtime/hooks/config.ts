@@ -13,7 +13,7 @@ export type Config = {
   /** A theme, `random` for a new one each session, or `rotate` for the next one each turn. */
   theme: Choice
   isVisible: boolean
-  /** A Spinner button in the prompt footer. */
+  /** A Showtime button in the prompt footer. */
   hasFooterButton: boolean
   hasStage: boolean
   hasFinale: boolean
