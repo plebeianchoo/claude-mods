@@ -4,4 +4,5 @@
 # (claude-code/kit/) would only diff the same files a second time.
 /^\(diff --git\|---\|+++\) /{
 s# \([ab]\)/claude-code/spinner/# \1/showtime/#g
+s#/showtime/tests/spinner\.test\.tsx#/showtime/tests/showtime.test.tsx#g
 }
