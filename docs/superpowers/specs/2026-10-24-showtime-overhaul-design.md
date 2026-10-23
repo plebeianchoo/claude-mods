@@ -167,49 +167,94 @@ is adding a file and one import line. The shared drawing helpers (`canvas`, `dra
 
 ### Existing themes
 
-The six pixel scenes get their section 4 reactions and keep their art. The eight
-two-row scenes get the shared reactions and keep their art. `audio` is removed with
+The six pixel scenes get their section 4 reactions and the animation polish below,
+keeping their characters and palettes. The eight two-row scenes get the shared
+reactions and the same polish. `audio` is removed with
 `audio.ts`, `audio-tap.swift`, `AUDIO_PET`, the `tap` state, the `ui.message` level
 feed and the macOS notes in the READMEs.
+
+### Animation: smoother and more of it
+
+Every scene, existing or new, meets these rules. The frame rate stays at
+`STAGE_MS` (100 ms, ten frames a second) so the NUC's CPU is not spent on redraws;
+smoothness comes from the motion design, not from more frames per second.
+
+- Motion moves one half-block cell per frame at most, never jumps; characters
+  that walk have at least four frames per step cycle; anything that crosses the band
+  eases in and out at the edges (the `stroll` helper, extended with easing).
+- Nothing on screen is ever fully still while a turn runs: each act has an idle
+  motion (a blink, a bob, a scrolling ground, drifting particles) with a cycle of
+  at least twelve frames, and every scene has at least three independently moving
+  layers (background, character, particles or props).
+- Transitions between acts (think to tool, tool to ask) are animated over four to
+  eight frames rather than cut: a character turns, sits, raises a sign.
+- Reactions play as short animations (a burst, a tumble, a climb) of eight to
+  thirty frames with a resting state after, keyed off `newsAge` or a change in
+  `done` or `agents`, never as an instant swap.
+- Two-row scenes get a second moving layer where they have one, and a step cycle
+  where they slide.
+
+### Building and reviewing a theme, one at a time
+
+Themes are built strictly one at a time, in the order below, never in parallel
+(one subagent or the main session at a time), to keep the NUC's CPU low. Each
+theme follows the same loop before it is committed:
+
+1. Write the theme file and its pet; run validate, test and tsc.
+2. Render a review sheet, `assets/review/<theme>.png`, with `scripts/shots.ts`:
+   a strip of twelve consecutive frames for each act (think, tool, ask, say), one
+   strip per reaction (agents 2, done 3/7, done 7/7, testFail at ages 0, 8, 20,
+   commit at ages 0, 8, 20) and the pet's frames, labelled.
+3. Look at the sheet (the Read tool shows the image) and judge it against the
+   animation rules and the theme's brief: does it read at a glance, is every
+   moving layer moving, are frames continuous, is each reaction visible and
+   understandable, do the colors hold on a dark terminal. Write the verdict in
+   one line into the commit message.
+4. Fix what fails and render again, up to three rounds; what is still not right
+   after three is noted in `THEMES-BACKLOG.md` under the theme as polish to do.
+5. Show the sheet in the terminal (peek's show_image) so Jeremy sees it, regenerate
+   `assets/<theme>.png` and the gallery, commit.
+
+The review sheets are kept in the repository so a later polish can compare.
 
 ### New themes (24)
 
 Pixel scenes of `SCENE_ROWS` rows in the style of the existing six, each with its own pet art
 and all six reaction slots (agents, tasks, tool kind, testFail, testPass or commit),
-built in the waves below. A theme's description here is its brief; the plan fixes
-the sprites.
+built one at a time in the order below. A theme's description here is its brief; the plan fixes
+the sprites. The groups are only an order, not parallel batches.
 
-Wave A: stack, plumber, snake, launch.
+Group A: stack, plumber, snake, launch.
 - stack: a falling-block puzzle; a piece drops per tool call, lines clear as tasks complete, a column per agent. Pet: a tetromino.
 - plumber: a platformer runner over pipes; a ? block per task, a coin as it completes, a flagpole at 100%. Pet: a mushroom.
 - snake: grows per completed task, an apple per running tool, one snake per agent. Pet: a small snake.
 - launch: a rocket on a pad; countdown while thinking, engines while tools run, lifts off with done/total, stage separation per agent, splashdown on testFail. Pet: an astronaut.
 
-Wave B: frogger, kitchen, railway, garden.
+Group B: frogger, kitchen, railway, garden.
 - frogger: a frog across lanes; a lane per task crossed as done, faster logs while tools run, a truck per agent, squashed on testFail. Pet: a frog.
 - kitchen: a chef at a stove; a plate per task served as done, a pot boils while tools run, a sous-chef per agent, a fire on testFail, a bell on commit. Pet: a dumpling.
 - railway: a steam train; a carriage per task loaded as done, the signal drops while a permission waits, an extra engine per agent, a tunnel on commit. Pet: a signal lamp.
 - garden: plots; a seed per task sprouts as done, rain while tools run, a bee per agent, wilt on testFail, bloom on commit. Pet: a sprout.
 
-Wave C: racetrack, aquarium, submarine, orchestra.
+Group C: racetrack, aquarium, submarine, orchestra.
 - racetrack: cars on an oval, one per agent; laps read done/total, a pit stop while a permission waits, a spin-out on testFail, the chequered flag at 100%. Pet: a traffic cone.
 - aquarium: a tank; a fish per agent, bubbles while tools run, a chest opens per completed task, the water clouds on testFail, a diver on commit. Pet: a seahorse.
 - submarine: the deep; sonar pings while thinking, periscope up while a permission waits, a torpedo per completed task, an escort per agent, a leak on testFail. Pet: a jellyfish.
 - orchestra: a pixel band; a musician per agent, the conductor waves while thinking, a note per completed task, a clash on testFail, applause on commit. Pet: a metronome.
 
-Wave D: roomba, coffee, penguins, ufo.
+Group D: roomba, coffee, penguins, ufo.
 - roomba: crumbs equal total, eaten as done, bumps walls while thinking, a second roomba per agent, stuck on testFail, a cat rides it on commit. Pet: a dust bunny.
 - coffee: a barista; a cup per task filled as done, the machine steams while bash runs, a barista per agent, a spill on testFail, latte art on commit. Pet: a coffee bean.
 - penguins: an ice floe; a slide per completed task, a penguin per agent huddling, the floe cracks on testFail, a fish on commit, all look up while a permission waits. Pet: a chick.
 - ufo: a saucer over a farm; a cow beamed up per completed task, hovering while thinking, a saucer per agent, a crash on testFail, flies off on commit. Pet: a small alien.
 
-Wave E: dragon, samurai, warp, volcano.
+Group E: dragon, samurai, warp, volcano.
 - dragon: circles a castle while thinking, breathes fire while bash runs, a tower per task lit as done, a wyvern per agent, an arrow on testFail, lands on the keep on commit. Pet: a hatchling.
 - samurai: a duel under a red moon; ready stance while thinking, a strike per tool call, a lantern per task lit as done, a rival per agent, petals falling; staggers on testFail, sheathes on commit. Pet: a tiny ronin.
 - warp: a bridge view; stars stream by tool kind, warp while bash runs, a planet per completed task, an escort per agent, red shields on testFail, a station on commit. Pet: a droid.
 - volcano: smoke while thinking, lava while tools run, a hut per task safe as done, a boat per agent, eruption on testFail, a rainbow on commit. Pet: a lava blob.
 
-Wave F: dungeon, mage, tavern, necromancer.
+Group F: dungeon, mage, tavern, necromancer.
 - dungeon: a party; a room per task lit as cleared, torches while thinking, a monster per agent, a trap on testFail, a chest at 100%, a d20 on commit. Pet: a d20.
 - mage: a spell circle; runes orbit while thinking, a bolt per tool call, a familiar per agent, a scroll per task burning as done, a fizzle on testFail, a summoned dragon on commit. Pet: a familiar cat.
 - tavern: a quest board with a scroll per task torn off as done, the bard plays while thinking, a patron per agent, a brawl on testFail, a toast on commit. Pet: a frothy mug.
@@ -225,12 +270,15 @@ later idea.
 
 `showtime/scripts/shots.ts`, adapted from upstream's `spinner-shots.ts` (MIT; the
 README's reference to a root `scripts/showtime-shots.ts` is wrong today), renders
-`assets/<theme>.png` for every theme and `assets/gallery.png`. GIFs are kept for the
-fourteen existing themes and not made for new ones.
+`assets/<theme>.png` for every theme, `assets/gallery.png`, and the review sheet
+`assets/review/<theme>.png` described above. It renders one theme per run, with
+`--theme <name>`, so a run is short and never loads the NUC; the gallery is
+assembled from the per-theme stills. GIFs are kept for the fourteen existing themes
+and not made for new ones.
 
 ## 6. Files
 
-- New: `hooks/feed.ts`, `hooks/reactions.ts`, `hooks/draw.ts`, `hooks/themes/<name>.ts` (38), `scripts/shots.ts`, `THEMES-BACKLOG.md`.
+- New: `hooks/feed.ts`, `hooks/reactions.ts`, `hooks/draw.ts`, `hooks/themes/<name>.ts` (38), `scripts/shots.ts`, `assets/review/<theme>.png` (38), `THEMES-BACKLOG.md`.
 - Changed: `hooks/register.tsx` (feed atom, four hooks, Signals, the agent row, `/showtime feed`; its running-tools map moves into the feed), `hooks/themes.ts` (index + `Signals`), `hooks/scenes.ts` (split into theme files, then removed), `hooks/pets.ts` (shared pet frame logic only), `hooks/stage.tsx` (Signals props, newsAge), `hooks/kit/pet.tsx` (two extra rows, `drawPetLine` progress; the kit's source copy edited alike so the generated header stays true), `hooks/command.ts`, `hooks/config.ts`, `hooks/i18n.ts` (keys `feed.task`, `feed.more`, `opt.feed` in all eleven languages), `types/index.d.ts` (`Feed`, `DockPet` fields), `.claude-plugin/plugin.json` (option `feed`, version 1.0.0, no `audio` option text), `README.md`, `README.en.md`, `../.claude-plugin/marketplace.json` (description), `../upstream/maps/hoobnn-spinner.sed` (paths that moved).
 - Removed: `hooks/audio.ts`, `hooks/audio-tap.swift`, `assets/audio*.{gif,png}`.
 
@@ -248,6 +296,10 @@ fourteen existing themes and not made for new ones.
 - Scenes: every theme's scene returns a grid of its `rows` rows and `w` cells for
   each act, with and without agents, at 0/0, 3/7 and 7/7, and for each news kind at
   age 0 and age 60; no theme throws; every theme has a pet and all sprite poses.
+- Motion: for every theme, over sixty consecutive frames of each act, no two
+  consecutive frames are identical, and no cell's foreground character moves more
+  than one column between consecutive frames (a scroll of the whole ground
+  excepted); these two checks are the testable half of the animation rules.
 - Registry: `THEME_NAMES` has 38 entries, no `audio`; `random` and `rotate` never
   draw a missing name; a stored `audio` loads as `random`.
 
@@ -256,14 +308,15 @@ Verification per step: `claude plugin validate showtime/.claude-plugin/plugin.js
 engine-written one, so it type-checks once the mod has loaded), then
 `claude plugin marketplace update claudebro-mods && claude plugin update
 showtime@claudebro-mods` and a real turn with tasks and a subagent watched in the
-bottom pane. Stills are regenerated at the end of each wave.
+bottom pane. Each theme also passes the review loop of section 5 before its commit.
 
 ## 8. Order of work
 
 1. Registry refactor and audio removal (no visible change; every test green).
 2. Feed model, companion block, option, docs.
-3. Signals plumbing, reactions in the six pixel scenes and the shared reactions.
-4. Waves A to F, four themes each, stills after each wave.
-5. Version 1.0.0, READMEs, marketplace description, backlog file, upstream map.
+3. Signals plumbing, the shared reactions, and the shots script with its review sheet.
+4. The fourteen existing themes, one at a time: reactions, animation polish, review loop.
+5. The twenty-four new themes, one at a time, groups A to F in order, review loop each.
+6. Version 1.0.0, READMEs, marketplace description, backlog file, upstream map.
 
 Each step is committed on its own in `claude-mods`, then the master repo's pointer.
