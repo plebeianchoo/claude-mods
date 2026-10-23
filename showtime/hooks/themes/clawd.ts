@@ -4,7 +4,7 @@ import type { Grid } from '../cells'
 import { SCENE_ROWS, glyphStars, ground, stroll } from '../draw'
 import { CLAWD_SHAPE } from '../pets'
 import type { PetArt } from '../pets'
-import type { Act, Theme } from '../themes'
+import type { Signals, Theme } from '../themes'
 
 const CLAUDE = '#d77757'
 const CLAWD_ART = {
@@ -17,7 +17,8 @@ const CLAWD_COLORS = { O: CLAUDE, L: '#eb9b80', D: '#b05d42', E: '#2b1d18' }
 const BLOCK_COLORS = ['#7aa2f7', '#9ece6a', '#e0af68', '#bb9af7', '#7dcfff']
 const SPIN = ['·', '✢', '✳', '✶', '✻', '✽', '✻', '✶', '✳', '✢']
 
-export function clawdScene(t: number, w: number, act: Act): Grid {
+export function clawdScene(t: number, w: number, s: Signals): Grid {
+  const act = s.act
   const cv = canvas(w, SCENE_ROWS)
   // A plank floor scrolling under his feet.
   ground(cv, t, 7, 0.5, ['#6b4f43', '#5a4238', '#6b4f43', '#7a5a4c', '#5a4238'])

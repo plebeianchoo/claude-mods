@@ -3,9 +3,10 @@ import { blank, frame, mod, put } from '../cells'
 import type { Grid } from '../cells'
 import { CLAWD_SHAPE } from '../pets'
 import type { PetArt } from '../pets'
-import type { Theme } from '../themes'
+import { withReactions } from '../reactions'
+import type { Signals, Theme } from '../themes'
 
-export function oceanScene(t: number, w: number): Grid {
+export function oceanScene(t: number, w: number, s: Signals): Grid {
   const g = blank(w, 2)
   for (let x = 0; x < w; x++) {
     put(g, x, 0, mod(x + Math.floor(t / 2), 6) < 3 ? '~' : '≈', { c: '#48cae4', d: mod(x - t, 5) !== 0 })
@@ -20,7 +21,7 @@ export function oceanScene(t: number, w: number): Grid {
     if (age < 4) put(g, bx, 1, 'o', { c: '#caf0f8', d: true })
     else if (age < 8) put(g, bx + 1, 0, '°', { c: '#caf0f8' })
   }
-  return g
+  return withReactions(g, t, s, '#ffb703')
 }
 
 /** No pet of its own: Clawd's shape in this theme's color. */

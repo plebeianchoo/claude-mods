@@ -3,7 +3,7 @@ import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
 import type { PetArt } from '../pets'
-import type { Act, Theme } from '../themes'
+import type { Signals, Theme } from '../themes'
 
 const NYAN_ART = [
   ['.TTTTTTTT.....', 'TPPSPPSPT.G..G', 'TPSPPPPPTGGGGG', 'TPPPPSPPTGKGGK', 'TPSPPPPSTGPGGP', '.TTTTTTTT.GGG.', '..L.L..L.L....'],
@@ -12,7 +12,8 @@ const NYAN_ART = [
 const RAINBOW = ['#ff0000', '#ff9900', '#ffff00', '#33ff00', '#0099ff', '#6633ff']
 const SPARKLE = [['.W.', 'W.W', '.W.'], ['...', '.W.', '...'], ['W.W', '...', 'W.W']]
 
-export function nyanScene(t: number, w: number, act: Act): Grid {
+export function nyanScene(t: number, w: number, s: Signals): Grid {
+  const act = s.act
   const cv = canvas(w, SCENE_ROWS)
   const speed = act === 'tool' ? 3 : act === 'ask' ? 0.5 : 2
   const x = Math.floor(w * 0.45) + Math.round(Math.sin(t * 0.15) * 3)

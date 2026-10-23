@@ -3,7 +3,7 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import { parseCommand } from '../hooks/command'
 import { busyLabel, formatDuration, levelOf, newsOf, toolLabel } from '../hooks/pet'
-import { FINALE_MS, SPRITE_MS, STAGE_MS, THEMES, THEME_NAMES, finaleScene, nextTheme, petRow, pickRandom, segments, textWidth } from '../hooks/themes'
+import { FINALE_MS, IDLE_SIGNALS, SPRITE_MS, STAGE_MS, THEMES, THEME_NAMES, finaleScene, nextTheme, petRow, pickRandom, segments, textWidth } from '../hooks/themes'
 import type { Act } from '../hooks/themes'
 
 const START = { cwd: '/tmp', surface: 'terminal', isInteractive: true } as const
@@ -106,7 +106,7 @@ test('every scene, finale and companion row fills exactly its width, every frame
     const theme = THEMES[name]
     for (const w of [16, 37, 80, 160]) {
       for (let t = 0; t < 150; t += 7) {
-        const scene = theme.scene(t, w, acts[t % 4]!)
+        const scene = theme.scene(t, w, { ...IDLE_SIGNALS, act: acts[t % 4]! })
         expect(scene).toHaveLength(theme.rows)
         const rows = [
           ...scene,

@@ -3,9 +3,10 @@ import { blank, frame, mod, put } from '../cells'
 import type { Grid } from '../cells'
 import { CLAWD_SHAPE } from '../pets'
 import type { PetArt } from '../pets'
-import type { Theme } from '../themes'
+import { withReactions } from '../reactions'
+import type { Signals, Theme } from '../themes'
 
-export function mechaScene(t: number, w: number): Grid {
+export function mechaScene(t: number, w: number, s: Signals): Grid {
   const g = blank(w, 2)
   const cycle = 36
   const phase = mod(t, cycle)
@@ -30,7 +31,7 @@ export function mechaScene(t: number, w: number): Grid {
     if (dist >= 0 && dist < 6) put(g, x, 0, '▔▁▂▃▅▇'[5 - dist]!, { c: '#4cc9f0', d: dist > 2 })
   }
   put(g, w - 12, 0, `TGT ${String(score).padStart(4, '0')}`, { c: '#4361ee', b: true })
-  return g
+  return withReactions(g, t, s, '#4cc9f0')
 }
 
 /** No pet of its own: Clawd's shape in this theme's color. */

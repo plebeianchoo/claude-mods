@@ -3,6 +3,8 @@
 // everything here is a function of the theme, the tick and the width.
 import { blank, frame, hsl, mod, noise, padTo, put, textWidth } from './cells'
 import type { Grid, Style } from './cells'
+import type { ToolKind } from './feed'
+import type { News } from './pet'
 import type { PetArt } from './pets'
 import { CLAWD } from './themes/clawd'
 import { THUNDER } from './themes/thunder'
@@ -20,6 +22,8 @@ import { OCEAN } from './themes/ocean'
 import { MATRIX } from './themes/matrix'
 
 export * from './cells'
+export type { ToolKind } from './feed'
+export type NewsKind = News
 
 export const THEME_NAMES = [
   'clawd',
@@ -43,6 +47,20 @@ export type Mode = 'requesting' | 'responding' | 'thinking' | 'tool-input' | 'to
 export type Pose = 'think' | 'tool' | 'say' | 'wait'
 /** What the turn is doing, as the band's companion tells it. */
 export type Act = 'think' | 'tool' | 'ask' | 'say' | 'wait'
+/** What a scene reacts to. Ages are frames since that field last changed, counted by the stage. */
+export type Signals = {
+  act: Act
+  tool?: ToolKind
+  agents: number
+  done: number
+  total: number
+  news?: NewsKind
+  newsAge: number
+  actAge: number
+  doneAge: number
+  agentsAge: number
+}
+export const IDLE_SIGNALS: Signals = { act: 'think', agents: 0, done: 0, total: 0, newsAge: 999, actAge: 999, doneAge: 999, agentsAge: 999 }
 export type Finale = 'answer' | 'aborted' | 'error'
 /** The companion's mood between turns. */
 export type Mood = 'hello' | 'ready' | 'aborted' | 'error' | 'sleep'
@@ -68,7 +86,7 @@ export type Theme = {
   /** The companion's body and face in this theme. */
   pet: PetArt
   /** The band's scene while a turn runs: `rows` rows of `w` cells. */
-  scene: (t: number, w: number, act: Act) => Grid
+  scene: (t: number, w: number, s: Signals) => Grid
 }
 
 /** Milliseconds per frame: the mascot's, the band's, the companion's between turns. */

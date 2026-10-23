@@ -3,9 +3,10 @@ import { blank, hsl, mod, put } from '../cells'
 import type { Grid } from '../cells'
 import { CLAWD_SHAPE } from '../pets'
 import type { PetArt } from '../pets'
-import type { Theme } from '../themes'
+import { withReactions } from '../reactions'
+import type { Signals, Theme } from '../themes'
 
-export function neonScene(t: number, w: number): Grid {
+export function neonScene(t: number, w: number, s: Signals): Grid {
   const g = blank(w, 2)
   const blocks = ' ▁▂▃▄▅▆▇█'
   for (let x = 0; x < w; x++) {
@@ -15,7 +16,7 @@ export function neonScene(t: number, w: number): Grid {
     put(g, x, 1, blocks[Math.min(8, h)]!, { c })
     if (h > 8) put(g, x, 0, blocks[h - 8]!, { c })
   }
-  return g
+  return withReactions(g, t, s, '#f72585')
 }
 
 /** No pet of its own: Clawd's shape in this theme's color. */

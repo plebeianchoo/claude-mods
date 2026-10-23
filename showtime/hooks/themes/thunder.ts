@@ -3,7 +3,7 @@ import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Grid } from '../cells'
 import { SCENE_ROWS, glyphStars } from '../draw'
 import type { PetArt } from '../pets'
-import type { Act, Theme } from '../themes'
+import type { Signals, Theme } from '../themes'
 
 const JET = ['..AA........', '.FBBBBWW....', 'FFBBBBBBBBC.', '.FBBBBBB....', '..AA........']
 const FOE = [
@@ -14,7 +14,8 @@ const SAUCER = [['..PP..', '.PPPP.', 'PWPWPW', '.PPPP.'], ['..PP..', '.PPPP.', '
 
 const H = SCENE_ROWS * 2
 
-export function thunderScene(t: number, w: number, act: Act): Grid {
+export function thunderScene(t: number, w: number, s: Signals): Grid {
+  const act = s.act
   const cv = canvas(w, SCENE_ROWS)
   // Three layers of stars streaming past.
   for (let layer = 1; layer < 3; layer++) {

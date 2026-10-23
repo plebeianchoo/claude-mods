@@ -3,7 +3,7 @@ import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Grid } from '../cells'
 import { SCENE_ROWS, clouds, ground, ridge } from '../draw'
 import type { PetArt } from '../pets'
-import type { Act, Theme } from '../themes'
+import type { Signals, Theme } from '../themes'
 
 const MOUSE = [
   ['K.....K...', 'YY...YY...', '.YYYYYY...', 'YYKYYKYY..', 'RYYYKYYR..', '.YYYYYY...', '.Y.YY.Y...'],
@@ -12,7 +12,8 @@ const MOUSE = [
 const TAIL = ['...YYY', '..YY..', '.YYYY.', '...YY.', '..BB..']
 const BOLT = ['..WW', '.WW.', 'WWWW', '..W.', '.W..', 'W...', 'W...', '....']
 
-export function sparkyScene(t: number, w: number, act: Act): Grid {
+export function sparkyScene(t: number, w: number, s: Signals): Grid {
+  const act = s.act
   const cv = canvas(w, SCENE_ROWS)
   clouds(cv, t, Math.max(2, Math.floor(w / 25)), 0.15, '#3a4a5c', 2, 4)
   ridge(cv, t, 6, 3, 0.15, '#2d4a3e', 2)
