@@ -24,12 +24,6 @@ Pixel-art scenes, three rows of half-block pixels:
 
 Character scenes, two rows: `cat`, `bunny`, `sakura`, `mecha`, `neon`, `dino`, `ocean`, `matrix`. Or `random` for a new one each session.
 
-Sound, four rows: `audio` turns the sound your Mac is playing (music, a video, a call) into a live spectrum, a bar per band with its peak falling above it, while a dancer on the left moves on the beat and the companion wears big headphones. While it plays, the band stays up between turns too; a few seconds after it stops, the band folds away. `random` never draws it: pick it by name.
-
-![audio, live: the band as music plays](assets/audio-live.png)
-
-`audio` needs macOS 14.2 or later and `swiftc` (Xcode Command Line Tools: `xcode-select --install`). On first use the mod builds a small helper from `hooks/audio-tap.swift` (about two seconds) and runs it while the theme shows: it taps the system output through Core Audio and hands the mod only band levels, twenty times a second; no sound is kept, written or sent. macOS asks once to let your terminal record system audio; denied, the bars stay flat. Without a tap (another OS, the desktop app, a failed build) the band shows a sleeping dancer and `/showtime` says why. Previews and the GIF below play a made-up signal.
-
 | | |
 | --- | --- |
 | `clawd`<br>![clawd](assets/clawd.gif) | `thunder`<br>![thunder](assets/thunder.gif) |
@@ -39,7 +33,6 @@ Sound, four rows: `audio` turns the sound your Mac is playing (music, a video, a
 | `sakura`<br>![sakura](assets/sakura.gif) | `mecha`<br>![mecha](assets/mecha.gif) |
 | `neon`<br>![neon](assets/neon.gif) | `dino`<br>![dino](assets/dino.gif) |
 | `ocean`<br>![ocean](assets/ocean.gif) | `matrix`<br>![matrix](assets/matrix.gif) |
-| `audio`<br>![audio](assets/audio.gif) | |
 
 Every theme's mascot, stage and companion in one still: [assets/gallery.png](assets/gallery.png); a still per theme sits beside each GIF (`assets/<theme>.png`). `scripts/showtime-shots.ts` at the repository's root renders them all again from `hooks/themes.ts`.
 
@@ -82,7 +75,6 @@ The band takes the theme's rows plus one for the companion while a turn runs, an
 - `hooks/command.ts`: `/showtime`'s arguments to what they ask for.
 - `hooks/pet.ts`: the companion's level and bubble, tool labels, durations.
 - `hooks/themes.ts`: the theme type and the registry; `hooks/themes/<name>.ts`: one theme each (scene, words, pet); `hooks/draw.ts`: the shared scene layers; `hooks/pets.ts`: the pet's drawing; `hooks/cells.ts`: the cell grid they draw on; `hooks/stage.tsx`, `hooks/sprite.tsx`: the `Client` modules that animate them.
-- `hooks/audio.ts`, `hooks/audio-tap.swift`: the `audio` theme's meter (gain, peaks, beats) and the tap it reads; register.tsx builds and runs the tap, and the band asks for levels each frame over `ui.message`.
 - `hooks/i18n.ts`: the messages.
 - `hooks/kit/`: copies of `claude-code/kit`; edit the source and run `scripts/sync-kit.sh`.
 - `scripts/showtime-shots.ts` at the repository's root renders every GIF and still again from `hooks/themes.ts`.

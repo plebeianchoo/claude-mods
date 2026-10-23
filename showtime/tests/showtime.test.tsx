@@ -1,7 +1,6 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { AUDIO_BANDS, AudioMeter, lineSplitter, parseTapLine } from '../hooks/audio'
 import { parseCommand } from '../hooks/command'
 import { busyLabel, formatDuration, levelOf, newsOf, toolLabel } from '../hooks/pet'
 import { FINALE_MS, SPRITE_MS, STAGE_MS, THEMES, THEME_NAMES, finaleScene, nextTheme, petRow, pickRandom, segments, textWidth } from '../hooks/themes'
@@ -114,113 +113,13 @@ test('every scene, finale and companion row fills exactly its width, every frame
   }
 })
 
-test('the audio scene fills its width with live levels, silence, no tap and a made-up signal', async () => {
-  const theme = THEMES.audio
-  const loud = { b: Array.from({ length: AUDIO_BANDS }, (_, i) => (i * 37) % 100), p: new Array(AUDIO_BANDS).fill(99), beat: 3 }
-  const quiet = { b: new Array(AUDIO_BANDS).fill(0), p: new Array(AUDIO_BANDS).fill(0), beat: 0 }
-  for (const feed of [loud, quiet, null, undefined]) {
-    for (const w of [16, 31, 32, 80, 160]) {
-      for (let t = 0; t < 40; t += 3) {
-        const scene = theme.scene(t, w, 'tool', feed)
-        expect(scene).toHaveLength(theme.rows)
-        for (const row of scene) expect(textWidth(segments(row).map(s => s.text).join(''))).toBe(w)
-      }
-    }
-  }
-  const text = (feed: Parameters<typeof theme.scene>[3]) => theme.scene(0, 80, 'think', feed).map(row => segments(row).map(s => s.text).join('')).join('\n')
-  expect(text(loud)).toContain('█')
-  expect(text(loud)).toContain('┗(・o・)┓')
-  expect(text(quiet)).not.toContain('█')
-  expect(text(null)).toContain('zZ')
-})
-
-test('the audio meter: tap lines to gained levels, falling peaks, beats and silence', async () => {
-  expect(parseTapLine('L 40 1 2 3')).toEqual({ loud: 40, bands: [1, 2, 3] })
-  expect(parseTapLine('E tap')).toBe(null)
-  expect(parseTapLine('L 4 x')).toBe(null)
-  const split = lineSplitter()
-  expect(split('L 1 2\nL 3')).toEqual(['L 1 2'])
-  expect(split(' 4\n')).toEqual(['L 3 4'])
-
-  const meter = new AudioMeter()
-  expect(meter.isAudible).toBe(false)
-  const line = (loud: number, level: number) => `L ${loud} ${new Array(AUDIO_BANDS).fill(level).join(' ')}`
-  meter.push(line(5, 0))
-  meter.push(line(60, 50))
-  // The loudest of late is the top of the scale; a jump in loudness is a beat.
-  expect(meter.view().b[0]).toBe(99)
-  expect(meter.view().beat).toBe(1)
-  expect(meter.isAudible).toBe(true)
-  meter.push(line(60, 0))
-  expect(meter.view().b[0]).toBe(0)
-  expect(meter.view().p[0]).toBe(95)
-  for (let i = 0; i < 60; i++) meter.push(line(0, 0))
-  expect(meter.isAudible).toBe(false)
-})
-
-test('the audio theme taps the sound output only while drawn, and feeds the band each frame', async ($, on) => {
+test('a theme row from before 1.0 naming audio loads as random', { options: { theme: 'audio' } }, async ($, on) => {
   const clock = host(on)
-  const ran: string[][] = []
-  const spawned: string[][] = []
-  let isTapEnded = false
-  // A binary older than its source: built again.
-  on('fs.stat', ($, e) => ({ value: { kind: 'file', size: 1, mtimeMs: e.path.endsWith('.swift') ? 2 : 1, isLink: false } }))
-  on('process.run', ($, e) => {
-    ran.push([...e.argv])
-    return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
-  })
-  on('process.spawn', async function* ($, e) {
-    spawned.push([...e.argv])
-    try {
-      // Readings, a line cut across two pieces among them; then the child runs on quietly.
-      for (let i = 0; i < 3; i++) {
-        yield { stream: 'stdout' as const, text: `L 60 ${new Array(AUDIO_BANDS).fill(i % 2 ? 80 : 40).join(' ')}\nL 6` }
-        yield { stream: 'stdout' as const, text: `0 ${new Array(AUDIO_BANDS).fill(80).join(' ')}\n` }
-      }
-      await clock.sleep(10_000)
-      yield { stream: 'stdout' as const, text: 'L 0 0\n' }
-    } finally {
-      isTapEnded = true
-    }
-    return { value: { code: 0, signal: null } }
-  })
-
   await $.session.start(START)
   await clock.settle()
-  expect(spawned).toHaveLength(0)
-  await $.command.run({ ...RUN, command: 'showtime', args: 'audio' })
-  await clock.advance(200)
-  expect(ran[0]?.[0]).toBe('swiftc')
-  expect(spawned[0]?.[0]).toMatch(/audio-tap$/)
-  expect((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text).toContain('正在显示本机的声音输出')
-
-  // Between turns the band stays up while sound plays, and asks for levels each frame.
-  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...IDLE })
-  expect(await ui.findAll({ type: 'Client' })).toHaveLength(2)
-  await ui.post({ audio: true }, { in: 'listen' })
-  expect(await drawn(ui, 'listen')).toContain('█')
-  await ui.unmount()
-
-  // Another theme stops the tap.
-  await $.command.run({ ...RUN, command: 'showtime', args: 'cat' })
-  await clock.advance(10_000)
-  expect(isTapEnded).toBe(true)
-  expect(spawned).toHaveLength(1)
-})
-
-test('the audio theme says why when it cannot tap', async ($, on) => {
-  const clock = host(on)
-  on('fs.stat', ($, e) => ({ value: { kind: 'file', size: 1, mtimeMs: e.path.endsWith('.swift') ? 2 : 1, isLink: false } }))
-  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: 'error: no such module CoreAudio', isStdoutTruncated: false, isStderrTruncated: false } }))
-  await $.session.start(START)
-  await clock.settle()
-  await $.command.run({ ...RUN, command: 'showtime', args: 'audio' })
-  await clock.advance(200)
-  expect((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text).toContain('音频：无法显示（swiftc: error: no such module CoreAudio）')
-  await $.turn.start({ text: 'hi', turnId: 't1' })
-  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
-  expect(await drawn(ui, 'work')).toContain('zZ')
-  await ui.unmount()
+  const text = (await $.command.run({ command: 'showtime', args: '', ...RUN })).text
+  expect(text).toContain('random')
+  expect(text).not.toContain('audio')
 })
 
 test('helpers', async () => {
@@ -228,8 +127,6 @@ test('helpers', async () => {
   expect(formatDuration(185_000)).toBe('3m 05s')
   expect(formatDuration(3_720_000)).toBe('1h 02m')
   for (let i = 0; i < 50; i++) expect(THEME_NAMES).toContain(pickRandom(i))
-  // The audio theme starts a process: chosen by name only.
-  for (let i = 0; i < 200; i++) expect(pickRandom(i)).not.toBe('audio')
   expect([0, 1, 2, 8, 18].map(levelOf)).toEqual([1, 1, 2, 3, 4])
   expect(toolLabel({ tool: 'Bash', command: 'npm test\nnpm run lint' })).toBe('Bash: npm test')
   expect(toolLabel({ tool: 'Edit', file_path: '/a/b/themes.ts' })).toBe('Edit: themes.ts')
@@ -594,12 +491,11 @@ test('a resumed session picks its theme on its first turn', { options: { theme: 
   await band.unmount()
 })
 
-// `rotate`: a random start, then the next theme each turn, never the opt-in ones.
+// `rotate`: a random start, then the next theme each turn, in order.
 test('nextTheme walks the drawable themes in order and wraps', () => {
-  const pool = THEME_NAMES.filter(n => n !== 'audio')
+  const pool = THEME_NAMES
   expect(nextTheme(pool[0]!)).toBe(pool[1]!)
   expect(nextTheme(pool[pool.length - 1]!)).toBe(pool[0]!)
-  expect(nextTheme('audio')).toBe(pool[0]!)
 })
 
 test('rotate moves to the next theme on each turn', { options: { theme: 'rotate' } }, async ($, on) => {

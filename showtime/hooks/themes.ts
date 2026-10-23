@@ -4,7 +4,20 @@
 import { blank, frame, hsl, mod, noise, padTo, put, textWidth } from './cells'
 import type { Grid, Style } from './cells'
 import type { PetArt } from './pets'
-import type { AudioFeed } from './audio'
+import { CLAWD } from './themes/clawd'
+import { THUNDER } from './themes/thunder'
+import { CHOMP } from './themes/chomp'
+import { SPARKY } from './themes/sparky'
+import { BLUECAT } from './themes/bluecat'
+import { NYAN } from './themes/nyan'
+import { CAT } from './themes/cat'
+import { BUNNY } from './themes/bunny'
+import { SAKURA } from './themes/sakura'
+import { MECHA } from './themes/mecha'
+import { NEON } from './themes/neon'
+import { DINO } from './themes/dino'
+import { OCEAN } from './themes/ocean'
+import { MATRIX } from './themes/matrix'
 
 export * from './cells'
 
@@ -23,11 +36,8 @@ export const THEME_NAMES = [
   'dino',
   'ocean',
   'matrix',
-  'audio',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
-/** Themes that start a process of their own: chosen by name, never drawn at random. */
-const OPT_IN: readonly ThemeName[] = ['audio']
 
 export type Mode = 'requesting' | 'responding' | 'thinking' | 'tool-input' | 'tool-use'
 export type Pose = 'think' | 'tool' | 'say' | 'wait'
@@ -55,10 +65,10 @@ export type Theme = {
   palette: string[]
   /** Rows the scene takes in the band. */
   rows: number
-  /** The band's scene while a turn runs: `rows` rows of `w` cells; `audio` feeds the audio theme. */
   /** The companion's body and face in this theme. */
   pet: PetArt
-  scene: (t: number, w: number, act: Act, audio?: AudioFeed) => Grid
+  /** The band's scene while a turn runs: `rows` rows of `w` cells. */
+  scene: (t: number, w: number, act: Act) => Grid
 }
 
 /** Milliseconds per frame: the mascot's, the band's, the companion's between turns. */
@@ -81,38 +91,21 @@ export function isThemeName(name: unknown): name is ThemeName {
 
 /** A theme drawn from `seed`, for the `random` choice. */
 export function pickRandom(seed: number): ThemeName {
-  const pool = THEME_NAMES.filter(n => !OPT_IN.includes(n))
+  const pool = THEME_NAMES
   return pool[Math.floor(noise(seed) * pool.length)]!
 }
 
 /** The theme after `current`, for the `rotate` choice: the same pool as random, wrapping. */
 export function nextTheme(current: ThemeName): ThemeName {
-  const pool = THEME_NAMES.filter(n => !OPT_IN.includes(n))
+  const pool = THEME_NAMES
   return pool[(pool.indexOf(current) + 1) % pool.length]!
 }
 
 // ---- themes --------------------------------------------------------------
 
-import { CLAWD } from './themes/clawd'
-import { THUNDER } from './themes/thunder'
-import { CHOMP } from './themes/chomp'
-import { SPARKY } from './themes/sparky'
-import { BLUECAT } from './themes/bluecat'
-import { NYAN } from './themes/nyan'
-import { CAT } from './themes/cat'
-import { BUNNY } from './themes/bunny'
-import { SAKURA } from './themes/sakura'
-import { MECHA } from './themes/mecha'
-import { NEON } from './themes/neon'
-import { DINO } from './themes/dino'
-import { OCEAN } from './themes/ocean'
-import { MATRIX } from './themes/matrix'
-import { AUDIO } from './themes/audio'
-
 export const THEMES: Record<ThemeName, Theme> = {
   clawd: CLAWD, thunder: THUNDER, chomp: CHOMP, sparky: SPARKY, bluecat: BLUECAT, nyan: NYAN,
   cat: CAT, bunny: BUNNY, sakura: SAKURA, mecha: MECHA, neon: NEON, dino: DINO, ocean: OCEAN, matrix: MATRIX,
-  audio: AUDIO,
 }
 
 export function themeOf(name: unknown): Theme {
