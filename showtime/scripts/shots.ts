@@ -116,7 +116,7 @@ function strips(theme: Theme): { name: string; frames: Grid[] }[] {
   out.push({ name: 'done 3/7', frames: twelve(i => sig({ done: 3, total: 7, doneAge: i })) })
   out.push({ name: 'done 7/7', frames: twelve(i => sig({ done: 7, total: 7, doneAge: i })) })
   for (const news of ['testFail', 'testPass', 'commit'] as const) for (const age of [0, 8, 20]) out.push({ name: `${news} ${age}`, frames: twelve(i => sig({ news, newsAge: age + i })) })
-  out.push({ name: 'tool bash', frames: twelve(i => sig({ act: 'tool', tool: 'bash', actAge: 30 + i })) })
+  out.push({ name: 'tool bash', frames: twelve(i => sig({ act: 'tool', tool: 'bash', actAge: 30 + i, toolAge: 30 + i })) })
   return out
 }
 

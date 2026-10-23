@@ -4,14 +4,14 @@
 import type { ClientModule } from 'claude-code'
 
 import { STAGE_MS, finaleScene, segments, themeOf } from './themes'
-import type { Act, Finale, Signals } from './themes'
+import type { Act, Finale, Signals, ToolKind } from './themes'
 
 export type StageProps = {
   theme: string
   /** Cells the scene takes across. */
   columns: number
   /** What the scene reacts to; the stage adds the ages. */
-  signals: Omit<Signals, 'newsAge' | 'actAge' | 'doneAge' | 'agentsAge'> & { newsId?: string }
+  signals: Omit<Signals, 'newsAge' | 'actAge' | 'doneAge' | 'agentsAge' | 'toolAge'> & { newsId?: string }
   finale?: Finale
   label?: string
   /** One frame, never redrawn (reduced motion). */
@@ -19,7 +19,7 @@ export type StageProps = {
 }
 
 /** Each instance's last-seen signals and the tick they changed at. */
-const stages = new WeakMap<object, { act: Act; actAt: number; done: number; doneAt: number; agents: number; agentsAt: number; newsId?: string; newsAt: number }>()
+const stages = new WeakMap<object, { act: Act; actAt: number; tool?: ToolKind; toolAt: number; done: number; doneAt: number; agents: number; agentsAt: number; newsId?: string; newsAt: number }>()
 
 const Stage: ClientModule<StageProps, number> = (props, surface) => {
   const { Box, Text } = surface.elements
@@ -33,10 +33,11 @@ const Stage: ClientModule<StageProps, number> = (props, surface) => {
   const w = Math.max(16, Math.min(surface.columns || props.columns, props.columns))
   let mem = stages.get(surface)
   if (mem === undefined) {
-    mem = { act: props.signals.act, actAt: t, done: props.signals.done, doneAt: t, agents: props.signals.agents, agentsAt: t, newsId: props.signals.newsId, newsAt: t }
+    mem = { act: props.signals.act, actAt: t, tool: props.signals.tool, toolAt: t, done: props.signals.done, doneAt: t, agents: props.signals.agents, agentsAt: t, newsId: props.signals.newsId, newsAt: t }
     stages.set(surface, mem)
   }
   if (props.signals.act !== mem.act) { mem.act = props.signals.act; mem.actAt = t }
+  if (props.signals.tool !== mem.tool) { mem.tool = props.signals.tool; mem.toolAt = t }
   if (props.signals.done !== mem.done) { mem.done = props.signals.done; mem.doneAt = t }
   if (props.signals.agents !== mem.agents) { mem.agents = props.signals.agents; mem.agentsAt = t }
   if (props.signals.newsId !== mem.newsId) { mem.newsId = props.signals.newsId; mem.newsAt = t }
@@ -46,6 +47,7 @@ const Stage: ClientModule<StageProps, number> = (props, surface) => {
     doneAge: t - mem.doneAt,
     agentsAge: t - mem.agentsAt,
     newsAge: props.signals.news ? t - mem.newsAt : 999,
+    toolAge: props.signals.tool ? t - mem.toolAt : 999,
   }
   const rows = props.finale ? finaleScene(theme, props.finale, props.label ?? '', t, w) : theme.scene(t, w, s)
 
