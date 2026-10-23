@@ -7,7 +7,7 @@ import type { Act, NewsKind, Signals } from '../hooks/themes'
 const ACTS: Act[] = ['think', 'tool', 'ask', 'say']
 const NEWS: NewsKind[] = ['testPass', 'testFail', 'commit']
 /** Themes that meet the motion rules already (each polish task adds its own). */
-const POLISHED = new Set<string>(['clawd'])
+const POLISHED = new Set<string>(['clawd', 'thunder'])
 
 function sig(over: Partial<Signals>): Signals {
   return { ...IDLE_SIGNALS, ...over }
@@ -60,9 +60,10 @@ test('polished scenes never hold a frame and never jump a shape more than a cell
         const now = ink(theme.scene(t, W, sig({ act, actAge: 30 + t })))
         expect(now.join('\n')).not.toBe(last.join('\n'))
         for (let r = 0; r < now.length; r++) {
-          const a = edges(last[r]!)
           const b = edges(now[r]!)
-          // Each edge in the new frame is within a cell of one in the old (shapes that appear count once, at the edges).
+          // Each edge in the new frame is within a cell of one in the old, in the same row or the one
+          // above or below (a sprite may hop a cell row); shapes that appear count once, at the edges.
+          const a = [last[r - 1], last[r], last[r + 1]].flatMap(line => (line ? edges(line) : []))
           for (const x of b) {
             const near = a.some(y => Math.abs(y - x) <= 1) || x <= 1 || x >= W - 2
             expect(near, `${name} ${act} t=${t} row ${r} edge at ${x} jumped`).toBe(true)
