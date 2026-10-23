@@ -39,7 +39,7 @@ Claude 干活时，输入框上方会演一段小动画：像素风的横版射�
 | `neon`<br>![neon](assets/neon.gif) | `dino`<br>![dino](assets/dino.gif) |
 | `ocean`<br>![ocean](assets/ocean.gif) | `matrix`<br>![matrix](assets/matrix.gif) |
 
-所有主题的吉祥物、场景和宠物合在一张图里：[assets/gallery.png](assets/gallery.png)；每套主题的静态图在 `assets/<主题>.png`。
+每套主题一行带标签的场景（工具/bash 画面）合在一张图里：[assets/gallery.png](assets/gallery.png)；每套主题的静态图在 `assets/<主题>.png`。
 
 `chomp`、`sparky`、`bluecat`、`nyan` 是从零绘制、另起名字的同人致敬；`clawd` 照着 Claude Code 欢迎界面上的样子绘制。
 
