@@ -31,21 +31,21 @@ const Stage: ClientModule<StageProps, number> = (props, surface) => {
   const t = surface.state ?? 0
   const theme = themeOf(props.theme)
   const w = Math.max(16, Math.min(surface.columns || props.columns, props.columns))
-  let m = stages.get(surface)
-  if (m === undefined) {
-    m = { act: props.signals.act, actAt: t, done: props.signals.done, doneAt: t, agents: props.signals.agents, agentsAt: t, newsId: props.signals.newsId, newsAt: t }
-    stages.set(surface, m)
+  let mem = stages.get(surface)
+  if (mem === undefined) {
+    mem = { act: props.signals.act, actAt: t, done: props.signals.done, doneAt: t, agents: props.signals.agents, agentsAt: t, newsId: props.signals.newsId, newsAt: t }
+    stages.set(surface, mem)
   }
-  if (props.signals.act !== m.act) { m.act = props.signals.act; m.actAt = t }
-  if (props.signals.done !== m.done) { m.done = props.signals.done; m.doneAt = t }
-  if (props.signals.agents !== m.agents) { m.agents = props.signals.agents; m.agentsAt = t }
-  if (props.signals.newsId !== m.newsId) { m.newsId = props.signals.newsId; m.newsAt = t }
+  if (props.signals.act !== mem.act) { mem.act = props.signals.act; mem.actAt = t }
+  if (props.signals.done !== mem.done) { mem.done = props.signals.done; mem.doneAt = t }
+  if (props.signals.agents !== mem.agents) { mem.agents = props.signals.agents; mem.agentsAt = t }
+  if (props.signals.newsId !== mem.newsId) { mem.newsId = props.signals.newsId; mem.newsAt = t }
   const s: Signals = {
     ...props.signals,
-    actAge: t - m.actAt,
-    doneAge: t - m.doneAt,
-    agentsAge: t - m.agentsAt,
-    newsAge: props.signals.news ? t - m.newsAt : 999,
+    actAge: t - mem.actAt,
+    doneAge: t - mem.doneAt,
+    agentsAge: t - mem.agentsAt,
+    newsAge: props.signals.news ? t - mem.newsAt : 999,
   }
   const rows = props.finale ? finaleScene(theme, props.finale, props.label ?? '', t, w) : theme.scene(t, w, s)
 

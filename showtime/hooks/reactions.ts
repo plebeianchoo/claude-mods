@@ -1,6 +1,6 @@
 // Reactions any grid can carry, for the two-row scenes: a figure per subagent
 // at the right edge, a shake on a failed test, a spark burst on a commit.
-import { frame, mod, put } from './cells'
+import { frame, mod, put, textWidth } from './cells'
 import type { Grid } from './cells'
 import type { Signals } from './themes'
 
@@ -19,7 +19,14 @@ export function withReactions(g: Grid, t: number, s: Signals, color: string): Gr
   // A failed test: the whole grid shakes a column left and right for eight frames.
   if (s.news === 'testFail' && s.newsAge < 8) {
     const dx = mod(s.newsAge, 2) === 0 ? 1 : -1
-    out = out.map(row => (dx > 0 ? [{ ch: ' ' }, ...row.slice(0, w - 1)] : [...row.slice(1), { ch: ' ' }]))
+    out = out.map(row => {
+      const shifted = dx > 0 ? [{ ch: ' ' }, ...row.slice(0, w - 1)] : [...row.slice(1), { ch: ' ' }]
+      // A wide character split by the shift: drop its orphaned half so the row stays `w` cells.
+      if (shifted[0]?.ch === '') shifted[0] = { ch: ' ' }
+      const last = shifted[w - 1]
+      if (last && last.ch !== '' && last.ch !== ' ' && textWidth(last.ch) === 2) shifted[w - 1] = { ch: ' ' }
+      return shifted
+    })
   }
   // A commit: sparks fly out from the middle for sixteen frames and fade.
   if (s.news === 'commit' && s.newsAge < 16) {
