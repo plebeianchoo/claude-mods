@@ -81,7 +81,7 @@ The band takes the theme's rows plus one for the companion while a turn runs, an
 - `hooks/config.ts`: the options, read once into a typed `Config`.
 - `hooks/command.ts`: `/showtime`'s arguments to what they ask for.
 - `hooks/pet.ts`: the companion's level and bubble, tool labels, durations.
-- `hooks/themes.ts`, `hooks/cells.ts`: the themes and the cell grid they draw on; `hooks/stage.tsx`, `hooks/sprite.tsx`: the `Client` modules that animate them.
+- `hooks/themes.ts`: the theme type and the registry; `hooks/themes/<name>.ts`: one theme each (scene, words, pet); `hooks/draw.ts`: the shared scene layers; `hooks/pets.ts`: the pet's drawing; `hooks/cells.ts`: the cell grid they draw on; `hooks/stage.tsx`, `hooks/sprite.tsx`: the `Client` modules that animate them.
 - `hooks/audio.ts`, `hooks/audio-tap.swift`: the `audio` theme's meter (gain, peaks, beats) and the tap it reads; register.tsx builds and runs the tap, and the band asks for levels each frame over `ui.message`.
 - `hooks/i18n.ts`: the messages.
 - `hooks/kit/`: copies of `claude-code/kit`; edit the source and run `scripts/sync-kit.sh`.

@@ -14,7 +14,7 @@ import type { Prefs } from './kit/prefs'
 import { bubbleOf, busyLabel, finaleOf, formatDuration, levelOf, newsOf, toolLabel } from './pet'
 import { FINALE_MS, THEMES, THEME_NAMES, isThemeName, nextTheme, pickRandom, textWidth } from './themes'
 import type { Act, Mood, ThemeName } from './themes'
-import { PET_ROWS, dockPetOf, petArtOf } from './pets'
+import { PET_ROWS, dockPetOf } from './pets'
 import type { PetState } from './pets'
 import { AUDIO_BANDS, AudioMeter, lineSplitter } from './audio'
 import type { AudioView } from './audio'
@@ -166,7 +166,7 @@ async function publishPet($: EngineInterface): Promise<void> {
   const patId = await read($, pat)
   // A permission prompt waiting outranks news: it is the one the person must act on.
   const said = state === 'ask' ? null : await read($, news)
-  const art = petArtOf(name, isThemeName(name) ? THEMES[name].color : THEMES.clawd.color)
+  const art = (isThemeName(name) ? THEMES[name] : THEMES.clawd).pet
   const view = {
     id: `${name}:${state}:${patId ?? ''}`,
     bubble: said ? m(`pet.${said.kind}`) : bubbleOf(state, now.tool),

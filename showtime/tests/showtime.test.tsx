@@ -621,3 +621,12 @@ test('/showtime rotate switches to rotating and persists the row', async ($, on)
   expect((await $.command.run({ ...RUN, command: 'showtime', args: 'rotate' })).text).toContain('每轮换一个主题')
   expect(rows).toContainEqual(['showtime.theme', 'rotate'])
 })
+
+test('every theme has its own pet with eyes inside its body', () => {
+  for (const name of THEME_NAMES) {
+    const pet = THEMES[name].pet
+    expect(pet.body).toHaveLength(5)
+    for (const row of pet.body) expect(row.length).toBeLessThanOrEqual(12)
+    for (const x of pet.eyes) expect(pet.body[pet.eyeRow]![x]).not.toBe('.')
+  }
+})
