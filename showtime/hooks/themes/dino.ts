@@ -91,7 +91,9 @@ export function dinoScene(t: number, w: number, s: Signals): Grid {
   const age = Math.min(s.actAge, s.toolAge)
   const since = age < IDLE_AGE ? age : t
   const agentsW = 2 * Math.min(s.agents, 4)
-  const count = Math.min(s.total, Math.floor(w / 4), Math.max(0, w - 2 - agentsW))
+  // Task marks: capped to the width and kept right of the sign; none at all when that leaves no room.
+  const count = Math.min(s.total, Math.floor(w / 4), Math.max(0, w - 2 - agentsW - (SIGN_X + 2)))
+  const litCount = s.total > count ? Math.floor((s.done * count) / s.total) : Math.min(s.done, count)
   const x0 = w - 1 - agentsW - count
   // Layer 1: the ground, sparse grit scrolling left a column a frame; it streaks while bash runs
   // and turns gold on a commit.
@@ -155,8 +157,8 @@ export function dinoScene(t: number, w: number, s: Signals): Grid {
   // Tasks: a row of diamonds at the top right, left of the agents, `done` of them lit; the newest twinkles.
   const allDone = s.done >= s.total && s.total > 0 && s.doneAge < 16
   for (let i = 0; i < count; i++) {
-    const lit = i < s.done
-    const newest = lit && i === s.done - 1 && s.doneAge < 12
+    const lit = i < litCount
+    const newest = lit && i === litCount - 1 && s.doneAge < 12
     const glyph = newest && mod(t, 4) < 2 ? '✦' : lit ? '◆' : '◇'
     const c = allDone ? frame(PALETTE, i + (s.doneAge >> 1)) : glyph === '✦' ? GOLD : lit ? SAND : DUST
     put(g, x0 + i, 0, glyph, { c, b: lit, d: !lit })
