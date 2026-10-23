@@ -7,7 +7,7 @@ import type { Act, NewsKind, Signals } from '../hooks/themes'
 const ACTS: Act[] = ['think', 'tool', 'ask', 'say']
 const NEWS: NewsKind[] = ['testPass', 'testFail', 'commit']
 /** Themes that meet the motion rules already (each polish task adds its own). */
-const POLISHED = new Set<string>(['clawd', 'thunder'])
+const POLISHED = new Set<string>(['clawd', 'thunder', 'chomp'])
 
 function sig(over: Partial<Signals>): Signals {
   return { ...IDLE_SIGNALS, ...over }
