@@ -9,8 +9,8 @@
 // four-frame cycle, his head dips a pixel for four frames every sixteen and when the act changes, he
 // blinks every thirty. Stars pass at three depths, each keeping to its own cell row: far lavender
 // pixels along the top a column every four frames, mid pink pixels along the bottom every other
-// frame, near white crosses through the middle every frame, all twice as fast while bash (or an
-// agent or the web) runs. Each subagent is a small nyan cat flying in echelon off his nose (alternately low
+// frame, near white crosses through the middle every frame; while bash runs, streaks (three-pixel
+// dashes on lanes of their own) enter at the right edge two columns a frame on top of them. Each subagent is a small nyan cat flying in echelon off his nose (alternately low
 // and high), the newest entering from the right edge a column a frame; agents the band is too
 // narrow for are pips at the right edge. A failed test greys the rainbow and the stars and droops
 // his head for twenty frames; a passing test bursts a white star off his ear for sixteen; a commit
@@ -36,7 +36,10 @@
 // each depth keeps to its own cell row, since a star of one speed fused to one of another would be
 // stranded when they part.
 // Each glyph, burst and mini is fused to his right edge or starts at its own left column, and the
-// minis' legs sit under their tarts' bottom cells, so stars pass them without a new run.
+// minis' legs sit under their tarts' bottom cells, so stars pass them without a new run. The stars'
+// positions depend on `t` alone (a speed keyed to the tool would move every star by `t` columns
+// when the tool changed); bash's pace is a separate streak layer spawned on a fixed schedule from
+// `t`, drawn only for spawns since the act began, so it enters from the edge and vanishes when bash ends.
 import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
@@ -98,8 +101,16 @@ const STAR_DEPTHS = [
   { per: 14, speed: 1, color: WHITE, twinkle: PALE_PINK, seed: 80, rows: [3, 4] },
 ]
 const STAR_GREY = '#8a8a8a'
-/** The star field runs twice as fast for these tools. */
-const FAST_TOOLS = new Set(['bash', 'agent', 'web'])
+/** Bash's streaks: three-pixel dashes entering at the right edge two columns a frame, one every six
+ * frames per lane, the lanes staggered; on pixel rows no star keeps to, so none ever merges with a star. */
+const STREAK_LANES = [
+  { py: 2, phase: 0, color: WHITE },
+  { py: 5, phase: 2, color: PALE_PINK },
+  { py: 0, phase: 4, color: LAVENDER },
+]
+const STREAK_EVERY = 6
+const STREAK_SPEED = 2
+const STREAK_LEN = 3
 /** A subagent's mini: 6×4, its own three-band rainbow on its left so every cell row starts at its column. */
 const MINI = ['rTTT.G', 'yTPTGG', 'bTTTGG']
 const MINI_LEGS = [[2, 4], [2, 5], [3, 5], [3, 4]]
@@ -107,6 +118,8 @@ const MINI_W = 6
 const MINI_PITCH = 7
 const MINI_COLORS = { r: '#ff0000', y: '#ffff00', b: '#0099ff', T: TART_COLOR, P: DOT, G: FUR }
 const MAX_AGENTS = 4
+/** Pips stack up the right edge from the bottom; three keep the top cell (the glyph's, at width 16) clear. */
+const MAX_PIPS = 3
 
 /** Where the cat's left column sits: two-fifths across, but never off the right edge. */
 function catX(w: number): number {
@@ -138,19 +151,34 @@ function star(cv: Canvas, d: number, cx: number, cy: number, color: string, open
   for (const [dx, dy] of dots) if (open(cx + dx!, cy + dy!)) plot(cv, cx + dx!, cy + dy!, color)
 }
 
-/** The star field: three depths, each scrolling left at its own speed (times `mul`), entering at the right edge. */
-function stars(cv: Canvas, t: number, mul: number, grey: boolean, festive: boolean, open: (px: number, py: number) => boolean): void {
+/** The star field: three depths, each scrolling left at its own speed, entering at the right edge. Positions
+ * depend on `t` alone: a speed that changed with the tool would teleport every star when the tool did. */
+function stars(cv: Canvas, t: number, grey: boolean, festive: boolean, open: (px: number, py: number) => boolean): void {
   const w = cv.w
   STAR_DEPTHS.forEach((depth, d) => {
     const n = Math.max(1, Math.floor(w / depth.per))
     for (let i = 0; i < n; i++) {
-      const sx = mod(Math.floor(noise(i + depth.seed) * w * 3) - Math.floor(t * depth.speed * mul), w)
+      const sx = mod(Math.floor(noise(i + depth.seed) * w * 3) - Math.floor(t * depth.speed), w)
       const sy = depth.rows[Math.floor(noise(i + depth.seed + 1) * depth.rows.length)]!
       const twinkle = mod(t + i * 7, 20) < 3
       const color = grey ? STAR_GREY : festive && d === 2 ? RAINBOW[mod(i + (t >> 1), 6)]! : twinkle ? depth.twinkle : depth.color
       star(cv, d, sx, sy, color, open)
     }
   })
+}
+
+/** Bash's streaks: spawned on a fixed schedule from `t` alone (so bash starting never shifts one), each at
+ * `w - 1 - 2 * (t - spawnAt)`; only spawns since the act began (`actAge`) are drawn, so the first ones
+ * enter from the edge rather than popping in mid-band, and when bash ends the layer just stops. */
+function streaks(cv: Canvas, t: number, actAge: number, grey: boolean, open: (px: number, py: number) => boolean): void {
+  const w = cv.w
+  const oldest = t - Math.ceil((w + STREAK_LEN) / STREAK_SPEED)
+  for (const lane of STREAK_LANES) {
+    for (let sp = t - mod(t - lane.phase, STREAK_EVERY); sp >= Math.max(oldest, t - actAge); sp -= STREAK_EVERY) {
+      const hx = w - 1 - STREAK_SPEED * (t - sp)
+      for (let i = 0; i < STREAK_LEN; i++) if (open(hx + i, lane.py)) plot(cv, hx + i, lane.py, grey ? STAR_GREY : lane.color)
+    }
+  }
 }
 
 /** The rainbow: six bands and their shadow waving behind him from `x - len` to his column, in `colors`
@@ -203,7 +231,7 @@ function minis(cv: Canvas, t: number, x: number, s: Signals): void {
     draw(cv, mx, py, MINI, MINI_COLORS)
     for (const lx of frame(MINI_LEGS, t + i)) plot(cv, mx + lx, py + 3, FUR)
   }
-  const pips = Math.max(0, Math.min(s.agents - n, MAX_AGENTS))
+  const pips = Math.max(0, Math.min(s.agents - n, MAX_PIPS))
   for (let i = 0; i < pips; i++) {
     const color = RAINBOW[mod(i * 2 + (t >> 2), 6)]!
     plot(cv, w - 1, 6 - 2 * i, color)
@@ -225,8 +253,8 @@ export function nyanScene(t: number, w: number, s: Signals): Grid {
   // The stars, behind everything: masked under the trail and the cat, and in the air before his face.
   const open = (px: number, py: number) =>
     !(px >= x - len && px <= x + CAT_W) && !(py < 4 && px >= x + CAT_W && px <= x + CAT_W + AIR_W)
-  const fast = act === 'tool' && !!s.tool && FAST_TOOLS.has(s.tool)
-  stars(cv, t, fast ? 2 : 1, isFail, isCommit, open)
+  stars(cv, t, isFail, isCommit, open)
+  if (act === 'tool' && s.tool === 'bash') streaks(cv, t, s.actAge, isFail, open)
 
   // The rainbow: greyed by a failed test, rolling when the last task lands, doubled by a commit.
   const roll = allDone ? -(s.doneAge >> 1) : 0
