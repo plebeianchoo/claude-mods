@@ -46,7 +46,6 @@ import type { Signals, Theme } from '../themes'
 const CAT_W = 14
 /** The tart: 9×6 at his left, its corners round (his column shows the rainbow's ends through them). */
 const TART = ['.TTTTTTTT', 'TPPSPPSPT', 'TPSPPPPPT', 'TPPPPSPPT', 'TPSPPPPST', '.TTTTTTTT']
-const TART_W = 9
 /** The head: 5×6 at his right, ears two pixels tall (so a dip of a pixel keeps their cells), eyes on row 3, cheeks on row 4. */
 const HEAD = ['.G..G', '.G..G', 'GGGGG', 'GKGGK', 'GPGGP', '.GGG.']
 const HEAD_X = 9
