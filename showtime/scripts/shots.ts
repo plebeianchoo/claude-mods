@@ -4,7 +4,7 @@
 //   bun scripts/shots.ts --theme <name>   → assets/<name>.png, assets/review/<name>.png
 //   bun scripts/shots.ts --gallery        → assets/gallery.png (every theme's still)
 //   Sheet strips, top to bottom: think, tool, ask, say, think t0 (from t=0), agents 2, done 3/7, done 7/7,
-//   testFail and commit at news age 0/8/20, tool bash, then the pet in think/tool/ready/sleep.
+//   testFail, testPass and commit at news age 0/8/20, tool bash, then the pet in think/tool/ready/sleep.
 import { deflateSync } from 'node:zlib'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -115,7 +115,7 @@ function strips(theme: Theme): { name: string; frames: Grid[] }[] {
   out.push({ name: 'agents 2', frames: twelve(i => sig({ agents: 2, agentsAge: i })) })
   out.push({ name: 'done 3/7', frames: twelve(i => sig({ done: 3, total: 7, doneAge: i })) })
   out.push({ name: 'done 7/7', frames: twelve(i => sig({ done: 7, total: 7, doneAge: i })) })
-  for (const news of ['testFail', 'commit'] as const) for (const age of [0, 8, 20]) out.push({ name: `${news} ${age}`, frames: twelve(i => sig({ news, newsAge: age + i })) })
+  for (const news of ['testFail', 'testPass', 'commit'] as const) for (const age of [0, 8, 20]) out.push({ name: `${news} ${age}`, frames: twelve(i => sig({ news, newsAge: age + i })) })
   out.push({ name: 'tool bash', frames: twelve(i => sig({ act: 'tool', tool: 'bash', actAge: 30 + i })) })
   return out
 }
