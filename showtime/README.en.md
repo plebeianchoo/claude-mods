@@ -35,7 +35,7 @@ Character scenes, two rows: `cat`, `bunny`, `sakura`, `mecha`, `neon`, `dino`, `
 | `neon`<br>![neon](assets/neon.gif) | `dino`<br>![dino](assets/dino.gif) |
 | `ocean`<br>![ocean](assets/ocean.gif) | `matrix`<br>![matrix](assets/matrix.gif) |
 
-Every theme's mascot, stage and companion in one still: [assets/gallery.png](assets/gallery.png); a still per theme sits beside each GIF (`assets/<theme>.png`). `scripts/showtime-shots.ts` at the repository's root renders them all again from `hooks/themes.ts`.
+Every theme's mascot, stage and companion in one still: [assets/gallery.png](assets/gallery.png); a still per theme sits beside each GIF (`assets/<theme>.png`). `bun scripts/shots.ts --gallery` (from the mod folder) renders them again from `hooks/themes.ts`; `bun scripts/shots.ts --theme <name>` writes the still and a labelled review sheet under `assets/review/`.
 
 `chomp`, `sparky`, `bluecat` and `nyan` are fan-made homages drawn from scratch, under names of their own; `clawd` is drawn as Claude Code draws him on its welcome screen.
 
@@ -79,4 +79,4 @@ The band takes the theme's rows plus one for the companion while a turn runs, an
 - `hooks/themes.ts`: the theme type and the registry; `hooks/themes/<name>.ts`: one theme each (scene, words, pet); `hooks/draw.ts`: the shared scene layers; `hooks/pets.ts`: the pet's drawing; `hooks/cells.ts`: the cell grid they draw on; `hooks/stage.tsx`, `hooks/sprite.tsx`: the `Client` modules that animate them.
 - `hooks/i18n.ts`: the messages.
 - `hooks/kit/`: copies of `claude-code/kit`; edit the source and run `scripts/sync-kit.sh`.
-- `scripts/showtime-shots.ts` at the repository's root renders every GIF and still again from `hooks/themes.ts`.
+- `bun scripts/shots.ts --theme <name>` (from the mod folder) renders a theme's still `assets/<name>.png` and its review sheet `assets/review/<name>.png`; `bun scripts/shots.ts --gallery` renders `assets/gallery.png`.

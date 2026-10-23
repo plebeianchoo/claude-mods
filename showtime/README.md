@@ -95,4 +95,4 @@ Claude 工作时，横条占主题的行数再加宠物一行；两轮之间只�
 - `hooks/themes.ts`、`hooks/cells.ts`：主题和它们绘制用的字符网格；`hooks/stage.tsx`、`hooks/sprite.tsx`：负责播放动画的 `Client` 模块。
 - `hooks/i18n.ts`：各语言文案。
 - `hooks/kit/`：`claude-code/kit` 的副本；改源文件后运行 `scripts/sync-kit.sh`。
-- 仓库根目录的 `scripts/showtime-shots.ts` 从 `hooks/themes.ts` 重新渲染全部动图和静态图。
+- 在 mod 目录下运行 `bun scripts/shots.ts --theme <name>` 渲染该主题的静态图 `assets/<name>.png` 和审阅图 `assets/review/<name>.png`;`bun scripts/shots.ts --gallery` 渲染 `assets/gallery.png`。
