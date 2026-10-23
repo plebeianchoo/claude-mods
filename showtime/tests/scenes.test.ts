@@ -23,6 +23,7 @@ test('every scene fills its rows and width under every signal, and never throws'
       sig({ done: 0, total: 0 }), sig({ done: 3, total: 7, doneAge: 0 }), sig({ done: 7, total: 7, doneAge: 2 }), sig({ done: 2, total: 40 }),
       ...NEWS.flatMap(news => [0, 1, 3, 7, 8, 20, 60].map(newsAge => sig({ news, newsAge }))),
       sig({ act: 'tool', tool: 'bash' }), sig({ act: 'tool', tool: 'edit' }), sig({ act: 'tool', tool: 'search' }),
+      sig({ act: 'tool', tool: 'bash', toolAge: 0 }), sig({ act: 'tool', tool: 'bash', toolAge: 30 }),
     ]
     for (const w of [16, 40, 80, 160]) {
       for (const s of cases) {

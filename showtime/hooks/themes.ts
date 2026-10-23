@@ -59,8 +59,10 @@ export type Signals = {
   actAge: number
   doneAge: number
   agentsAge: number
+  /** Frames since `tool` last changed; 999 when none. */
+  toolAge: number
 }
-export const IDLE_SIGNALS: Signals = { act: 'think', agents: 0, done: 0, total: 0, newsAge: 999, actAge: 999, doneAge: 999, agentsAge: 999 }
+export const IDLE_SIGNALS: Signals = { act: 'think', agents: 0, done: 0, total: 0, newsAge: 999, actAge: 999, doneAge: 999, agentsAge: 999, toolAge: 999 }
 export type Finale = 'answer' | 'aborted' | 'error'
 /** The companion's mood between turns. */
 export type Mood = 'hello' | 'ready' | 'aborted' | 'error' | 'sleep'
