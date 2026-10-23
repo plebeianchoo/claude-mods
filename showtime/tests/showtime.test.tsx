@@ -41,12 +41,16 @@ let asked: { question: string; options: string[] } | null = null
 let answer: string | null = null
 // The id of the last tool call the host ran, for a check about it.
 let lastCallId = ''
+// Ids the host's task tools hand out.
+let taskSeq = 0
 // How a call the host runs ends: denied, or run with or without an error.
 let ends: 'deny' | 'ok' | 'fail' = 'deny'
 // What the engine's check says to a call. The engine now settles an ask itself when no person can
 // answer (the call is refused before the host runs it), so calls go through on `allow`; a test of
-// the permission prompt asks its question straight with `$.tool.check` under `ask`.
-let verdict: 'allow' | 'ask' = 'allow'
+// the permission prompt asks its question straight with `$.tool.check` under `ask`. Under `deny`
+// the engine refuses the call itself: the host never runs it, and the plugin's `next` answers
+// `{ isError, text }` with no `result`.
+let verdict: 'allow' | 'ask' | 'deny' = 'allow'
 
 function host(on: On, stored: Record<string, unknown> = {}) {
   rows = []
@@ -54,6 +58,7 @@ function host(on: On, stored: Record<string, unknown> = {}) {
   answer = null
   ends = 'deny'
   verdict = 'allow'
+  taskSeq = 0
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.store(on, stored)
   mock.env(on, { LANG: 'zh_CN.UTF-8' })
@@ -66,7 +71,13 @@ function host(on: On, stored: Record<string, unknown> = {}) {
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: 'ok' }))
   on('tool.check', () => ({ decision: verdict }))
+  on('agent.spawn', ($, e) => ({ model: 'test', agentId: `a-${e.tool_use_id}` }))
   on('tool.call', async ($, e) => {
+    if (e.tool === 'TaskCreate') return { result: { task: { id: String(++taskSeq), subject: (e as { subject: string }).subject } }, text: 'ok' }
+    if (e.tool === 'TaskUpdate') {
+      const u = e as { taskId: string; status?: 'pending' | 'in_progress' | 'completed' }
+      return { result: { success: true, taskId: u.taskId, updatedFields: ['status'], statusChange: { from: 'pending', to: u.status ?? 'pending' } }, text: 'ok' }
+    }
     if (e.tool === 'AskUserQuestion') {
       const q = e.questions[0]!
       asked = { question: q.question, options: q.options.map(o => o.label) }
@@ -400,6 +411,8 @@ test('/showtime arguments', async () => {
   expect(parseCommand('stage on')).toEqual({ kind: 'stage', isOn: true })
   expect(parseCommand('stage')).toEqual({ kind: 'unknown', name: 'stage' })
   expect(parseCommand('companion off')).toEqual({ kind: 'companion', isOn: false })
+  expect(parseCommand('feed off')).toEqual({ kind: 'feed', isOn: false })
+  expect(parseCommand('feed')).toEqual({ kind: 'unknown', name: 'feed' })
   expect(parseCommand('preview')).toEqual({ kind: 'preview', theme: null })
   expect(parseCommand('preview neon')).toEqual({ kind: 'preview', theme: 'neon' })
   expect(parseCommand('preview x')).toEqual({ kind: 'unknown', name: 'x' })
@@ -525,4 +538,108 @@ test('every theme has its own pet with eyes inside its body', () => {
     for (const row of pet.body) expect(row.length).toBeLessThanOrEqual(12)
     for (const x of pet.eyes) expect(pet.body[pet.eyeRow]![x]).not.toBe('.')
   }
+})
+
+test('a call the engine itself refuses is no news: no "tests failed" from the pet', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  ends = 'ok'
+  verdict = 'deny'
+  const refused = await $.tool.call({ tool: 'Bash', command: 'npm test' })
+  expect(refused.isError).toBe(true)
+  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
+  expect(await said(ui)).not.toContain('测试没过')
+  await ui.unmount()
+})
+
+test('tasks show beside the pet: progress on the stats row, the task under it; cleared when the turn ends', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.tool.call({ tool: 'TaskCreate', subject: 'Write the feed', description: 'd' } as never)
+  await $.tool.call({ tool: 'TaskCreate', subject: 'Draw the rows', description: 'd' } as never)
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'in_progress' } as never)
+  await clock.settle()
+  let ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
+  let text = await said(ui)
+  expect(text).toContain('0/2')
+  expect(text).toContain('▸ Write the feed')
+  await ui.unmount()
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'completed' } as never)
+  await clock.settle()
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
+  expect(await said(ui)).toContain('1/2')
+  await ui.unmount()
+  await $.turn.complete(DONE)
+  await clock.settle()
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...IDLE })
+  text = await said(ui)
+  expect(text).not.toContain('1/2')
+  expect(text).not.toContain('Write the feed')
+  expect(text).toContain('Lv.')
+  await ui.unmount()
+})
+
+test('subagents get a row under the band, counted past what fits, gone when they finish', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.agent.spawn({ tool_use_id: 'c1', prompt: 'p', description: 'review the diff', subagentType: 'reviewer', provider: { kind: 'plugin', plugin: 'test' } } as never)
+  await $.agent.spawn({ tool_use_id: 'c2', prompt: 'p', description: 'run the tests', subagentType: 'checker', provider: { kind: 'plugin', plugin: 'test' } } as never)
+  await clock.settle()
+  let ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
+  let text = await said(ui)
+  expect(text).toContain('⤷ reviewer · review the diff')
+  expect(text).toContain('checker · run the tests')
+  await ui.unmount()
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 40 } })
+  expect(await said(ui)).toContain('+1 个')
+  await ui.unmount()
+  // One finishes: its part goes; the companion off takes the row with it.
+  await $.turn.complete({ ...DONE, agentId: 'a-c1' } as never)
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
+  text = await said(ui)
+  expect(text).not.toContain('reviewer')
+  expect(text).toContain('⤷ checker · run the tests')
+  await ui.unmount()
+  await $.command.run({ ...RUN, command: 'showtime', args: 'companion off' })
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
+  expect(await said(ui)).not.toContain('⤷')
+  await ui.unmount()
+  await $.command.run({ ...RUN, command: 'showtime', args: 'companion on' })
+  await $.turn.complete(DONE)
+  await clock.settle()
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...IDLE })
+  expect(await said(ui)).not.toContain('⤷')
+  await ui.unmount()
+})
+
+test('a narrow band keeps done/total on its one line; /showtime feed off hides the feed, not the pet', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.tool.call({ tool: 'TaskCreate', subject: 'One', description: 'd' } as never)
+  await clock.settle()
+  let ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 50 } })
+  expect(await said(ui)).toContain('Lv.1 ♥0 0/1')
+  await ui.unmount()
+  expect((await $.command.run({ command: 'showtime', args: 'feed off', ...RUN })).text).toContain('已隐藏')
+  expect(rows).toContainEqual(['showtime.feed', false])
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
+  const text = await said(ui)
+  expect(text).not.toContain('0/1')
+  expect(text).toContain('Lv.')
+  expect(await drawn(ui, 'pet')).toContain('▀')
+  await ui.unmount()
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text).toContain('已隐藏')
+  expect((await $.command.run({ command: 'showtime', args: 'feed on', ...RUN })).text).toContain('已显示')
+  expect(rows).toContainEqual(['showtime.feed', true])
+  ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
+  expect(await said(ui)).toContain('0/1')
+  await ui.unmount()
 })

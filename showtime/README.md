@@ -11,6 +11,7 @@ Claude 干活时，输入框上方会演一段小动画：像素风的横版射�
 - **动画小剧场**：Claude 工作时，输入框上方播放主题动画。其他 mod 的横条（hud、ts-band、hitokoto 等）排在它下面。
 - **宠物伴侣**：参考 Codex Pets，按思考、调用工具、输出、等待切换姿势。气泡只说 Claude Code 自己的 Spinner 行没有的信息：正在跑的工具（`Bash: npm test`、`Edit: themes.ts`），或者有权限请求在等你确认；模型思考时它就埋头忙。多个子代理并行时显示数量（`Agent ×3`），只有一个时显示它的任务。Claude 跑测试或提交时，它会说几秒钟（测试通过、测试没过、提交好了）。
 - **养成**：两轮之间宠物留在原地（完成、被中断、出错，安静 5 分钟后打瞌睡）。每跑完一轮、每次测试通过、每次提交都会涨经验升级（`Lv.4`）；点它或输入 `/showtime pet` 可以摸摸它（`♥12`，会冒爱心）。等级和好感度跨会话保存，同时开的几个会话养的是同一只。
+- **信息栏**：宠物旁边显示这一轮在做什么，不花一个 token：只读任务工具（TaskCreate、TaskUpdate、TaskList、TodoWrite）的结果和引擎自己的事件。等级那一行接着显示计划进度（`Lv.3 ♥12 · 1/4 ▮▮▯▯▯▯▯ 2m 14s`：完成数/总数、进度条、当前任务用了多久），下一行是当前任务（`▸ Write the feed`，没有进行中的就显示 `▹` 下一个待办）；横条下方一行列出正在跑的子代理和它手上的工具（`⤷ reviewer · review the diff (Grep)  │  checker · run the tests`），放不下的计数（`+2 个`）。宠物缩成一行时，等级后面保留 `1/4`。一轮结束全部清空。`/showtime feed off` / `on` 或 `feed` 选项可以关掉和打开；宠物不受影响。
 - **Spinner 行上的吉祥物**：关掉宠物后，吉祥物会站到 Claude Code 自己的 Spinner 行前面（`[◉_◉]⊃━━ ✢ Choreographing… (4s · ↓ 14 tokens)`），原来的提示词、用时和 token 数不变。同一时间只显示一个吉祥物。
 - **完成庆祝**：一轮结束后 3 秒，吉祥物身边放彩带并显示用时（`(=^▽^=)ﾉ  完成 · 12s`）；被中断是一张难过的脸，出错是一阵故障闪烁。
 - **减少动画**：打开 `reducedMotion` 后，所有动画都只画静止的一帧，但仍会随 Claude 的状态变化。
@@ -57,7 +58,7 @@ claude plugin install showtime@claudebro-mods
 - `/showtime <主题>`、`/showtime random`：立即切换主题；`/showtime theme` 弹窗选择（给出随机和三套主题，其他主题可以在 Other 里输入）。
 - `/showtime preview [主题]`：在输入框上方试播 8 秒。
 - `/showtime pet`：摸摸宠物。
-- `/showtime off` / `on`：关闭或打开全部动画；`/showtime stage off` / `on` 只管动画场景；`/showtime companion off` / `on` 只管宠物。
+- `/showtime off` / `on`：关闭或打开全部动画；`/showtime stage off` / `on` 只管动画场景；`/showtime companion off` / `on` 只管宠物；`/showtime feed off` / `on` 只管信息栏（任务和子代理）。
 
 这些命令改的设置都会写回 `/config`，以后的会话也会沿用，并立即生效。选了 `random` 时，同一个会话里重新加载也不会换主题。
 
@@ -73,6 +74,7 @@ claude plugin install showtime@claudebro-mods
 | `stage` | 输入框上方的动画场景 | 开 |
 | `celebrate` | 一轮结束时的庆祝动画 | 开 |
 | `companion` | 宠物伴侣 | 开 |
+| `feed` | 宠物旁的计划进度和当前任务，横条下方的子代理一行 | 开 |
 | `reducedMotion` | 吉祥物、场景和宠物只画静止画面，仍随状态变化 | 关 |
 | `language` | `/showtime` 回复、宠物气泡和庆祝文字的语言：`auto`、`en`、`zh-Hans`、`zh-Hant`、`ja`、`ko`、`es`、`fr`、`de`、`pt-BR`、`ru` | `auto` |
 

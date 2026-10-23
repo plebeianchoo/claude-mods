@@ -38,6 +38,10 @@ export type Key =
   | 'cmd.petStats'
   | 'cmd.companionOff'
   | 'cmd.companionOn'
+  | 'cmd.feedOff'
+  | 'cmd.feedOn'
+  | 'feed.more'
+  | 'feed.task'
 
 export const MESSAGES: Record<Lang, Record<Key, string>> = {
   en: {
@@ -47,7 +51,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.rotateNote': ' (next one each turn)',
     'cmd.rotate': 'A new theme each turn, in order; now: {theme}',
     'cmd.themes': 'Themes: {list}',
-    'cmd.usage': 'Usage: /showtime <theme|random|rotate> · theme (pick) · pet · preview [theme] · off / on · stage off / on · companion off / on',
+    'cmd.usage': 'Usage: /showtime <theme|random|rotate> · theme (pick) · pet · preview [theme] · off / on · stage off / on · companion off / on · feed off / on',
     'cmd.switched': 'Switched to {theme}',
     'cmd.random': 'A random theme each session; this one: {theme}',
     'cmd.hidden': 'Showtime off',
@@ -74,6 +78,10 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · {xp} xp · ♥{love}',
     'cmd.companionOff': 'Companion between turns hidden',
     'cmd.companionOn': 'Companion between turns shown',
+    'cmd.feedOff': 'Feed (tasks and agents) hidden',
+    'cmd.feedOn': 'Feed (tasks and agents) shown',
+    'feed.more': '+{n} more',
+    'feed.task': 'task {id}',
   },
   'zh-Hans': {
     'cmd.description': '运行动画：切换主题、宠物伴侣、预览、off / on（跨会话保持）',
@@ -82,7 +90,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.rotateNote': '（每轮换一个）',
     'cmd.rotate': '每轮换一个主题，依次轮换，现在是 {theme}',
     'cmd.themes': '可选主题：{list}',
-    'cmd.usage': '用法：/showtime <主题|random|rotate> · theme 弹窗选择 · pet 摸摸 · preview [主题] · off / on · stage off / on · companion off / on',
+    'cmd.usage': '用法：/showtime <主题|random|rotate> · theme 弹窗选择 · pet 摸摸 · preview [主题] · off / on · stage off / on · companion off / on · feed off / on',
     'cmd.switched': '已切换到 {theme}',
     'cmd.random': '每个会话随机一个主题，这次是 {theme}',
     'cmd.hidden': '运行动画已关闭',
@@ -109,6 +117,10 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · 经验 {xp} · ♥{love}',
     'cmd.companionOff': '空闲时的宠物已隐藏',
     'cmd.companionOn': '空闲时的宠物已显示',
+    'cmd.feedOff': '任务与子代理信息栏已隐藏',
+    'cmd.feedOn': '任务与子代理信息栏已显示',
+    'feed.more': '+{n} 个',
+    'feed.task': '任务 {id}',
   },
   'zh-Hant': {
     'cmd.description': '執行動畫：切換主題、寵物夥伴、預覽、off / on（跨工作階段保留）',
@@ -117,7 +129,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.rotateNote': '（每輪換一個）',
     'cmd.rotate': '每輪換一個主題，依序輪換，現在是 {theme}',
     'cmd.themes': '可選主題：{list}',
-    'cmd.usage': '用法：/showtime <主題|random|rotate> · theme 彈窗選擇 · pet 摸摸 · preview [主題] · off / on · stage off / on · companion off / on',
+    'cmd.usage': '用法：/showtime <主題|random|rotate> · theme 彈窗選擇 · pet 摸摸 · preview [主題] · off / on · stage off / on · companion off / on · feed off / on',
     'cmd.switched': '已切換到 {theme}',
     'cmd.random': '每個工作階段隨機一個主題，這次是 {theme}',
     'cmd.hidden': '執行動畫已關閉',
@@ -144,6 +156,10 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · 經驗 {xp} · ♥{love}',
     'cmd.companionOff': '閒置時的寵物已隱藏',
     'cmd.companionOn': '閒置時的寵物已顯示',
+    'cmd.feedOff': '任務與子代理資訊列已隱藏',
+    'cmd.feedOn': '任務與子代理資訊列已顯示',
+    'feed.more': '+{n} 個',
+    'feed.task': '任務 {id}',
   },
   ja: {
     'cmd.description': '実行中アニメーション：テーマ、ペット、プレビュー、off / on（セッションをまたいで保持）',
@@ -152,7 +168,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.rotateNote': '（ターンごとに次へ）',
     'cmd.rotate': 'ターンごとに次のテーマへ。今は {theme}',
     'cmd.themes': 'テーマ一覧：{list}',
-    'cmd.usage': '使い方：/showtime <テーマ|random|rotate> · theme 選択 · pet なでる · preview [テーマ] · off / on · stage off / on · companion off / on',
+    'cmd.usage': '使い方：/showtime <テーマ|random|rotate> · theme 選択 · pet なでる · preview [テーマ] · off / on · stage off / on · companion off / on · feed off / on',
     'cmd.switched': '{theme} に切り替えました',
     'cmd.random': 'セッションごとにランダムなテーマ。今回は {theme}',
     'cmd.hidden': '実行中アニメーションをオフにしました',
@@ -179,6 +195,10 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · 経験値 {xp} · ♥{love}',
     'cmd.companionOff': '待機中のペットを非表示にしました',
     'cmd.companionOn': '待機中のペットを表示しました',
+    'cmd.feedOff': 'タスクとサブエージェントの表示をオフにしました',
+    'cmd.feedOn': 'タスクとサブエージェントの表示をオンにしました',
+    'feed.more': '他 {n} 件',
+    'feed.task': 'タスク {id}',
   },
   ko: {
     'cmd.description': '실행 애니메이션: 테마, 펫, 미리 보기, off / on(세션 간 유지)',
@@ -187,7 +207,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.rotateNote': ' (턴마다 다음 테마)',
     'cmd.rotate': '턴마다 다음 테마로 바뀝니다, 지금은 {theme}',
     'cmd.themes': '테마 목록: {list}',
-    'cmd.usage': '사용법: /showtime <테마|random|rotate> · theme 선택 · pet 쓰다듬기 · preview [테마] · off / on · stage off / on · companion off / on',
+    'cmd.usage': '사용법: /showtime <테마|random|rotate> · theme 선택 · pet 쓰다듬기 · preview [테마] · off / on · stage off / on · companion off / on · feed off / on',
     'cmd.switched': '{theme}(으)로 전환했습니다',
     'cmd.random': '세션마다 무작위 테마, 이번에는 {theme}',
     'cmd.hidden': '실행 애니메이션을 껐습니다',
@@ -214,6 +234,10 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · 경험치 {xp} · ♥{love}',
     'cmd.companionOff': '대기 중 펫을 숨겼습니다',
     'cmd.companionOn': '대기 중 펫을 표시했습니다',
+    'cmd.feedOff': '작업·서브에이전트 표시 끔',
+    'cmd.feedOn': '작업·서브에이전트 표시 켬',
+    'feed.more': '+{n}개',
+    'feed.task': '작업 {id}',
   },
   es: {
     'cmd.description': 'Animaciones del spinner: temas, mascota, vista previa, off / on (se mantiene entre sesiones)',
@@ -222,7 +246,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.rotateNote': ' (el siguiente en cada turno)',
     'cmd.rotate': 'Un tema nuevo en cada turno, en orden; ahora: {theme}',
     'cmd.themes': 'Temas: {list}',
-    'cmd.usage': 'Uso: /showtime <tema|random|rotate> · theme (elegir) · pet · preview [tema] · off / on · stage off / on · companion off / on',
+    'cmd.usage': 'Uso: /showtime <tema|random|rotate> · theme (elegir) · pet · preview [tema] · off / on · stage off / on · companion off / on · feed off / on',
     'cmd.switched': 'Cambiado a {theme}',
     'cmd.random': 'Un tema al azar en cada sesión; esta vez: {theme}',
     'cmd.hidden': 'Animaciones del spinner desactivadas',
@@ -249,6 +273,10 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Nv.{level} · {xp} xp · ♥{love}',
     'cmd.companionOff': 'Mascota entre turnos oculta',
     'cmd.companionOn': 'Mascota entre turnos visible',
+    'cmd.feedOff': 'Tareas y agentes ocultos',
+    'cmd.feedOn': 'Tareas y agentes mostrados',
+    'feed.more': '+{n} más',
+    'feed.task': 'tarea {id}',
   },
   fr: {
     'cmd.description': 'Animations du spinner : thèmes, compagnon, aperçu, off / on (réglage conservé entre les sessions)',
@@ -257,7 +285,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.rotateNote': ' (le suivant à chaque tour)',
     'cmd.rotate': 'Un nouveau thème à chaque tour, dans l’ordre ; maintenant : {theme}',
     'cmd.themes': 'Thèmes : {list}',
-    'cmd.usage': 'Usage : /showtime <thème|random|rotate> · theme (choisir) · pet · preview [thème] · off / on · stage off / on · companion off / on',
+    'cmd.usage': 'Usage : /showtime <thème|random|rotate> · theme (choisir) · pet · preview [thème] · off / on · stage off / on · companion off / on · feed off / on',
     'cmd.switched': 'Thème {theme} activé',
     'cmd.random': 'Un thème au hasard à chaque session ; cette fois : {theme}',
     'cmd.hidden': 'Animations du spinner désactivées',
@@ -284,6 +312,10 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · niv.\u00a0{level} · {xp}\u00a0xp · ♥{love}',
     'cmd.companionOff': 'Compagnon entre les tours masqué',
     'cmd.companionOn': 'Compagnon entre les tours affiché',
+    'cmd.feedOff': 'Tâches et agents masqués',
+    'cmd.feedOn': 'Tâches et agents affichés',
+    'feed.more': '+{n} de plus',
+    'feed.task': 'tâche {id}',
   },
   de: {
     'cmd.description': 'Spinner-Animationen: Themen, Begleiter, Vorschau, off / on (bleibt über Sitzungen erhalten)',
@@ -292,7 +324,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.rotateNote': ' (jede Runde das nächste)',
     'cmd.rotate': 'Jede Runde das nächste Thema, der Reihe nach; jetzt: {theme}',
     'cmd.themes': 'Themen: {list}',
-    'cmd.usage': 'Verwendung: /showtime <Thema|random|rotate> · theme (auswählen) · pet · preview [Thema] · off / on · stage off / on · companion off / on',
+    'cmd.usage': 'Verwendung: /showtime <Thema|random|rotate> · theme (auswählen) · pet · preview [Thema] · off / on · stage off / on · companion off / on · feed off / on',
     'cmd.switched': 'Zu {theme} gewechselt',
     'cmd.random': 'Jede Sitzung ein zufälliges Thema; diesmal: {theme}',
     'cmd.hidden': 'Spinner-Animationen aus',
@@ -319,6 +351,10 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · {xp} EP · ♥{love}',
     'cmd.companionOff': 'Begleiter zwischen den Runden ausgeblendet',
     'cmd.companionOn': 'Begleiter zwischen den Runden eingeblendet',
+    'cmd.feedOff': 'Aufgaben und Agenten ausgeblendet',
+    'cmd.feedOn': 'Aufgaben und Agenten eingeblendet',
+    'feed.more': '+{n} weitere',
+    'feed.task': 'Aufgabe {id}',
   },
   'pt-BR': {
     'cmd.description': 'Animações do spinner: temas, mascote, prévia, off / on (configuração mantida entre sessões)',
@@ -327,7 +363,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.rotateNote': ' (o próximo a cada turno)',
     'cmd.rotate': 'Um tema novo a cada turno, em ordem; agora: {theme}',
     'cmd.themes': 'Temas: {list}',
-    'cmd.usage': 'Uso: /showtime <tema|random|rotate> · theme (escolher) · pet · preview [tema] · off / on · stage off / on · companion off / on',
+    'cmd.usage': 'Uso: /showtime <tema|random|rotate> · theme (escolher) · pet · preview [tema] · off / on · stage off / on · companion off / on · feed off / on',
     'cmd.switched': 'Trocado para {theme}',
     'cmd.random': 'Um tema aleatório a cada sessão; desta vez: {theme}',
     'cmd.hidden': 'Animações do spinner desativadas',
@@ -354,6 +390,10 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Nv.{level} · {xp} xp · ♥{love}',
     'cmd.companionOff': 'Mascote entre turnos oculto',
     'cmd.companionOn': 'Mascote entre turnos visível',
+    'cmd.feedOff': 'Tarefas e agentes ocultos',
+    'cmd.feedOn': 'Tarefas e agentes exibidos',
+    'feed.more': '+{n} mais',
+    'feed.task': 'tarefa {id}',
   },
   ru: {
     'cmd.description': 'Анимации спиннера: темы, питомец, предпросмотр, off / on (сохраняется между сессиями)',
@@ -362,7 +402,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.rotateNote': ' (следующая каждый ход)',
     'cmd.rotate': 'Новая тема каждый ход, по порядку; сейчас: {theme}',
     'cmd.themes': 'Темы: {list}',
-    'cmd.usage': 'Использование: /showtime <тема|random|rotate> · theme (выбор) · pet · preview [тема] · off / on · stage off / on · companion off / on',
+    'cmd.usage': 'Использование: /showtime <тема|random|rotate> · theme (выбор) · pet · preview [тема] · off / on · stage off / on · companion off / on · feed off / on',
     'cmd.switched': 'Тема переключена на {theme}',
     'cmd.random': 'Случайная тема в каждой сессии; сейчас: {theme}',
     'cmd.hidden': 'Анимации спиннера выключены',
@@ -389,6 +429,10 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · ур.{level} · {xp} оп. · ♥{love}',
     'cmd.companionOff': 'Питомец между ходами скрыт',
     'cmd.companionOn': 'Питомец между ходами показан',
+    'cmd.feedOff': 'Задачи и агенты скрыты',
+    'cmd.feedOn': 'Задачи и агенты показаны',
+    'feed.more': 'ещё {n}',
+    'feed.task': 'задача {id}',
   },
 }
 

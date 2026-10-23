@@ -108,3 +108,20 @@ test('clip keeps CJK widths and strips control characters', () => {
   expect(clip('中文字符串测试', 8)).toBe('中文字…')
   expect(clip('short', 5)).toBe('short')
 })
+
+test('the names the caller passes in are used: a task named by id, the agents past what fits', () => {
+  const f = applyTaskResult(EMPTY_FEED, 'TaskUpdate', { taskId: '7', status: 'in_progress' }, { success: true, taskId: '7', updatedFields: ['status'], statusChange: { from: 'pending', to: 'in_progress' } }, NOW, id => `任务 ${id}`)
+  expect(f.tasks[0]!.subject).toBe('任务 7')
+  let g = applySpawn(EMPTY_FEED, { id: 'a1', description: 'review the diff', type: 'reviewer' }, NOW)
+  g = applySpawn(g, { id: 'a2', description: 'run the tests', type: 'checker' }, NOW)
+  g = applySpawn(g, { id: 'a3', description: 'lint', type: 'linter' }, NOW)
+  expect(agentRow(g, 40, n => `+${n} más`)).toBe('⤷ reviewer · review the diff  │  +2 más')
+})
+
+test('EMPTY_FEED is frozen: a consumer cannot corrupt the reset value', () => {
+  expect(Object.isFrozen(EMPTY_FEED)).toBe(true)
+  expect(Object.isFrozen(EMPTY_FEED.tasks)).toBe(true)
+  expect(Object.isFrozen(EMPTY_FEED.agents)).toBe(true)
+  expect(Object.isFrozen(EMPTY_FEED.running)).toBe(true)
+  expect(() => (EMPTY_FEED.tasks as unknown[]).push(1)).toThrow()
+})
