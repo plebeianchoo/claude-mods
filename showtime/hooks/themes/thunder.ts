@@ -2,7 +2,7 @@
 //
 // The scene: a jet at the left bobbing on a twelve-frame sine, its exhaust flickering every frame,
 // firing at an invader wave that flies in from the right edge over stars streaming past at two
-// speeds. Each subagent adds a wave of small invaders in the top lane. The score at the top right
+// speeds. Each subagent adds a wave of small invaders in the top lane. The score at the bottom right
 // reads done/total, and a small ship icon per task sits along the bottom edge, `done` of them lit.
 // The fire rate follows the tool (bash every 2 frames, edit 4, else 6); while asking, the jet holds
 // fire and the invaders slip past. A failed test hits the jet (it flashes red/transparent, drops a
@@ -67,6 +67,14 @@ const MINI_GAP = 14
 const HIT_FRAMES = 10
 const PASS_FRAMES = 16
 const COMMIT_FRAMES = 12
+/** The afterburner and cannon glow as the act turns. */
+const GLOW_FRAMES = 6
+/** The newest task ship pulses; all of them wave when the last lands. */
+const DONE_PULSE_FRAMES = 8
+const DONE_WAVE_FRAMES = 16
+/** Agent waves shown, and the frames between one wave's entry and the next's. */
+const MAX_AGENTS = 4
+const MINI_STAGGER = 5
 const FLASH = ['#ffffff', '#fff3b0', '#ffd60a', '#ffd60a', '#ff9f1c', '#ff9f1c', '#e85d04', '#e85d04', '#9d4edd', '#9d4edd', '#5c677d', '#5c677d']
 /** Frames between shots while a tool runs, by tool; thinking fires slower, saying as a plain tool, asking not at all. */
 function fireRate(s: Signals): number {
@@ -155,17 +163,27 @@ function shots(cv: Canvas, t: number, s: Signals, foes: Foe[], flash: boolean, i
 
 /** Subagents: a wave of small invaders each in the top lane, entering at the right edge when the agent
  * arrives. They step on the frames the slow stars step on (every other `t`), so a star never drifts
- * out of one from its far side. */
+ * out of one from its far side. The commit bomb clears them too: those on screen explode in place,
+ * none enters until the burst ends, then the stream resumes from the right edge. */
 function minis(cv: Canvas, t: number, s: Signals): void {
   const w = cv.w
-  for (let i = 0; i < Math.min(s.agents, 4); i++) {
-    const start = t - s.agentsAge + i * 5   // when this wave's first mini enters
+  const bombAt = s.news === 'commit' ? t - s.newsAge : -Infinity
+  for (let i = 0; i < Math.min(s.agents, MAX_AGENTS); i++) {
+    const start = t - s.agentsAge + i * MINI_STAGGER   // when this wave's first mini enters
     const a = t - start
     if (a < 0) continue
-    const art = MINI_COLORS[i]!
+    const color = MINI_COLORS[i]!
     for (let n = Math.max(0, Math.floor((a - 2 * (w + MINI_W + 2)) / MINI_GAP)); n * MINI_GAP <= a; n++) {
-      const x = w + 1 - (Math.floor(t / 2) - Math.floor((start + n * MINI_GAP) / 2))
-      if (x > -MINI_W) draw(cv, x, 0, frame(MINI, (a - n * MINI_GAP) >> 1), { M: art })
+      const spawn = start + n * MINI_GAP
+      const at = (tt: number) => w + 1 - (Math.floor(tt / 2) - Math.floor(spawn / 2))
+      if (spawn <= bombAt) {
+        const x = at(bombAt)
+        if (t - bombAt < BOOM_FRAMES && x > -MINI_W && x < w) {
+          const b = BOOM[Math.floor(t - bombAt)]!
+          draw(cv, x + b.dx, b.dy, b.art, BOOM_COLORS)
+        }
+      } else if (spawn < bombAt + COMMIT_FRAMES) continue
+      else if (at(t) > -MINI_W) draw(cv, at(t), 0, frame(MINI, (a - n * MINI_GAP) >> 1), { M: color })
     }
   }
 }
@@ -178,8 +196,8 @@ function ships(cv: Canvas, s: Signals, isCommit: boolean, isPass: boolean, score
     let color = i < s.done ? '#4cc9f0' : '#4a4e69'
     if (isCommit && mod(s.newsAge, 4) < 2) color = '#ffffff'
     else if (isPass && mod(s.newsAge - i, 6) < 3) color = '#9ece6a'
-    else if (allDone && s.doneAge < 16 && mod(s.doneAge - i, 8) < 2) color = '#e0fbfc'
-    else if (!allDone && i === s.done - 1 && s.doneAge < 8 && mod(s.doneAge, 4) < 2) color = '#e0fbfc'
+    else if (allDone && s.doneAge < DONE_WAVE_FRAMES && mod(s.doneAge - i, 8) < 2) color = '#e0fbfc'
+    else if (!allDone && i === s.done - 1 && s.doneAge < DONE_PULSE_FRAMES && mod(s.doneAge, 4) < 2) color = '#e0fbfc'
     draw(cv, SHIP_X0 + i * SHIP_PITCH, 6, SHIP, { S: color })
   }
 }
@@ -201,12 +219,12 @@ export function thunderScene(t: number, w: number, s: Signals): Grid {
   // The jet, bobbing; while hit it shows on even frames only. Its exhaust: a new color every frame, the tail
   // pixel every other frame; an afterburner (tail on, white) as the act turns and on a passing test.
   const jy = jetY(t, s, t)
-  const burner = s.actAge < 6 || isPass
+  const burner = s.actAge < GLOW_FRAMES || isPass
   const flame = isPass ? (mod(t, 2) ? '#9ece6a' : '#e0fbfc') : burner ? (mod(t, 2) ? '#fff3b0' : '#ffd60a') : frame(FLAME, t)
   if (!isHit || mod(s.newsAge, 2) === 0) {
     draw(cv, JET_X, jy, burner || mod(t, 2) === 0 ? JET : JET_SHORT, isHit ? HIT_COLORS : { ...JET_COLORS, F: flame })
     // The cannon glows as the act turns.
-    if (s.actAge < 6) plot(cv, CANNON_X, jy + 2, '#fff3b0')
+    if (s.actAge < GLOW_FRAMES) plot(cv, CANNON_X, jy + 2, '#fff3b0')
   }
   for (const foe of foes) {
     if (foe.alive) {
@@ -221,7 +239,7 @@ export function thunderScene(t: number, w: number, s: Signals): Grid {
   }
   const g = cells(cv)
   // The score at the bottom right, after the ships: done/total.
-  const scoreColor = isPass ? '#9ece6a' : isCommit && mod(s.newsAge, 4) < 2 ? '#ffffff' : s.doneAge < 8 && mod(s.doneAge, 4) < 2 ? '#fff3b0' : '#fca311'
+  const scoreColor = isPass ? '#9ece6a' : isCommit && mod(s.newsAge, 4) < 2 ? '#ffffff' : s.doneAge < DONE_PULSE_FRAMES && mod(s.doneAge, 4) < 2 ? '#fff3b0' : '#fca311'
   put(g, w - score.length - 1, SCENE_ROWS - 1, score, { c: scoreColor, b: true })
   // Asking: a question mark over the cannon, blinking.
   if (act === 'ask' && mod(t, 8) < 6) put(g, NOSE_X, 0, '?', { c: '#ffd166', b: true })
