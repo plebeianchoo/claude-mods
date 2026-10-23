@@ -3,9 +3,10 @@ import { blank, frame, mod, noise, put } from '../cells'
 import type { Grid } from '../cells'
 import { CLAWD_SHAPE } from '../pets'
 import type { PetArt } from '../pets'
-import type { Theme } from '../themes'
+import { withReactions } from '../reactions'
+import type { Signals, Theme } from '../themes'
 
-export function catScene(t: number, w: number): Grid {
+export function catScene(t: number, w: number, s: Signals): Grid {
   const g = blank(w, 2)
   for (let x = 0; x < w; x++) {
     const n = noise(x + 1000 * Math.floor((x + t) / w))
@@ -21,7 +22,7 @@ export function catScene(t: number, w: number): Grid {
     if (age < 10) put(g, cx - 2 - Math.floor(age / 3), 0, age < 6 ? '♡' : '·', { c: '#ff8fab', d: age >= 6 })
   }
   if (mod(t, 40) < 20) put(g, cx + 3, 0, frame(['♪', '♫'], t >> 2), { c: '#cdb4db' })
-  return g
+  return withReactions(g, t, s, '#ffb3c6')
 }
 
 /** No pet of its own: Clawd's shape in this theme's color. */

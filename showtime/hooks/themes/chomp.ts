@@ -3,7 +3,7 @@ import { canvas, cells, draw, frame, mod, plot, put } from '../cells'
 import type { Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
 import type { PetArt } from '../pets'
-import type { Act, Theme } from '../themes'
+import type { Signals, Theme } from '../themes'
 
 const PAC = [
   ['.YYYYY.', 'YYYYYYY', 'YYYY...', 'YYYY...', 'YYYYYYY', '.YYYYY.'],
@@ -20,7 +20,8 @@ const SCARED = [
   ['.BBBBB.', 'BBBBBBB', 'BWBBBWB', 'BBBBBBB', 'BPBPBPB', 'BB.B.BB'],
 ]
 
-export function chompScene(t: number, w: number, act: Act): Grid {
+export function chompScene(t: number, w: number, s: Signals): Grid {
+  const act = s.act
   const cv = canvas(w, SCENE_ROWS)
   // The maze's walls, double lines top and bottom.
   for (let x = 0; x < w; x++) {

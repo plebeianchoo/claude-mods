@@ -5,7 +5,7 @@ import type { Activity, DockPet, Feed, FinaleState, PetStats, Preview } from '..
 import { USAGE, parseCommand } from './command'
 import { readConfig } from './config'
 import type { Choice, Config } from './config'
-import { EMPTY_FEED, agentRow, applyAgentDone, applyAgentTool, applySpawn, applyTaskResult, clearTurn, progressOf, taskLine } from './feed'
+import { EMPTY_FEED, agentRow, applyAgentDone, applyAgentTool, applySpawn, applyTaskResult, clearTurn, progressOf, taskLine, toolKindOf } from './feed'
 import { m, setLang } from './i18n'
 import { isPickerOpen, stackAbove } from './kit/band'
 import { drawPet, drawPetLine } from './kit/pet'
@@ -13,7 +13,7 @@ import { resolveLanguage } from './kit/lang'
 import { keptRows, migrateStore, persist } from './kit/prefs'
 import type { Prefs } from './kit/prefs'
 import { bubbleOf, busyLabel, finaleOf, formatDuration, levelOf, newsOf, toolLabel } from './pet'
-import { FINALE_MS, THEMES, THEME_NAMES, isThemeName, nextTheme, pickRandom, textWidth } from './themes'
+import { FINALE_MS, IDLE_SIGNALS, THEMES, THEME_NAMES, isThemeName, nextTheme, pickRandom, textWidth } from './themes'
 import type { Act, Mood, ThemeName } from './themes'
 import { PET_ROWS, PET_W, dockPetOf } from './pets'
 import type { PetState } from './pets'
@@ -341,6 +341,7 @@ export const register: Register = (on, options) => {
         return await next(e)
       } finally {
         open.delete(e.tool_use_id)
+        refused.delete(e.tool_use_id)
         await update($, feed, f => applyAgentTool(f, agentId, undefined))
         // Its ask answered: back to what the main thread is doing.
         if ((await read($, activity)).act === 'ask') await settle($)
@@ -579,16 +580,29 @@ export const register: Register = (on, options) => {
     const sceneFits = (rows: number) => e.props.maxRows >= Math.max(rows, pet ? PET_ROWS : 0)
     let scene = null
     if (shown && isThemeName(shown.theme)) {
-      const props: StageProps = { theme: shown.theme, columns, act: 'think', still: isStill }
+      const props: StageProps = { theme: shown.theme, columns, signals: { ...IDLE_SIGNALS, act: 'think' }, still: isStill }
       scene = <Client key={`preview-${shown.id}`} module="./stage.tsx" width={columns} props={props} />
     } else if (!(await read($, isHidden)) && !(await read($, isStageOff)) && sceneFits(THEMES[name].rows)) {
       const ended: FinaleState | null = await read($, finale)
       const now: Activity = await read($, activity)
+      const f: Feed = await read($, feed)
+      const p = progressOf(f, await $.clock.now())
+      const said = await read($, news)
+      const lastTool = Object.values(f.running).at(-1)?.tool
+      // A key left undefined is refused in props, so the optional ones are set only when they have a value.
+      const signals: StageProps['signals'] = {
+        act: now.act,
+        agents: f.agents.length,
+        done: p?.done ?? 0,
+        total: p?.total ?? 0,
+        ...(lastTool ? { tool: toolKindOf(lastTool) } : {}),
+        ...(said ? { news: said.kind, newsId: said.id } : {}),
+      }
       if (e.props.isWorking) {
-        const props: StageProps = { theme: name, columns, act: now.act, still: isStill }
+        const props: StageProps = { theme: name, columns, signals, still: isStill }
         scene = <Client key="work" module="./stage.tsx" width={columns} props={props} />
       } else if (ended) {
-        const props = { theme: name, columns, act: now.act, finale: ended.kind, label: ended.label, still: isStill }
+        const props: StageProps = { theme: name, columns, signals, finale: ended.kind, label: ended.label, still: isStill }
         scene = <Client key={`finale-${ended.id}`} module="./stage.tsx" width={columns} props={props} />
       }
     }

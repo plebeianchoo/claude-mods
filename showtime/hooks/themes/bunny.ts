@@ -3,9 +3,10 @@ import { blank, mod, put } from '../cells'
 import type { Grid } from '../cells'
 import { CLAWD_SHAPE } from '../pets'
 import type { PetArt } from '../pets'
-import type { Theme } from '../themes'
+import { withReactions } from '../reactions'
+import type { Signals, Theme } from '../themes'
 
-export function bunnyScene(t: number, w: number): Grid {
+export function bunnyScene(t: number, w: number, s: Signals): Grid {
   const g = blank(w, 2)
   for (let x = 0; x < w; x++) {
     if (mod(x * 7 + 3, 11) === 0) put(g, x, 1, '"', { c: '#80b918', d: true })
@@ -19,7 +20,7 @@ export function bunnyScene(t: number, w: number): Grid {
   const isUp = mod(t, 6) < 3
   put(g, bx, isUp ? 0 : 1, isUp ? '૮ ˶ᵔ ᵕ ᵔ˶ ა' : '૮ ˶• ᴗ •˶ ა', { c: '#f8f9fa', b: true })
   if (!isUp) put(g, bx - 2, 1, '⁎', { c: '#adb5bd', d: true })
-  return g
+  return withReactions(g, t, s, '#f1faee')
 }
 
 /** No pet of its own: Clawd's shape in this theme's color. */

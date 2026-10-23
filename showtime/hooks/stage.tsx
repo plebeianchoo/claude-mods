@@ -4,18 +4,22 @@
 import type { ClientModule } from 'claude-code'
 
 import { STAGE_MS, finaleScene, segments, themeOf } from './themes'
-import type { Act, Finale } from './themes'
+import type { Act, Finale, Signals } from './themes'
 
 export type StageProps = {
   theme: string
   /** Cells the scene takes across. */
   columns: number
-  act: Act
+  /** What the scene reacts to; the stage adds the ages. */
+  signals: Omit<Signals, 'newsAge' | 'actAge' | 'doneAge' | 'agentsAge'> & { newsId?: string }
   finale?: Finale
   label?: string
   /** One frame, never redrawn (reduced motion). */
   still?: boolean
 }
+
+/** Each instance's last-seen signals and the tick they changed at. */
+const stages = new WeakMap<object, { act: Act; actAt: number; done: number; doneAt: number; agents: number; agentsAt: number; newsId?: string; newsAt: number }>()
 
 const Stage: ClientModule<StageProps, number> = (props, surface) => {
   const { Box, Text } = surface.elements
@@ -27,7 +31,23 @@ const Stage: ClientModule<StageProps, number> = (props, surface) => {
   const t = surface.state ?? 0
   const theme = themeOf(props.theme)
   const w = Math.max(16, Math.min(surface.columns || props.columns, props.columns))
-  const rows = props.finale ? finaleScene(theme, props.finale, props.label ?? '', t, w) : theme.scene(t, w, props.act)
+  let m = stages.get(surface)
+  if (m === undefined) {
+    m = { act: props.signals.act, actAt: t, done: props.signals.done, doneAt: t, agents: props.signals.agents, agentsAt: t, newsId: props.signals.newsId, newsAt: t }
+    stages.set(surface, m)
+  }
+  if (props.signals.act !== m.act) { m.act = props.signals.act; m.actAt = t }
+  if (props.signals.done !== m.done) { m.done = props.signals.done; m.doneAt = t }
+  if (props.signals.agents !== m.agents) { m.agents = props.signals.agents; m.agentsAt = t }
+  if (props.signals.newsId !== m.newsId) { m.newsId = props.signals.newsId; m.newsAt = t }
+  const s: Signals = {
+    ...props.signals,
+    actAge: t - m.actAt,
+    doneAge: t - m.doneAt,
+    agentsAge: t - m.agentsAt,
+    newsAge: props.signals.news ? t - m.newsAt : 999,
+  }
+  const rows = props.finale ? finaleScene(theme, props.finale, props.label ?? '', t, w) : theme.scene(t, w, s)
 
   return (
     <Box flexDirection="column">

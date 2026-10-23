@@ -3,9 +3,10 @@ import { blank, cells, frame, mod, noise, put, textWidth } from '../cells'
 import type { Grid } from '../cells'
 import { CLAWD_SHAPE } from '../pets'
 import type { PetArt } from '../pets'
-import type { Theme } from '../themes'
+import { withReactions } from '../reactions'
+import type { Signals, Theme } from '../themes'
 
-export function dinoScene(t: number, w: number): Grid {
+export function dinoScene(t: number, w: number, s: Signals): Grid {
   const g = blank(w, 2)
   const rx = 4
   const body = 'ᕕ(ᐛ)ᕗ'
@@ -26,7 +27,7 @@ export function dinoScene(t: number, w: number): Grid {
   }
   put(g, rx, isAirborne ? 0 : 1, isAirborne ? 'ᕕ(ᐛ)ᕗ' : frame(['ᕕ(ᐛ)ᕗ', 'ᕕ( ᐛ)ᕗ'], t >> 1), { c: '#e9c46a', b: true })
   put(g, w - 9, 0, `HI ${String(t).padStart(5, '0')}`, { c: '#adb5bd' })
-  return g
+  return withReactions(g, t, s, '#e9c46a')
 }
 
 /** No pet of its own: Clawd's shape in this theme's color. */

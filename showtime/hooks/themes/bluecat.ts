@@ -3,7 +3,7 @@ import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Grid } from '../cells'
 import { SCENE_ROWS, clouds } from '../draw'
 import type { PetArt } from '../pets'
-import type { Act, Theme } from '../themes'
+import type { Signals, Theme } from '../themes'
 
 const ROBOCAT = [
   ['..PPPPPPP..', '.....p.....', '..BBBBBBB..', '.BBWWBWWBB.', 'BBWKWRWKWBB', 'BBWWWWWWWBB', '.BRRRYRRRB.'],
@@ -11,7 +11,8 @@ const ROBOCAT = [
 ]
 const GADGETS = ['#ff8fab', '#ffd60a', '#80ffdb', '#c77dff', '#f4a261']
 
-export function bluecatScene(t: number, w: number, act: Act): Grid {
+export function bluecatScene(t: number, w: number, s: Signals): Grid {
+  const act = s.act
   const cv = canvas(w, SCENE_ROWS)
   clouds(cv, t, Math.max(2, Math.floor(w / 20)), 0.2, '#2b3a55', 3, 9)
   // Rooftops far below, scrolling past.

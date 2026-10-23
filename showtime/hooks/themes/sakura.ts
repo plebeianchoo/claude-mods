@@ -3,9 +3,10 @@ import { blank, frame, mod, noise, put } from '../cells'
 import type { Grid } from '../cells'
 import { CLAWD_SHAPE } from '../pets'
 import type { PetArt } from '../pets'
-import type { Theme } from '../themes'
+import { withReactions } from '../reactions'
+import type { Signals, Theme } from '../themes'
 
-export function sakuraScene(t: number, w: number): Grid {
+export function sakuraScene(t: number, w: number, s: Signals): Grid {
   const g = blank(w, 2)
   const pinks = ['#ffb7c5', '#ff8fab', '#fb6f92', '#ffc2d1', '#ffe5ec']
   const count = Math.max(6, Math.floor(w / 5))
@@ -18,7 +19,7 @@ export function sakuraScene(t: number, w: number): Grid {
   }
   const walker = mod(Math.floor(t * 0.2), w + 12) - 10
   put(g, walker, 1, frame(['(˶ᵔ ᵕ ᵔ˶)', '(˶ᵔ ᵕ ᵔ˶)~'], t >> 3), { c: '#ffafcc', b: true })
-  return g
+  return withReactions(g, t, s, '#ff8fab')
 }
 
 /** No pet of its own: Clawd's shape in this theme's color. */

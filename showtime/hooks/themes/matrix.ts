@@ -3,9 +3,10 @@ import { blank, mod, noise, put } from '../cells'
 import type { Grid } from '../cells'
 import { CLAWD_SHAPE } from '../pets'
 import type { PetArt } from '../pets'
-import type { Theme } from '../themes'
+import { withReactions } from '../reactions'
+import type { Signals, Theme } from '../themes'
 
-export function matrixScene(t: number, w: number): Grid {
+export function matrixScene(t: number, w: number, s: Signals): Grid {
   const g = blank(w, 2)
   const glyphs = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄ0123456789ﾊﾋﾌﾍﾎ'
   for (let x = 0; x < w; x++) {
@@ -18,7 +19,7 @@ export function matrixScene(t: number, w: number): Grid {
       put(g, x, y, ch, age === 0 ? { c: '#d8f3dc', b: true } : { c: age < 3 ? '#52b788' : '#2d6a4f', d: age >= 3 })
     }
   }
-  return g
+  return withReactions(g, t, s, '#52b788')
 }
 
 /** No pet of its own: Clawd's shape in this theme's color. */
