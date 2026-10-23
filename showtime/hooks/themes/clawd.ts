@@ -52,6 +52,12 @@ const SIGN: Record<string, { glyph: (t: number) => string; c: string; trail: str
   wait: { glyph: t => frame(['.', '·', '˙', '·'], t >> 1), c: '#a97c68', trail: '#8a6a5c' },
 }
 const HERO_W = 14
+/** Frames he stands at the bench each lap, in every act (one value, so an act change never jumps his stroll). */
+const STOP = 48
+/** Reaction lengths, in frames. */
+const COMMIT_FRAMES = 12
+const FAIL_FRAMES = 24   // 4 falling + 20 lying
+const PASS_FRAMES = 16
 const PROP_W = 5
 const PROP_COLORS = {
   S: '#bfc7d5', K: '#5b7fb5', C: '#eef3ff', B: '#9aa3b2', // laptop: frame, screen, cursor, base
@@ -87,13 +93,13 @@ function propArt(tool: ToolKind | undefined, t: number): string[] {
 }
 
 /** Task tiles over the bench: `total` of them, `done` lit; the newest pulses, all of them wave when the last lands, and they flash white on a commit. */
-function tiles(cv: Canvas, benchX: number, s: Signals): void {
+function tiles(cv: Canvas, benchX: number, s: Signals, isCommit: boolean): void {
   const fits = Math.max(0, Math.floor((cv.w + 1 - benchX) / 3))
   const n = Math.min(s.total, fits)
   const allDone = s.total > 0 && s.done >= s.total
   for (let i = 0; i < n; i++) {
     let color = i < s.done ? TILE_ON : TILE_OFF
-    if (s.news === 'commit' && s.newsAge < 12 && mod(s.newsAge, 4) < 2) color = TILE_FLASH
+    if (isCommit && mod(s.newsAge, 4) < 2) color = TILE_FLASH
     else if (allDone && s.doneAge < 16 && mod(s.doneAge - i, 8) < 2) color = TILE_BRIGHT
     else if (!allDone && i === s.done - 1 && s.doneAge < 8 && mod(s.doneAge, 4) < 2) color = TILE_BRIGHT
     draw(cv, benchX + i * 3, 0, ['BB', 'BB'], { B: color })
@@ -130,7 +136,6 @@ function agents(cv: Canvas, t: number, benchX: number, s: Signals): void {
 export function clawdScene(t: number, w: number, s: Signals): Grid {
   const act = s.act
   const cv = canvas(w, SCENE_ROWS)
-  const STOP = 48
   const lap = w + HERO_W
   const mid = Math.floor(lap / 2)
   const benchX = mid - HERO_W + 15
@@ -145,33 +150,36 @@ export function clawdScene(t: number, w: number, s: Signals): Grid {
   // The plank floor scrolling under his feet, always.
   ground(cv, t, 7, 0.5, PLANKS)
   for (let bx = benchX; bx < w; bx++) plot(cv, bx, 6, mod(bx - benchX, 8) < 7 ? BENCH : '#7a5a4c')
-  tiles(cv, benchX, s)
+  const isCommit = s.news === 'commit' && s.newsAge < COMMIT_FRAMES
+  tiles(cv, benchX, s, isCommit)
   if (act === 'tool') blocks(cv, t, benchX)
   agents(cv, t, benchX, s)
 
   // The prop under his right hand, columns revealed from his arm outward when he arrives or the act turns.
-  const dropping = s.news === 'testFail' && s.newsAge < 24
-  if (act === 'tool' && !isWalking && !(dropping && s.tool === 'edit')) {
+  const dropping = s.news === 'testFail' && s.newsAge < FAIL_FRAMES
+  if (act === 'tool' && !isWalking && !dropping) {
     const since = Math.min(s.actAge, stood)
     const cols = Math.min(PROP_W, since + 1)
     draw(cv, x + 12, 2, propArt(s.tool, t).map(row => row.slice(0, cols)), PROP_COLORS)
   }
-  // A failed test: the laptop drops out of his hand, a pixel a frame, and lies on the floor.
+  // A failed test: whatever he holds (a laptop when no tool runs) drops out of his hand, a pixel a
+  // frame, and lies on the floor, its bottom two rows up.
   if (dropping) {
+    const held = propArt(s.tool ?? 'edit', t)
     const at = stroll(t - s.newsAge, w, HERO_W, STOP).x + 12
-    if (s.newsAge < 4) draw(cv, at, 2 + s.newsAge, propArt('edit', t), PROP_COLORS)
-    else draw(cv, at, 6, ['SSSSS', 'BBBBB'], PROP_COLORS)
+    if (s.newsAge < 4) draw(cv, at, 2 + s.newsAge, held, PROP_COLORS)
+    else draw(cv, at, 6, held.slice(2), PROP_COLORS)
   }
 
   const blink = mod(t, 30) < 2
   let art = CLAWD_ART.stand
   if (isWalking) art = mod(t, 4) < 2 ? CLAWD_ART.stand : CLAWD_ART.step
   else if (dropping) art = CLAWD_ART.sad
-  else if (s.news === 'testPass' && s.newsAge < 16) art = s.newsAge < 2 ? CLAWD_ART.thumbs1 : s.newsAge < 4 ? CLAWD_ART.thumbs2 : CLAWD_ART.thumbs
+  else if (s.news === 'testPass' && s.newsAge < PASS_FRAMES) art = s.newsAge < 2 ? CLAWD_ART.thumbs1 : s.newsAge < 4 ? CLAWD_ART.thumbs2 : CLAWD_ART.thumbs
   else if (blink) art = CLAWD_ART.blink
   else if (s.actAge < 6) art = CLAWD_ART.turn
   else if (act === 'tool' && mod(t, 4) < 2) art = CLAWD_ART.work
-  const hop = !isWalking && s.news === 'commit' && s.newsAge < 12 && mod(s.newsAge, 6) < 3
+  const hop = !isWalking && isCommit && mod(s.newsAge, 6) < 3
   const y = hop ? 0 : 1   // no bob while walking: his arms row would hop between cell rows
   draw(cv, x, y, art, CLAWD_COLORS)
 
@@ -205,11 +213,10 @@ export function clawdScene(t: number, w: number, s: Signals): Grid {
     clear(signX - 1, signRow)
   }
   const sign = SIGN[act] ?? SIGN.think!
-  const glyph = s.news === 'commit' && s.newsAge < 12 ? '✓' : sign.glyph(t)
-  put(g, signX, signRow, glyph, { c: s.news === 'commit' && s.newsAge < 12 ? '#ffd166' : sign.c, b: true })
+  put(g, signX, signRow, isCommit ? '✓' : sign.glyph(t), { c: isCommit ? '#ffd166' : sign.c, b: true })
   if (signRow === 0) put(g, signX + 1, 0, '·'.repeat(frame(TRAIL, t)), { c: sign.trail })
   // A commit: sparks over the bench for twelve frames, in the gaps between the tiles.
-  if (s.news === 'commit' && s.newsAge < 12) {
+  if (isCommit) {
     for (let i = 0; i * 5 + benchX + 2 < w; i++) {
       const c = benchX + 2 + i * 5
       if (g[0]![c]!.ch === ' ') put(g, c, 0, mod(s.newsAge + i, 4) < 2 ? '✦' : '✧', { c: '#ffd166', b: true })
