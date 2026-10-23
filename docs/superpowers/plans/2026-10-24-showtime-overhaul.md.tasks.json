@@ -1,0 +1,418 @@
+{
+  "planPath": "docs/superpowers/plans/2026-10-24-showtime-overhaul.md",
+  "tasks": [
+    {
+      "id": 1,
+      "subject": "Task 1: Baseline green and a working typecheck",
+      "status": "pending",
+      "blockedBy": [],
+      "description": "**Goal:** `claude plugin test showtime` passes 27/27 and `pnpm exec tsc -p showtime` runs against this build's engine types, before anything changes. Plan Task 1.\n\n**Files:**\n- Create: `showtime/scripts/engine-types.sh`\n- Modify: `showtime/hooks/register.tsx` or `showtime/tests/showtime.test.tsx`, `package.json`\n\n**Acceptance Criteria:**\n- [ ] 27 pass 0 fail\n- [ ] tsc exits 0\n- [ ] engine types laid, gitignored\n- [ ] commit, push, bump\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && echo TSC-OK`\n\n```json:metadata\n{\"files\": [\"showtime/scripts/engine-types.sh\", \"showtime/hooks/register.tsx\", \"showtime/tests/showtime.test.tsx\", \"package.json\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && echo TSC-OK\", \"acceptanceCriteria\": [\"27 pass 0 fail\", \"tsc exits 0\", \"engine types laid, gitignored\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 2: Theme registry, one file per theme",
+      "status": "pending",
+      "blockedBy": [
+        1
+      ],
+      "description": "**Goal:** Every theme lives in `showtime/hooks/themes/<name>.ts` with its pet; `themes.ts` is the index; `draw.ts` holds the layers (stroll eased); `scenes.ts` gone. No visible change. Plan Task 2.\n\n**Files:**\n- Create: `showtime/hooks/draw.ts`, `showtime/hooks/themes/*.ts` (15)\n- Modify: `showtime/hooks/themes.ts`, `showtime/hooks/pets.ts`, `showtime/hooks/register.tsx`, `showtime/README.en.md`\n- Remove: `showtime/hooks/scenes.ts`\n\n**Acceptance Criteria:**\n- [ ] 15 theme files\n- [ ] every theme has pet; petArtOf removed\n- [ ] 28 pass, tsc clean\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && ls showtime/hooks/themes | wc -l`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes.ts\", \"showtime/hooks/draw.ts\", \"showtime/hooks/themes/\", \"showtime/hooks/pets.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && ls showtime/hooks/themes | wc -l\", \"acceptanceCriteria\": [\"15 theme files\", \"every theme has pet; petArtOf removed\", \"28 pass, tsc clean\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task 3: Remove the audio theme",
+      "status": "pending",
+      "blockedBy": [
+        2
+      ],
+      "description": "**Goal:** No audio theme, tap, Swift source or ui.message level feed remains; a stored theme audio loads as random. Plan Task 3.\n\n**Files:**\n- Remove: `showtime/hooks/audio.ts`, `showtime/hooks/audio-tap.swift`, `showtime/hooks/themes/audio.ts`, `showtime/assets/audio*`\n- Modify: `showtime/hooks/themes.ts`, `showtime/hooks/stage.tsx`, `showtime/hooks/register.tsx`, `showtime/hooks/i18n.ts`, `showtime/types/index.d.ts`, `showtime/.claude-plugin/plugin.json`, READMEs, `.claude-plugin/marketplace.json`\n\n**Acceptance Criteria:**\n- [ ] no audio references\n- [ ] 14 themes\n- [ ] stored audio loads as random\n- [ ] 25 pass, tsc clean; commit, push, bump\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && ! grep -rqi audio showtime/hooks showtime/types showtime/.claude-plugin/plugin.json`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/register.tsx\", \"showtime/hooks/themes.ts\", \"showtime/hooks/stage.tsx\", \"showtime/hooks/i18n.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && ! grep -rqi audio showtime/hooks showtime/types showtime/.claude-plugin/plugin.json\", \"acceptanceCriteria\": [\"no audio references\", \"14 themes\", \"stored audio loads as random\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task 4: The feed model (feed.ts) with unit tests",
+      "status": "pending",
+      "blockedBy": [
+        3
+      ],
+      "description": "**Goal:** Pure reducers and derivations for the feed, fully unit-tested, not yet wired. Plan Task 4 has the full code and tests.\n\n**Files:**\n- Create: `showtime/hooks/feed.ts`, `showtime/tests/feed.test.ts`\n- Modify: `showtime/types/index.d.ts`\n\n**Acceptance Criteria:**\n- [ ] 11 feed tests pass\n- [ ] no engine imports in feed.ts\n- [ ] tsc clean\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/feed.ts\", \"showtime/tests/feed.test.ts\", \"showtime/types/index.d.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime\", \"acceptanceCriteria\": [\"11 feed tests pass\", \"no engine imports in feed.ts\", \"tsc clean\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 5,
+      "subject": "Task 5: Wire the feed: hooks, companion block, agent row, feed option",
+      "status": "pending",
+      "blockedBy": [
+        4
+      ],
+      "description": "**Goal:** The feed atom is written by the hooks and drawn: three rows beside the pet, the agent row under the band, the narrow line with done/total, /showtime feed off|on, the feed option, i18n, DockPet task/progress/ratio. The pet draws whenever the companion is on. Plan Task 5.\n\n**Files:**\n- Modify: `showtime/hooks/register.tsx`, `showtime/hooks/kit/pet.tsx`, `showtime/hooks/config.ts`, `showtime/hooks/command.ts`, `showtime/hooks/i18n.ts`, `showtime/types/index.d.ts`, `showtime/.claude-plugin/plugin.json`, READMEs, `showtime/tests/feed.test.ts`\n- Test: `showtime/tests/showtime.test.tsx`\n\n**Acceptance Criteria:**\n- [ ] tasks rows render and clear\n- [ ] agent row with overflow\n- [ ] narrow line ratio\n- [ ] feed off keeps pet; commit, push, bump\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/register.tsx\", \"showtime/hooks/kit/pet.tsx\", \"showtime/hooks/i18n.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime\", \"acceptanceCriteria\": [\"tasks rows render and clear\", \"agent row with overflow\", \"narrow line ratio\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 6,
+      "subject": "Task 6: Signals into every scene, shared reactions, motion tests",
+      "status": "pending",
+      "blockedBy": [
+        5
+      ],
+      "description": "**Goal:** Scenes take (t, w, s: Signals); the stage counts ages; the band builds Signals; reactions.ts for two-row scenes; tests/scenes.test.ts grid and motion tests (POLISHED empty). Plan Task 6.\n\n**Files:**\n- Create: `showtime/hooks/reactions.ts`, `showtime/tests/scenes.test.ts`\n- Modify: `showtime/hooks/themes.ts`, `showtime/hooks/stage.tsx`, `showtime/hooks/register.tsx`, `showtime/hooks/themes/*.ts`, `showtime/tests/showtime.test.tsx`\n\n**Acceptance Criteria:**\n- [ ] Signals type with ages\n- [ ] all scenes compile\n- [ ] scenes.test.ts runs; tsc clean\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes.ts\", \"showtime/hooks/stage.tsx\", \"showtime/hooks/reactions.ts\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime\", \"acceptanceCriteria\": [\"Signals type with ages\", \"all scenes compile\", \"scenes.test.ts runs; tsc clean\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 7,
+      "subject": "Task 7: scripts/shots.ts: still, review sheet, gallery",
+      "status": "pending",
+      "blockedBy": [
+        6
+      ],
+      "description": "**Goal:** bun scripts/shots.ts --theme <name> writes assets/<name>.png and the labelled review sheet assets/review/<name>.png; --gallery writes assets/gallery.png. zlib only. Plan Task 7 has the script; commit, push, bump.\n\n**Files:**\n- Create: `showtime/scripts/shots.ts`, `showtime/assets/review/.gitkeep`\n- Modify: READMEs\n\n**Acceptance Criteria:**\n- [ ] two PNGs in under 10 s\n- [ ] sheet shows labelled strips\n- [ ] gallery renders\n\n**Verify:** `cd ~/code/claudebro/claude-mods/showtime && bun scripts/shots.ts --theme clawd && file assets/clawd.png assets/review/clawd.png`\n\n```json:metadata\n{\"files\": [\"showtime/scripts/shots.ts\", \"showtime/assets/review/\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods/showtime && bun scripts/shots.ts --theme clawd && file assets/clawd.png assets/review/clawd.png\", \"acceptanceCriteria\": [\"two PNGs in under 10 s\", \"sheet shows labelled strips\", \"gallery renders\"], \"modelTier\": \"standard\"}\n```"
+    },
+    {
+      "id": 8,
+      "subject": "Task 8: clawd — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        7
+      ],
+      "description": "**Goal:** clawd reacts to the feed and meets the animation rules: one small Clawd per agent, tiles per task, tool by kind, commit flash, laptop drop on testFail, thumbs up on testPass; 6-frame transitions. Theme recipe R1–R8 in the plan; add 'clawd' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/clawd.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/clawd.png`, `showtime/assets/review/clawd.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with clawd in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme clawd)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/clawd.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/clawd.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme clawd)\", \"acceptanceCriteria\": [\"motion test passes with clawd in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 9,
+      "subject": "Task 9: thunder — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        8
+      ],
+      "description": "**Goal:** thunder reacts to the feed and meets the animation rules: a wave per agent, score done/total and ships per task, fire rate by kind, hit flicker on testFail, bomb on commit. Theme recipe R1–R8 in the plan; add 'thunder' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/thunder.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/thunder.png`, `showtime/assets/review/thunder.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with thunder in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme thunder)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/thunder.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/thunder.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme thunder)\", \"acceptanceCriteria\": [\"motion test passes with thunder in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 10,
+      "subject": "Task 10: chomp — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        9
+      ],
+      "description": "**Goal:** chomp reacts to the feed and meets the animation rules: a ghost per agent, dots per task, power pellet on bash, caught on testFail, fruit on testPass. Theme recipe R1–R8 in the plan; add 'chomp' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/chomp.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/chomp.png`, `showtime/assets/review/chomp.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with chomp in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme chomp)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/chomp.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/chomp.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme chomp)\", \"acceptanceCriteria\": [\"motion test passes with chomp in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 11,
+      "subject": "Task 11: sparky — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        10
+      ],
+      "description": "**Goal:** sparky reacts to the feed and meets the animation rules: a trailing mouse per agent, a bolt per done, crackle on bash, rain cloud on testFail, big bolt on commit. Theme recipe R1–R8 in the plan; add 'sparky' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/sparky.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/sparky.png`, `showtime/assets/review/sparky.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with sparky in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme sparky)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/sparky.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/sparky.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme sparky)\", \"acceptanceCriteria\": [\"motion test passes with sparky in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 12,
+      "subject": "Task 12: bluecat — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        11
+      ],
+      "description": "**Goal:** bluecat reacts to the feed and meets the animation rules: a gadget per agent, copter climbs with progress, pocket items by kind, stall on testFail, door on commit. Theme recipe R1–R8 in the plan; add 'bluecat' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/bluecat.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/bluecat.png`, `showtime/assets/review/bluecat.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with bluecat in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme bluecat)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/bluecat.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/bluecat.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme bluecat)\", \"acceptanceCriteria\": [\"motion test passes with bluecat in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 13,
+      "subject": "Task 13: nyan — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        12
+      ],
+      "description": "**Goal:** nyan reacts to the feed and meets the animation rules: trail tracks progress, star burst per done, speed by kind, a cat per agent, grey trail on testFail, double rainbow on commit. Theme recipe R1–R8 in the plan; add 'nyan' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/nyan.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/nyan.png`, `showtime/assets/review/nyan.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with nyan in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme nyan)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/nyan.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/nyan.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme nyan)\", \"acceptanceCriteria\": [\"motion test passes with nyan in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 14,
+      "subject": "Task 14: cat — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        13
+      ],
+      "description": "**Goal:** cat reacts to the feed and meets the animation rules: two-row polish: second layer, 4-frame step, idle per act, transitions, withReactions, task marks. Theme recipe R1–R8 in the plan; add 'cat' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/cat.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/cat.png`, `showtime/assets/review/cat.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with cat in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme cat)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/cat.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/cat.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme cat)\", \"acceptanceCriteria\": [\"motion test passes with cat in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 15,
+      "subject": "Task 15: bunny — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        14
+      ],
+      "description": "**Goal:** bunny reacts to the feed and meets the animation rules: two-row polish: second layer, 4-frame hop, idle per act, transitions, withReactions, task marks. Theme recipe R1–R8 in the plan; add 'bunny' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/bunny.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/bunny.png`, `showtime/assets/review/bunny.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with bunny in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme bunny)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/bunny.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/bunny.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme bunny)\", \"acceptanceCriteria\": [\"motion test passes with bunny in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 16,
+      "subject": "Task 16: sakura — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        15
+      ],
+      "description": "**Goal:** sakura reacts to the feed and meets the animation rules: two-row polish: second layer, 4-frame step, idle per act, transitions, withReactions, task marks. Theme recipe R1–R8 in the plan; add 'sakura' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/sakura.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/sakura.png`, `showtime/assets/review/sakura.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with sakura in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme sakura)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/sakura.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/sakura.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme sakura)\", \"acceptanceCriteria\": [\"motion test passes with sakura in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 17,
+      "subject": "Task 17: mecha — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        16
+      ],
+      "description": "**Goal:** mecha reacts to the feed and meets the animation rules: two-row polish: second layer, 4-frame step, idle per act, transitions, withReactions, task marks. Theme recipe R1–R8 in the plan; add 'mecha' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/mecha.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/mecha.png`, `showtime/assets/review/mecha.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with mecha in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme mecha)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/mecha.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/mecha.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme mecha)\", \"acceptanceCriteria\": [\"motion test passes with mecha in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 18,
+      "subject": "Task 18: neon — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        17
+      ],
+      "description": "**Goal:** neon reacts to the feed and meets the animation rules: two-row polish: second layer, 4-frame step, idle per act, transitions, withReactions, task marks. Theme recipe R1–R8 in the plan; add 'neon' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/neon.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/neon.png`, `showtime/assets/review/neon.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with neon in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme neon)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/neon.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/neon.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme neon)\", \"acceptanceCriteria\": [\"motion test passes with neon in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 19,
+      "subject": "Task 19: dino — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        18
+      ],
+      "description": "**Goal:** dino reacts to the feed and meets the animation rules: two-row polish: second layer, 4-frame step, idle per act, transitions, withReactions, task marks. Theme recipe R1–R8 in the plan; add 'dino' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/dino.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/dino.png`, `showtime/assets/review/dino.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with dino in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme dino)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/dino.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/dino.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme dino)\", \"acceptanceCriteria\": [\"motion test passes with dino in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 20,
+      "subject": "Task 20: ocean — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        19
+      ],
+      "description": "**Goal:** ocean reacts to the feed and meets the animation rules: two-row polish: second layer, 4-frame step, idle per act, transitions, withReactions, task marks. Theme recipe R1–R8 in the plan; add 'ocean' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/ocean.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/ocean.png`, `showtime/assets/review/ocean.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with ocean in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme ocean)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/ocean.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/ocean.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme ocean)\", \"acceptanceCriteria\": [\"motion test passes with ocean in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 21,
+      "subject": "Task 21: matrix — reactions and polish",
+      "status": "pending",
+      "blockedBy": [
+        20
+      ],
+      "description": "**Goal:** matrix reacts to the feed and meets the animation rules: two-row polish: second layer, 4-frame step, idle per act, transitions, withReactions, task marks; then push and bump. Theme recipe R1–R8 in the plan; add 'matrix' to POLISHED.\n\n**Files:**\n- Modify: `showtime/hooks/themes/matrix.ts`, `showtime/tests/scenes.test.ts`, `showtime/assets/matrix.png`, `showtime/assets/review/matrix.png`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] motion test passes with matrix in POLISHED\n- [ ] reaction slots visible on the sheet\n- [ ] verdict in commit, sheet shown with peek\n- [ ] validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme matrix)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/matrix.ts\", \"showtime/tests/scenes.test.ts\", \"showtime/assets/review/matrix.png\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme matrix)\", \"acceptanceCriteria\": [\"motion test passes with matrix in POLISHED\", \"reaction slots visible on the sheet\", \"verdict in commit, sheet shown with peek\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 22,
+      "subject": "Task 22: stack — new theme",
+      "status": "pending",
+      "blockedBy": [
+        21
+      ],
+      "description": "**Goal:** New pixel theme `stack` per the brief in the plan's Task 22: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/stack.ts`, `showtime/assets/stack.png`, `showtime/assets/review/stack.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with stack in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme stack)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/stack.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme stack)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with stack in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 23,
+      "subject": "Task 23: plumber — new theme",
+      "status": "pending",
+      "blockedBy": [
+        22
+      ],
+      "description": "**Goal:** New pixel theme `plumber` per the brief in the plan's Task 23: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/plumber.ts`, `showtime/assets/plumber.png`, `showtime/assets/review/plumber.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with plumber in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme plumber)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/plumber.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme plumber)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with plumber in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 24,
+      "subject": "Task 24: snake — new theme",
+      "status": "pending",
+      "blockedBy": [
+        23
+      ],
+      "description": "**Goal:** New pixel theme `snake` per the brief in the plan's Task 24: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/snake.ts`, `showtime/assets/snake.png`, `showtime/assets/review/snake.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with snake in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme snake)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/snake.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme snake)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with snake in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 25,
+      "subject": "Task 25: launch — new theme",
+      "status": "pending",
+      "blockedBy": [
+        24
+      ],
+      "description": "**Goal:** New pixel theme `launch` per the brief in the plan's Task 25: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/launch.ts`, `showtime/assets/launch.png`, `showtime/assets/review/launch.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with launch in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme launch)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/launch.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme launch)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with launch in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 26,
+      "subject": "Task 26: frogger — new theme",
+      "status": "pending",
+      "blockedBy": [
+        25
+      ],
+      "description": "**Goal:** New pixel theme `frogger` per the brief in the plan's Task 26: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/frogger.ts`, `showtime/assets/frogger.png`, `showtime/assets/review/frogger.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with frogger in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme frogger)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/frogger.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme frogger)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with frogger in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 27,
+      "subject": "Task 27: kitchen — new theme",
+      "status": "pending",
+      "blockedBy": [
+        26
+      ],
+      "description": "**Goal:** New pixel theme `kitchen` per the brief in the plan's Task 27: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/kitchen.ts`, `showtime/assets/kitchen.png`, `showtime/assets/review/kitchen.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with kitchen in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme kitchen)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/kitchen.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme kitchen)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with kitchen in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 28,
+      "subject": "Task 28: railway — new theme",
+      "status": "pending",
+      "blockedBy": [
+        27
+      ],
+      "description": "**Goal:** New pixel theme `railway` per the brief in the plan's Task 28: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/railway.ts`, `showtime/assets/railway.png`, `showtime/assets/review/railway.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with railway in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme railway)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/railway.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme railway)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with railway in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 29,
+      "subject": "Task 29: garden — new theme",
+      "status": "pending",
+      "blockedBy": [
+        28
+      ],
+      "description": "**Goal:** New pixel theme `garden` per the brief in the plan's Task 29: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/garden.ts`, `showtime/assets/garden.png`, `showtime/assets/review/garden.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with garden in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme garden)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/garden.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme garden)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with garden in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 30,
+      "subject": "Task 30: racetrack — new theme",
+      "status": "pending",
+      "blockedBy": [
+        29
+      ],
+      "description": "**Goal:** New pixel theme `racetrack` per the brief in the plan's Task 30: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/racetrack.ts`, `showtime/assets/racetrack.png`, `showtime/assets/review/racetrack.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with racetrack in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme racetrack)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/racetrack.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme racetrack)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with racetrack in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 31,
+      "subject": "Task 31: aquarium — new theme",
+      "status": "pending",
+      "blockedBy": [
+        30
+      ],
+      "description": "**Goal:** New pixel theme `aquarium` per the brief in the plan's Task 31: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/aquarium.ts`, `showtime/assets/aquarium.png`, `showtime/assets/review/aquarium.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with aquarium in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme aquarium)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/aquarium.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme aquarium)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with aquarium in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 32,
+      "subject": "Task 32: submarine — new theme",
+      "status": "pending",
+      "blockedBy": [
+        31
+      ],
+      "description": "**Goal:** New pixel theme `submarine` per the brief in the plan's Task 32: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/submarine.ts`, `showtime/assets/submarine.png`, `showtime/assets/review/submarine.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with submarine in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme submarine)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/submarine.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme submarine)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with submarine in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 33,
+      "subject": "Task 33: orchestra — new theme",
+      "status": "pending",
+      "blockedBy": [
+        32
+      ],
+      "description": "**Goal:** New pixel theme `orchestra` per the brief in the plan's Task 33: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/orchestra.ts`, `showtime/assets/orchestra.png`, `showtime/assets/review/orchestra.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with orchestra in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme orchestra)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/orchestra.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme orchestra)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with orchestra in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 34,
+      "subject": "Task 34: roomba — new theme",
+      "status": "pending",
+      "blockedBy": [
+        33
+      ],
+      "description": "**Goal:** New pixel theme `roomba` per the brief in the plan's Task 34: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/roomba.ts`, `showtime/assets/roomba.png`, `showtime/assets/review/roomba.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with roomba in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme roomba)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/roomba.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme roomba)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with roomba in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 35,
+      "subject": "Task 35: coffee — new theme",
+      "status": "pending",
+      "blockedBy": [
+        34
+      ],
+      "description": "**Goal:** New pixel theme `coffee` per the brief in the plan's Task 35: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/coffee.ts`, `showtime/assets/coffee.png`, `showtime/assets/review/coffee.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with coffee in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme coffee)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/coffee.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme coffee)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with coffee in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 36,
+      "subject": "Task 36: penguins — new theme",
+      "status": "pending",
+      "blockedBy": [
+        35
+      ],
+      "description": "**Goal:** New pixel theme `penguins` per the brief in the plan's Task 36: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/penguins.ts`, `showtime/assets/penguins.png`, `showtime/assets/review/penguins.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with penguins in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme penguins)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/penguins.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme penguins)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with penguins in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 37,
+      "subject": "Task 37: ufo — new theme",
+      "status": "pending",
+      "blockedBy": [
+        36
+      ],
+      "description": "**Goal:** New pixel theme `ufo` per the brief in the plan's Task 37: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/ufo.ts`, `showtime/assets/ufo.png`, `showtime/assets/review/ufo.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with ufo in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme ufo)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/ufo.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme ufo)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with ufo in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 38,
+      "subject": "Task 38: dragon — new theme",
+      "status": "pending",
+      "blockedBy": [
+        37
+      ],
+      "description": "**Goal:** New pixel theme `dragon` per the brief in the plan's Task 38: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/dragon.ts`, `showtime/assets/dragon.png`, `showtime/assets/review/dragon.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with dragon in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme dragon)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/dragon.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme dragon)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with dragon in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 39,
+      "subject": "Task 39: samurai — new theme",
+      "status": "pending",
+      "blockedBy": [
+        38
+      ],
+      "description": "**Goal:** New pixel theme `samurai` per the brief in the plan's Task 39: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/samurai.ts`, `showtime/assets/samurai.png`, `showtime/assets/review/samurai.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with samurai in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme samurai)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/samurai.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme samurai)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with samurai in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 40,
+      "subject": "Task 40: warp — new theme",
+      "status": "pending",
+      "blockedBy": [
+        39
+      ],
+      "description": "**Goal:** New pixel theme `warp` per the brief in the plan's Task 40: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/warp.ts`, `showtime/assets/warp.png`, `showtime/assets/review/warp.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with warp in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme warp)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/warp.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme warp)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with warp in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 41,
+      "subject": "Task 41: volcano — new theme",
+      "status": "pending",
+      "blockedBy": [
+        40
+      ],
+      "description": "**Goal:** New pixel theme `volcano` per the brief in the plan's Task 41: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/volcano.ts`, `showtime/assets/volcano.png`, `showtime/assets/review/volcano.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with volcano in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme volcano)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/volcano.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme volcano)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with volcano in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 42,
+      "subject": "Task 42: dungeon — new theme",
+      "status": "pending",
+      "blockedBy": [
+        41
+      ],
+      "description": "**Goal:** New pixel theme `dungeon` per the brief in the plan's Task 42: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/dungeon.ts`, `showtime/assets/dungeon.png`, `showtime/assets/review/dungeon.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with dungeon in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme dungeon)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/dungeon.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme dungeon)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with dungeon in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 43,
+      "subject": "Task 43: mage — new theme",
+      "status": "pending",
+      "blockedBy": [
+        42
+      ],
+      "description": "**Goal:** New pixel theme `mage` per the brief in the plan's Task 43: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/mage.ts`, `showtime/assets/mage.png`, `showtime/assets/review/mage.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with mage in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme mage)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/mage.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme mage)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with mage in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 44,
+      "subject": "Task 44: tavern — new theme",
+      "status": "pending",
+      "blockedBy": [
+        43
+      ],
+      "description": "**Goal:** New pixel theme `tavern` per the brief in the plan's Task 44: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop.\n\n**Files:**\n- Create: `showtime/hooks/themes/tavern.ts`, `showtime/assets/tavern.png`, `showtime/assets/review/tavern.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with tavern in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme tavern)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/tavern.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme tavern)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with tavern in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 45,
+      "subject": "Task 45: necromancer — new theme",
+      "status": "pending",
+      "blockedBy": [
+        44
+      ],
+      "description": "**Goal:** New pixel theme `necromancer` per the brief in the plan's Task 45: own pet, all six reaction slots, the animation rules. Theme recipe R1–R8: create from the R1 skeleton, register (themes.ts, plugin.json options, READMEs), add to POLISHED, review loop; then push and bump.\n\n**Files:**\n- Create: `showtime/hooks/themes/necromancer.ts`, `showtime/assets/necromancer.png`, `showtime/assets/review/necromancer.png`\n- Modify: `showtime/hooks/themes.ts`, `showtime/.claude-plugin/plugin.json`, `showtime/README.en.md`, `showtime/README.md`, `showtime/tests/scenes.test.ts`, `showtime/assets/gallery.png`\n\n**Acceptance Criteria:**\n- [ ] registered in themes.ts, plugin.json, READMEs\n- [ ] motion test passes with necromancer in POLISHED\n- [ ] six reaction slots on the sheet\n- [ ] verdict in commit, sheet shown with peek; validate, test, tsc green\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme necromancer)`\n\n```json:metadata\n{\"files\": [\"showtime/hooks/themes/necromancer.ts\", \"showtime/hooks/themes.ts\", \"showtime/.claude-plugin/plugin.json\", \"showtime/tests/scenes.test.ts\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && (cd showtime && bun scripts/shots.ts --theme necromancer)\", \"acceptanceCriteria\": [\"registered in themes.ts, plugin.json, READMEs\", \"motion test passes with necromancer in POLISHED\", \"six reaction slots on the sheet\"], \"modelTier\": \"frontier\"}\n```"
+    },
+    {
+      "id": 46,
+      "subject": "Task 46: Release 1.0.0",
+      "status": "pending",
+      "blockedBy": [
+        45
+      ],
+      "description": "**Goal:** Version 1.0.0 installed live, docs and backlog written, marketplace and upstream map updated, pushed, master bumped. Plan Task 46.\n\n**Files:**\n- Create: `showtime/THEMES-BACKLOG.md`\n- Modify: `showtime/.claude-plugin/plugin.json`, READMEs, `.claude-plugin/marketplace.json`, `upstream/maps/hoobnn-spinner.sed`, `README.md`\n\n**Acceptance Criteria:**\n- [ ] backlog written\n- [ ] check.sh clean\n- [ ] 1.0.0 installed\n- [ ] gallery shown; pushed and bumped\n\n**Verify:** `cd ~/code/claudebro/claude-mods && upstream/check.sh && claude plugin marketplace update claudebro-mods && claude plugin update showtime@claudebro-mods`\n\n```json:metadata\n{\"files\": [\"showtime/THEMES-BACKLOG.md\", \"showtime/.claude-plugin/plugin.json\", \".claude-plugin/marketplace.json\", \"upstream/maps/hoobnn-spinner.sed\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && upstream/check.sh && claude plugin marketplace update claudebro-mods && claude plugin update showtime@claudebro-mods\", \"acceptanceCriteria\": [\"backlog written\", \"check.sh clean\", \"1.0.0 installed\"], \"modelTier\": \"mechanical\"}\n```"
+    }
+  ],
+  "lastUpdated": "2026-10-23T17:52:30.397301+00:00"
+}
