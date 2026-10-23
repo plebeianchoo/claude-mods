@@ -44,12 +44,17 @@ let answer: string | null = null
 let lastCallId = ''
 // How a call the host runs ends: denied, or run with or without an error.
 let ends: 'deny' | 'ok' | 'fail' = 'deny'
+// What the engine's check says to a call. The engine now settles an ask itself when no person can
+// answer (the call is refused before the host runs it), so calls go through on `allow`; a test of
+// the permission prompt asks its question straight with `$.tool.check` under `ask`.
+let verdict: 'allow' | 'ask' = 'allow'
 
 function host(on: On, stored: Record<string, unknown> = {}) {
   rows = []
   asked = null
   answer = null
   ends = 'deny'
+  verdict = 'allow'
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.store(on, stored)
   mock.env(on, { LANG: 'zh_CN.UTF-8' })
@@ -61,8 +66,7 @@ function host(on: On, stored: Record<string, unknown> = {}) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: 'ok' }))
-  // The engine's verdict: every call asks.
-  on('tool.check', () => ({ decision: 'ask' }))
+  on('tool.check', () => ({ decision: verdict }))
   on('tool.call', async ($, e) => {
     if (e.tool === 'AskUserQuestion') {
       const q = e.questions[0]!
@@ -327,6 +331,7 @@ test('the companion follows tool calls and permission prompts', async ($, on) =>
   await ui.unmount()
 
   // The check asks; the pet says so only once the ask has stood a moment.
+  verdict = 'ask'
   await $.tool.check({ tool: 'Bash', input: { command: 'npm test' }, tool_use_id: lastCallId } as never)
   ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
   expect(await said(ui)).not.toContain('等你确认')
@@ -380,9 +385,11 @@ test('an ask the mode settles at once never reaches the pet', async ($, on) => {
   const call = $.tool.call({ tool: 'Bash', command: 'npm test' })
   await clock.settle()
   // A query (no call id) and a call already over: neither is the person's to answer.
+  verdict = 'ask'
   await $.tool.check({ tool: 'Bash', input: { command: 'ls' } })
   await clock.advance(1000)
   await call
+  verdict = 'ask'
   await $.tool.check({ tool: 'Bash', input: { command: 'npm test' }, tool_use_id: lastCallId } as never)
   await clock.advance(600)
   const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
@@ -477,6 +484,7 @@ test('a subagent\'s permission ask shows too, until its call ends', async ($, on
   await $.turn.start({ text: 'hi', turnId: 't1' })
   const call = $.tool.call({ tool: 'Bash', command: 'rm -rf build', agentId: 'a1' } as never)
   await clock.settle()
+  verdict = 'ask'
   await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf build' }, tool_use_id: lastCallId } as never)
   await clock.advance(600)
   let ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
@@ -597,7 +605,7 @@ test('nextTheme walks the drawable themes in order and wraps', () => {
 test('rotate moves to the next theme on each turn', { options: { theme: 'rotate' } }, async ($, on) => {
   host(on)
   await $.session.start(START)
-  const themeNow = async () => /当前主题：(\w+)/.exec((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text)![1]!
+  const themeNow = async () => /当前主题：(\w+)/.exec((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text ?? '')![1]!
   await $.turn.start({ text: 'hi', turnId: 't1' })
   const first = await themeNow()
   await $.turn.complete({ ...DONE, turnId: 't1' })

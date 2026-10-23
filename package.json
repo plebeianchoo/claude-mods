@@ -2,7 +2,7 @@
   "name": "claude-mods",
   "private": true,
   "scripts": {
-    "typecheck": "tsc -p peek"
+    "typecheck": "tsc -p peek && tsc -p showtime"
   },
   "devDependencies": {
     "typescript": "^7.0.2"
