@@ -35,7 +35,7 @@ Character scenes, two rows: `cat`, `bunny`, `sakura`, `mecha`, `neon`, `dino`, `
 | `neon`<br>![neon](assets/neon.gif) | `dino`<br>![dino](assets/dino.gif) |
 | `ocean`<br>![ocean](assets/ocean.gif) | `matrix`<br>![matrix](assets/matrix.gif) |
 
-Every theme's mascot, stage and companion in one still: [assets/gallery.png](assets/gallery.png); a still per theme sits beside each GIF (`assets/<theme>.png`). `bun scripts/shots.ts --gallery` (from the mod folder) renders them again from `hooks/themes.ts`; `bun scripts/shots.ts --theme <name>` writes the still and a labelled review sheet under `assets/review/`.
+One labelled scene row per theme (the tool/bash frame at 80 cells) in one image: [assets/gallery.png](assets/gallery.png); a still per theme sits beside each GIF (`assets/<theme>.png`). `bun scripts/shots.ts --gallery` (from the mod folder) renders them again from `hooks/themes.ts`; `bun scripts/shots.ts --theme <name>` writes the still and a labelled review sheet under `assets/review/`.
 
 `chomp`, `sparky`, `bluecat` and `nyan` are fan-made homages drawn from scratch, under names of their own; `clawd` is drawn as Claude Code draws him on its welcome screen.
 

@@ -3,6 +3,8 @@
 // a dimmed block of its color), labels in a 3×5 pixel font.
 //   bun scripts/shots.ts --theme <name>   → assets/<name>.png, assets/review/<name>.png
 //   bun scripts/shots.ts --gallery        → assets/gallery.png (every theme's still)
+//   Sheet strips, top to bottom: think, tool, ask, say, think t0 (from t=0), agents 2, done 3/7, done 7/7,
+//   testFail and commit at news age 0/8/20, tool bash, then the pet in think/tool/ready/sleep.
 import { deflateSync } from 'node:zlib'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -18,6 +20,8 @@ const W = 48
 const STILL_W = 80
 const BACK = [0x1a, 0x1a, 0x1e] as const
 const GAP = 6
+const LABEL_H = 14
+const FRAMES = 12
 
 type Img = { w: number; h: number; px: Uint8Array }
 const image = (w: number, h: number): Img => {
@@ -58,7 +62,7 @@ function blit(img: Img, g: Grid, ox: number, oy: number): void {
   })
 }
 
-// A 3×5 font for the labels: a-z, 0-9, space, / and :.
+// A 3×5 font for the labels: a-z, 0-9, space, / : = and -.
 const FONT: Record<string, string[]> = {
   a: ['010', '101', '111', '101', '101'], b: ['110', '101', '110', '101', '110'], c: ['011', '100', '100', '100', '011'], d: ['110', '101', '101', '101', '110'],
   e: ['111', '100', '110', '100', '111'], f: ['111', '100', '110', '100', '100'], g: ['011', '100', '101', '101', '011'], h: ['101', '101', '111', '101', '101'],
@@ -99,12 +103,15 @@ function png(img: Img): Uint8Array {
 }
 
 const sig = (over: Partial<Signals>): Signals => ({ ...IDLE_SIGNALS, ...over })
+const STILL_SIGNALS = sig({ act: 'tool', tool: 'bash', done: 3, total: 7, agents: 1 })
 
-/** The review sheet's strips: a label and twelve consecutive frames each. */
+/** The review sheet's strips: a label and FRAMES consecutive frames each. */
 function strips(theme: Theme): { name: string; frames: Grid[] }[] {
   const acts: Act[] = ['think', 'tool', 'ask', 'say']
-  const twelve = (f: (i: number) => Signals, t0 = 40) => Array.from({ length: 12 }, (_, i) => theme.scene(t0 + i, W, f(i)))
+  const twelve = (f: (i: number) => Signals, t0 = 40) => Array.from({ length: FRAMES }, (_, i) => theme.scene(t0 + i, W, f(i)))
   const out = acts.map(act => ({ name: act, frames: twelve(i => sig({ act, actAge: 30 + i })) }))
+  // think from t=0, so a hero that strolls in from the edge shows its walk (the other strips start at t=40)
+  out.push({ name: 'think t0', frames: twelve(i => sig({ act: 'think', actAge: i }), 0) })
   out.push({ name: 'agents 2', frames: twelve(i => sig({ agents: 2, agentsAge: i })) })
   out.push({ name: 'done 3/7', frames: twelve(i => sig({ done: 3, total: 7, doneAge: i })) })
   out.push({ name: 'done 7/7', frames: twelve(i => sig({ done: 7, total: 7, doneAge: i })) })
@@ -117,44 +124,47 @@ function sheet(theme: Theme): Img {
   const rows = strips(theme)
   const cellH = theme.rows * SCALE * 2
   const petH = PET_ROWS * SCALE * 2
-  const stripH = 14 + cellH + GAP
-  const petStripH = 14 + petH + GAP
-  const img = image(12 * (W * SCALE + GAP) + GAP, rows.length * stripH + 4 * petStripH + GAP)
+  const stripH = LABEL_H + cellH + GAP
+  const petStripH = LABEL_H + petH + GAP
+  const img = image(FRAMES * (W * SCALE + GAP) + GAP, rows.length * stripH + 4 * petStripH + GAP)
   rows.forEach((strip, r) => {
     const y = r * stripH
     label(img, `${theme.name} ${strip.name}`, GAP, y + 2)
-    strip.frames.forEach((g, i) => blit(img, g, GAP + i * (W * SCALE + GAP), y + 14))
+    strip.frames.forEach((g, i) => blit(img, g, GAP + i * (W * SCALE + GAP), y + LABEL_H))
   })
   const y = rows.length * stripH
   const states = ['think', 'tool', 'ready', 'sleep'] as const
   states.forEach((state, k) => {
     const py = y + k * petStripH
     label(img, `pet ${state}`, GAP, py + 2)
-    for (let i = 0; i < 12; i++) blit(img, petFrame(theme.pet, state, i * 2), GAP + i * (PET_W * SCALE + GAP), py + 14)
+    for (let i = 0; i < FRAMES; i++) blit(img, petFrame(theme.pet, state, i * 2), GAP + i * (PET_W * SCALE + GAP), py + LABEL_H)
   })
   return img
 }
 
 function still(theme: Theme): Img {
-  const g = theme.scene(40, STILL_W, sig({ act: 'tool', tool: 'bash', done: 3, total: 7, agents: 1 }))
+  const g = theme.scene(40, STILL_W, STILL_SIGNALS)
   const img = image(STILL_W * SCALE, theme.rows * SCALE * 2)
   blit(img, g, 0, 0)
   return img
 }
 
 const args = process.argv.slice(2)
-mkdirSync(join(OUT, 'review'), { recursive: true })
 if (args[0] === '--theme' && isThemeName(args[1])) {
+  mkdirSync(join(OUT, 'review'), { recursive: true })
   const theme = THEMES[args[1]]
   writeFileSync(join(OUT, `${theme.name}.png`), png(still(theme)))
   writeFileSync(join(OUT, 'review', `${theme.name}.png`), png(sheet(theme)))
   console.log(`assets/${theme.name}.png assets/review/${theme.name}.png`)
 } else if (args[0] === '--gallery') {
-  const rowH = 14 + 4 * SCALE * 2 + GAP
-  const img = image(STILL_W * SCALE, THEME_NAMES.length * rowH)
+  mkdirSync(OUT, { recursive: true })
+  const heights = THEME_NAMES.map(name => LABEL_H + THEMES[name].rows * SCALE * 2 + GAP)
+  const img = image(STILL_W * SCALE, heights.reduce((a, b) => a + b, 0))
+  let y = 0
   THEME_NAMES.forEach((name, i) => {
-    label(img, name, 0, i * rowH + 2)
-    blit(img, THEMES[name].scene(40, STILL_W, sig({ act: 'tool', tool: 'bash', done: 3, total: 7, agents: 1 })), 0, i * rowH + 14)
+    label(img, name, 0, y + 2)
+    blit(img, THEMES[name].scene(40, STILL_W, STILL_SIGNALS), 0, y + LABEL_H)
+    y += heights[i]!
   })
   writeFileSync(join(OUT, 'gallery.png'), png(img))
   console.log('assets/gallery.png')
