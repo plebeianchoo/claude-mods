@@ -268,8 +268,11 @@ later idea.
 
 ### Stills
 
-`showtime/scripts/shots.ts`, adapted from upstream's `spinner-shots.ts` (MIT; the
-README's reference to a root `scripts/showtime-shots.ts` is wrong today), renders
+`showtime/scripts/shots.ts` writes PNGs the way `cat-clawd-duo/scripts/render-scenery.ts`
+does, with `node:zlib` alone and each half-block cell scaled to a few pixels, so no
+browser or ffmpeg runs on the NUC (upstream's `spinner-shots.ts` needs Chromium and
+is not used; the README's reference to a root `scripts/showtime-shots.ts` is wrong
+today). It renders
 `assets/<theme>.png` for every theme, `assets/gallery.png`, and the review sheet
 `assets/review/<theme>.png` described above. It renders one theme per run, with
 `--theme <name>`, so a run is short and never loads the NUC; the gallery is
@@ -320,3 +323,21 @@ bottom pane. Each theme also passes the review loop of section 5 before its comm
 6. Version 1.0.0, READMEs, marketplace description, backlog file, upstream map.
 
 Each step is committed on its own in `claude-mods`, then the master repo's pointer.
+
+## 9. Run decisions (2026-10-24)
+
+- Baseline: four of showtime 0.8.0's tests fail today (`toContain` assertions in the
+  companion, news, theme-dialog and subagent-ask tests). Step 1 makes the suite green
+  before anything else, fixing the mod or the test, whichever is wrong against the
+  current engine.
+- Typecheck: the engine writes `showtime/.claude-plugin/types/` only when it loads
+  the mod from its folder. Step 1 loads it once with `claude -p --plugin-dir
+  showtime` so `tsc -p showtime` runs; the folder stays gitignored.
+- Push: after each of the six steps, push `claude-mods`, then commit and push the
+  master repo's submodule pointer.
+- Live install: tests, typecheck and review sheets gate each theme; the live
+  `claude plugin update showtime@claudebro-mods` happens once, at 1.0.0.
+- No Telegram messages during the run.
+- Nothing in the run asks a question: a theme that fails its review after three
+  rounds goes to the backlog with a note; a test that cannot be made green stops
+  the step and is reported, not skipped.
