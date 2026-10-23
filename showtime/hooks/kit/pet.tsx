@@ -1,4 +1,4 @@
-// Generated from claude-code/kit/pet.tsx by scripts/sync-kit.sh: edit the source, then re-run it.
+// Forked from hoobnn's claude-code/kit; edited in place.
 // The companion pet wherever it stands. spinner owns it: it publishes the pet
 // as plain data (`spinner.dock`, a DockPet: its frames, bubble and stats) and
 // draws it itself above the prompt; hud, below the prompt, may give it a place
@@ -49,7 +49,7 @@ const TONE: Record<DockPet['tone'], { color?: string; bold?: boolean; dimColor?:
 
 type Ui = Pick<Elements['terminal'], 'Box' | 'Text' | 'Client'>
 
-/** The pet in one row, for a band too short or narrow for its block: `mascot`, the bubble, the stats. */
+/** The pet in one row, for a band too short or narrow for its block: `mascot`, the bubble, the stats (with the plan's `1/4`). */
 export function drawPetLine(ui: Pick<Ui, 'Box' | 'Text'>, pet: DockPet, mascot: { text: string; color?: string }): RenderElement {
   const { Box, Text } = ui
   return (
@@ -61,18 +61,19 @@ export function drawPetLine(ui: Pick<Ui, 'Box' | 'Text'>, pet: DockPet, mascot: 
           {pet.bubble}
         </Text>
       ) : null}
-      <Text color="#6c757d">{pet.stats}</Text>
+      <Text color="#6c757d">{pet.ratio ? `${pet.stats} ${pet.ratio}` : pet.stats}</Text>
     </Box>
   )
 }
 
-/** The bubble and stats, right-aligned, then the pet: `rows` tall. */
+/** The stats (with the plan's progress), the task and the bubble, right-aligned, then the pet: `rows` tall. */
 export function drawPet(ui: Ui, pet: DockPet, key: string): RenderElement {
   const { Box, Text, Client } = ui
   return (
     <Box flexDirection="row" flexShrink={1} columnGap={1}>
       <Box flexDirection="column" alignItems="flex-end" flexShrink={1}>
-        <Text color="#6c757d" wrap="truncate-end">{pet.stats}</Text>
+        <Text color="#6c757d" wrap="truncate-end">{pet.progress ? `${pet.stats} · ${pet.progress}` : pet.stats}</Text>
+        {pet.task ? <Text color="#b8b8be" wrap="truncate-end">{pet.task}</Text> : null}
         {pet.bubble ? (
           <Text {...TONE[pet.tone]} wrap="truncate-end">
             {pet.tone === 'ask' ? '❯ ' : ''}

@@ -1,10 +1,11 @@
 import { atom, derive, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { AgentStatus, EngineInterface, Register, RenderElement } from 'claude-code'
 
-import type { Activity, DockPet, FinaleState, PetStats, Preview } from '../types'
+import type { Activity, DockPet, Feed, FinaleState, PetStats, Preview } from '../types'
 import { USAGE, parseCommand } from './command'
 import { readConfig } from './config'
 import type { Choice, Config } from './config'
+import { EMPTY_FEED, agentRow, applyAgentDone, applyAgentTool, applySpawn, applyTaskResult, clearTurn, progressOf, taskLine } from './feed'
 import { m, setLang } from './i18n'
 import { isPickerOpen, stackAbove } from './kit/band'
 import { drawPet, drawPetLine } from './kit/pet'
@@ -14,7 +15,7 @@ import type { Prefs } from './kit/prefs'
 import { bubbleOf, busyLabel, finaleOf, formatDuration, levelOf, newsOf, toolLabel } from './pet'
 import { FINALE_MS, THEMES, THEME_NAMES, isThemeName, nextTheme, pickRandom, textWidth } from './themes'
 import type { Act, Mood, ThemeName } from './themes'
-import { PET_ROWS, dockPetOf } from './pets'
+import { PET_ROWS, PET_W, dockPetOf } from './pets'
 import type { PetState } from './pets'
 import type { StageProps } from './stage'
 
@@ -23,16 +24,20 @@ import type { StageProps } from './stage'
 const theme = atom({ plugin: 'showtime', key: 'theme' } as const, '')
 // The `theme` row: a theme, `random` or `rotate`.
 const choice = atom({ plugin: 'showtime', key: 'choice' } as const, 'random')
-// Session mirrors of the `visible`, `stage` and `companion` rows, so a command shows at once;
+// Session mirrors of the `visible`, `stage`, `companion` and `feed` rows, so a command shows at once;
 // null in a session resumed or cleared, which gets no session.start: the rows' then.
 const hiddenSet = atom({ plugin: 'showtime', key: 'isHidden' } as const, null as boolean | null)
 const stageOffSet = atom({ plugin: 'showtime', key: 'isStageOff' } as const, null as boolean | null)
 const companionOffSet = atom({ plugin: 'showtime', key: 'isCompanionOff' } as const, null as boolean | null)
+const feedOffSet = atom({ plugin: 'showtime', key: 'isFeedOff' } as const, null as boolean | null)
 // The rows themselves, set in register.
 let rows: Config | null = null
 const isHidden = derive([hiddenSet], set => set ?? !(rows?.isVisible ?? true))
 const isStageOff = derive([stageOffSet], set => set ?? !(rows?.hasStage ?? true))
 const isCompanionOff = derive([companionOffSet], set => set ?? !(rows?.hasCompanion ?? true))
+const isFeedOff = derive([feedOffSet], set => set ?? !(rows?.hasFeed ?? true))
+// The turn's tasks, subagents and running tools, from the task tools' results and the engine's events.
+const feed = atom({ plugin: 'showtime', key: 'feed' } as const, EMPTY_FEED)
 const finale = atom({ plugin: 'showtime', key: 'finale' } as const, null)
 const preview = atom({ plugin: 'showtime', key: 'preview' } as const, null)
 const activity = atom({ plugin: 'showtime', key: 'activity' } as const, { act: 'think' as Act })
@@ -51,8 +56,12 @@ const hudDock = atom({ plugin: 'hud', key: 'dock' } as const, false)
 const PREVIEW_MS = 8000
 /** Below this many columns the band draws the pet in one row. */
 const COMPACT_COLUMNS = 60
-/** Cells the pet's bubble and stats take beside it above the prompt. */
-const PET_LABEL_W = 24
+/** Cells the pet's stats, task and bubble get beside it above the prompt: what a scene of 40 leaves, 24 to 44. */
+function petLabelWidth(bodyColumns: number): number {
+  return Math.max(24, Math.min(44, bodyColumns - 2 - PET_W - 1 - 40))
+}
+/** The tools whose results feed the task rows. */
+const TASK_TOOLS = new Set(['TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', 'TodoWrite'])
 /** How long the pet speaks of tests or a commit. */
 const NEWS_MS = 4000
 /** How long a pat's hearts float. */
@@ -61,6 +70,8 @@ const PAT_MS = 2500
 const ASK_DELAY_MS = 600
 /** Quiet this long after a turn, the companion dozes off. */
 const SLEEP_MS = 5 * 60_000
+/** An agent `$.agent.list()` names that still has a row coming. */
+const LIVE = new Set<AgentStatus>(['pending', 'running', 'waiting'])
 
 /** The kit's hold on this mod's store and `/config` rows. */
 function prefsOf($: EngineInterface): Prefs {
@@ -163,39 +174,60 @@ async function publishPet($: EngineInterface): Promise<void> {
   // A permission prompt waiting outranks news: it is the one the person must act on.
   const said = state === 'ask' ? null : await read($, news)
   const art = (isThemeName(name) ? THEMES[name] : THEMES.clawd).pet
-  const view = {
+  const view: Pick<DockPet, 'id' | 'bubble' | 'tone' | 'stats' | 'task' | 'progress' | 'ratio'> = {
     id: `${name}:${state}:${patId ?? ''}`,
     bubble: said ? m(`pet.${said.kind}`) : bubbleOf(state, now.tool),
     tone: said?.kind === 'testFail' ? 'error' : (TONE[state] ?? 'plain'),
     stats: `Lv.${levelOf(stats.xp)} ♥${stats.love}`,
   }
+  // The feed's rows: the plan's progress beside the stats, the task under them. A key left
+  // undefined is refused in state, so each is set only when it has a value.
+  if (!(await read($, isFeedOff))) {
+    const f: Feed = await read($, feed)
+    const p = progressOf(f, await $.clock.now())
+    if (p) Object.assign(view, { progress: p.text, ratio: p.ratio })
+    const task = taskLine(f, 44)
+    if (task) view.task = task
+  }
   const was = await read($, dock)
-  // The same loop with new words keeps its frames.
-  const next = was?.id === view.id ? { ...was, ...view } : dockPetOf(art, state, view, patId !== null, isStill)
-  if (was?.id === next.id && was.bubble === next.bubble && was.stats === next.stats && was.tone === next.tone) return
+  // The same loop with new words keeps its frames (and only those: a feed row gone goes).
+  const next: DockPet =
+    was?.id === view.id ? { ...view, frames: was.frames, order: was.order, ms: was.ms, width: was.width } : dockPetOf(art, state, view, patId !== null, isStill)
+  if (
+    was?.id === next.id && was.bubble === next.bubble && was.stats === next.stats && was.tone === next.tone &&
+    was.task === next.task && was.progress === next.progress
+  ) return
   await update($, dock, () => next)
 }
 
+/** The labels of the main loop's calls still running, in the order they began. */
+function runningLabels(f: Feed): string[] {
+  return Object.values(f.running).map(r => r.label)
+}
+
 /** Busy with the latest tool still running (subagents counted), else back to thinking. */
-async function settle($: EngineInterface, running: Map<string, string>): Promise<void> {
-  const last = busyLabel([...running.values()])
+async function settle($: EngineInterface): Promise<void> {
+  const last = busyLabel(runningLabels(await read($, feed)))
   await update($, activity, () => (last ? { act: 'tool' as Act, tool: last } : { act: 'think' as Act }))
   await publishPet($)
 }
 
 /** Sets a switch's session mirror and, when it changed, its row. */
-async function setSwitch($: EngineInterface, field: 'visible' | 'stage' | 'companion', isOn: boolean): Promise<void> {
+async function setSwitch($: EngineInterface, field: 'visible' | 'stage' | 'companion' | 'feed', isOn: boolean): Promise<void> {
   // Each mirror spelled out: the engine reads which state a hook touches from the source.
   const wasOff =
     field === 'visible'
       ? await read($, isHidden)
       : field === 'stage'
         ? await read($, isStageOff)
-        : await read($, isCompanionOff)
+        : field === 'companion'
+          ? await read($, isCompanionOff)
+          : await read($, isFeedOff)
   if (wasOff === !isOn) return
   if (field === 'visible') await update($, hiddenSet, () => !isOn)
   else if (field === 'stage') await update($, stageOffSet, () => !isOn)
-  else await update($, companionOffSet, () => !isOn)
+  else if (field === 'companion') await update($, companionOffSet, () => !isOn)
+  else await update($, feedOffSet, () => !isOn)
   await publishPet($)
   await persist(prefsOf($), field, isOn)
 }
@@ -223,6 +255,7 @@ async function status($: EngineInterface): Promise<string> {
   if (await read($, isHidden)) lines.push(m('cmd.hidden'))
   if (await read($, isStageOff)) lines.push(m('cmd.stageOff'))
   if (await read($, isCompanionOff)) lines.push(m('cmd.companionOff'))
+  if (await read($, isFeedOff)) lines.push(m('cmd.feedOff'))
   lines.push(m('cmd.themes', { list: THEME_NAMES.map(n => `${n} ${THEMES[n].happy}`).join(' · ') }), m('cmd.usage'))
   return lines.join('\n')
 }
@@ -233,6 +266,7 @@ async function seed($: EngineInterface, rows: Config): Promise<void> {
   await update($, hiddenSet, () => !rows.isVisible)
   await update($, stageOffSet, () => !rows.hasStage)
   await update($, companionOffSet, () => !rows.hasCompanion)
+  await update($, feedOffSet, () => !rows.hasFeed)
   const stats = await keptPet($)
   await update($, pet, () => stats)
   await publishPet($)
@@ -250,10 +284,10 @@ export const register: Register = (on, options) => {
   const config = readConfig(options)
   rows = config
   isStill = config.isStill
-  // Tool calls running now: a pet stays busy until the last of parallel calls ends.
-  const running = new Map<string, string>()
   // Every call still open, a subagent's too: an ask is shown only while its call is.
   const open = new Set<string>()
+  // Calls the permission check refused: they never ran, so their result is no news.
+  const refused = new Set<string>()
   let sleepTimer: { cancel: () => void } | undefined
 
   on('session.start', async ($, e, next) => {
@@ -267,6 +301,13 @@ export const register: Register = (on, options) => {
     await $.command.register({ name: 'showtime', description: m('cmd.description'), argumentHint: USAGE })
 
     await seed($, readConfig({ ...options, ...(await keptRows(prefsOf($), STORE_MOVES)) }))
+    // Subagents of the main loop already running (a reload mid-turn): their row from the start.
+    const listed = await $.agent.list().catch(() => [])
+    const now = await $.clock.now()
+    for (const a of listed) {
+      if (a.parentId !== undefined || !LIVE.has(a.status)) continue
+      await update($, feed, f => applySpawn(f, { id: a.id, description: a.description, type: a.type }, now))
+    }
     const result = await next(e)
     await migrateStore(prefsOf($), STORE_MOVES)
     return result
@@ -280,7 +321,7 @@ export const register: Register = (on, options) => {
     if ((await read($, choice)) === 'rotate' && isThemeName(current)) {
       await update($, theme, () => nextTheme(current))
     }
-    running.clear()
+    await update($, feed, f => (Object.keys(f.running).length === 0 ? f : { ...f, running: {} }))
     sleepTimer?.cancel()
     await update($, activity, () => ({ act: 'think' as Act }))
     await update($, isTurn, () => true)
@@ -290,34 +331,59 @@ export const register: Register = (on, options) => {
   })
 
   on('tool.call', async ($, e, next) => {
-    // A subagent's call is no news for the bubble, but its permission ask is.
+    const label = toolLabel(e as unknown as { tool: string } & Record<string, unknown>)
+    // A subagent's call is no news for the bubble, but its permission ask is; its row names the tool.
     if (e.agentId) {
+      const agentId = e.agentId
       open.add(e.tool_use_id)
+      await update($, feed, f => applyAgentTool(f, agentId, label))
       try {
         return await next(e)
       } finally {
         open.delete(e.tool_use_id)
+        await update($, feed, f => applyAgentTool(f, agentId, undefined))
         // Its ask answered: back to what the main thread is doing.
-        if ((await read($, activity)).act === 'ask') await settle($, running)
+        if ((await read($, activity)).act === 'ask') await settle($)
       }
     }
     open.add(e.tool_use_id)
-    const label = toolLabel(e as unknown as { tool: string } & Record<string, unknown>)
-    running.set(e.tool_use_id, label)
-    await update($, activity, () => (e.tool === 'AskUserQuestion' ? { act: 'ask' as Act } : { act: 'tool' as Act, tool: busyLabel([...running.values()]) }))
+    const id = e.tool_use_id
+    // The main loop's calls running now: the pet stays busy until the last of parallel calls ends.
+    const running = runningLabels(await update($, feed, f => ({ ...f, running: { ...f.running, [id]: { tool: e.tool, label } } })))
+    await update($, activity, () => (e.tool === 'AskUserQuestion' ? { act: 'ask' as Act } : { act: 'tool' as Act, tool: busyLabel(running) }))
     await publishPet($)
     try {
       const result = await next(e)
       const command = (e as unknown as { command?: unknown }).command
-      if (e.tool === 'Bash' && typeof command === 'string' && !('deny' in result && result.deny !== undefined)) {
+      // News only from a command that ran: a deny, or the engine's own refusal (no result, or a check's deny), is none.
+      if (e.tool === 'Bash' && typeof command === 'string' && result.deny === undefined && result.result !== undefined && !refused.has(id)) {
         await noteNews($, command, result.isError === true, e.tool_use_id)
+      }
+      if (TASK_TOOLS.has(e.tool)) {
+        const now = await $.clock.now()
+        await update($, feed, f => applyTaskResult(f, e.tool, e, result.result, now, taskId => m('feed.task', { id: taskId })))
+        await publishPet($)
       }
       return result
     } finally {
       open.delete(e.tool_use_id)
-      running.delete(e.tool_use_id)
-      await settle($, running)
+      refused.delete(id)
+      await update($, feed, f => {
+        const { [id]: _done, ...rest } = f.running
+        return { ...f, running: rest }
+      })
+      await settle($)
     }
+  })
+
+  // A subagent the main loop starts: a row under the band until its turn ends.
+  on('agent.spawn', async ($, e, next) => {
+    const result = await next(e)
+    if (result.agentId === undefined || e.parentAgentId !== undefined || e.workflow !== undefined) return result
+    const agent = { id: result.agentId, description: e.description, type: e.subagentType }
+    const now = await $.clock.now()
+    await update($, feed, f => applySpawn(f, agent, now))
+    return result
   })
 
   // A call the engine puts to the person: `ask` from the permission check. The
@@ -326,6 +392,7 @@ export const register: Register = (on, options) => {
   on('tool.check', async ($, e, next) => {
     const verdict = await next(e)
     const id = e.tool_use_id
+    if (verdict.decision === 'deny' && id !== undefined && open.has(id)) refused.add(id)
     if (verdict.decision === 'ask' && id !== undefined && open.has(id)) {
       $.clock.after(ASK_DELAY_MS, async () => {
         if (!open.has(id)) return
@@ -338,8 +405,12 @@ export const register: Register = (on, options) => {
 
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
-    if (e.agentId) return result
-    running.clear()
+    if (e.agentId) {
+      const agentId = e.agentId
+      await update($, feed, f => applyAgentDone(f, agentId))
+      return result
+    }
+    await update($, feed, clearTurn)
     await update($, activity, () => ({ act: 'think' as Act }))
     await update($, isTurn, () => false)
 
@@ -395,6 +466,9 @@ export const register: Register = (on, options) => {
       case 'companion':
         await setSwitch($, 'companion', command.isOn)
         return { text: m(command.isOn ? 'cmd.companionOn' : 'cmd.companionOff') }
+      case 'feed':
+        await setSwitch($, 'feed', command.isOn)
+        return { text: m(command.isOn ? 'cmd.feedOn' : 'cmd.feedOff') }
       case 'pat': {
         const stats = await patPet($)
         return { text: m('cmd.pat', { theme: await read($, theme), love: stats.love }) }
@@ -490,14 +564,17 @@ export const register: Register = (on, options) => {
     if (e.props.hasSurvey || (await read($, isPicking))) return next(e)
     const ui = $.ui.resolve(e)
     if (!('Client' in ui)) return next(e)
-    const { Box, Client } = ui
+    const { Box, Client, Text } = ui
 
     const shown: Preview | null = await read($, preview)
     const current = await read($, theme)
     const name: ThemeName = isThemeName(current) ? current : 'clawd'
     const pet = (await read($, isHidden)) || (await read($, hudDock)) ? null : await read($, dock)
+    // The subagents' row under the band: part of the feed, which goes with the companion.
+    const hasFeed = !(await read($, isHidden)) && !(await read($, isCompanionOff)) && !(await read($, isFeedOff))
+    const agentsLine = hasFeed ? agentRow(await read($, feed), e.props.bodyColumns - 2, n => m('feed.more', { n })) : ''
     // Two cells in, and the pet's block on the right.
-    const petColumns = pet ? pet.width + 1 + PET_LABEL_W : 0
+    const petColumns = pet ? pet.width + 1 + petLabelWidth(e.props.bodyColumns) : 0
     const columns = e.props.bodyColumns - 2 - petColumns
     const sceneFits = (rows: number) => e.props.maxRows >= Math.max(rows, pet ? PET_ROWS : 0)
     let scene = null
@@ -515,12 +592,20 @@ export const register: Register = (on, options) => {
         scene = <Client key={`finale-${ended.id}`} module="./stage.tsx" width={columns} props={props} />
       }
     }
-    if (!scene && !pet) return next(e)
+    if (!scene && !pet && !agentsLine) return next(e)
 
+    // The band, and under it the subagents' row when there is one.
+    const withAgents = (band: RenderElement) =>
+      agentsLine ? (
+        <Box flexDirection="column">
+          {band}
+          <Text color="#6c757d" wrap="truncate-end">{agentsLine}</Text>
+        </Box>
+      ) : band
     // Too short or narrow for the pet's block: the pet in one row, the scene left out.
     if (pet && !shown && (e.props.maxRows < PET_ROWS || e.props.bodyColumns < COMPACT_COLUMNS)) {
       const mascot = { text: THEMES[name].sprite.say[0] ?? '', color: THEMES[name].color }
-      return stackAbove(ui, <Box justifyContent="flex-end">{drawPetLine(ui, pet, mascot)}</Box>, await next(e))
+      return stackAbove(ui, withAgents(<Box justifyContent="flex-end">{drawPetLine(ui, pet, mascot)}</Box>), await next(e))
     }
     const band = (
       <Box flexDirection="row" justifyContent="space-between" alignItems="flex-end">
@@ -528,7 +613,7 @@ export const register: Register = (on, options) => {
         {pet ? <Box width={petColumns} justifyContent="flex-end">{drawPet(ui, pet, 'pet')}</Box> : null}
       </Box>
     )
-    return stackAbove(ui, band, await next(e))
+    return stackAbove(ui, withAgents(band), await next(e))
   })
 }
 

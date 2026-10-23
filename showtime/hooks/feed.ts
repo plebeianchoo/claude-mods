@@ -4,7 +4,12 @@
 import { textWidth } from './cells'
 import type { Feed, FeedAgent, FeedTask, TaskStatus } from '../types'
 
-export const EMPTY_FEED: Feed = { tasks: [], source: null, startedAt: null, agents: [], running: {} }
+// Frozen, arrays and record too: `clearTurn` hands this very object out, so no consumer may write to it.
+const empty: Feed = { tasks: [], source: null, startedAt: null, agents: [], running: {} }
+Object.freeze(empty.tasks)
+Object.freeze(empty.agents)
+Object.freeze(empty.running)
+export const EMPTY_FEED: Feed = Object.freeze(empty)
 
 export type ToolKind = 'bash' | 'edit' | 'read' | 'search' | 'agent' | 'web' | 'other'
 

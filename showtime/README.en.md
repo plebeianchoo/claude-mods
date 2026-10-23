@@ -8,6 +8,7 @@ While Claude works, a little show plays above the prompt: a pixel-art shoot-em-u
 
 - **Stage**: an animated scene in the band above the prompt while a turn runs. Other mods' bands (hud, ts-band, hitokoto) stay beneath it.
 - **Companion**: a pet in a row under the stage, in the spirit of Codex's pets, with poses for thinking, using tools, responding and waiting. Its bubble says only what Claude Code's own spinner line doesn't: the tool running (`Bash: npm test`, `Edit: themes.ts`) or a permission prompt waiting on you; while the model thinks it just looks busy. Parallel subagents are counted (`Agent ×3`), a single one shows its task. When Claude runs tests or commits, it says so for a few seconds (tests passed, tests failed, committed). It stays between turns (done, interrupted, failed; dozing after five quiet minutes), gains a level as turns finish and as tests pass and commits land (`Lv.4`), and a click on the band or `/showtime pet` pats it (`♥12`, hearts float up). Its level and affection are kept across sessions, and sessions running side by side all raise the one pet.
+- **Feed**: beside the pet, what the turn is working through, at no cost in tokens: it reads the task tools' results (TaskCreate, TaskUpdate, TaskList, TodoWrite) and the engine's own events. The plan's progress sits on the stats row (`Lv.3 ♥12 · 1/4 ▮▮▯▯▯▯▯ 2m 14s`: done over total, a bar, how long the current task has run) and the current task under it (`▸ Write the feed`, or `▹` the next pending one); a row under the band names each subagent running and the tool it is on (`⤷ reviewer · review the diff (Grep)  │  checker · run the tests`), those past what fits counted (`+2 more`). The one-row pet keeps `1/4` after its level. Everything clears when the turn ends. `/showtime feed off` / `on` or the `feed` option turns it off and on; the pet stays either way.
 - **Mascot on the spinner line**: with the companion turned off, the mascot moves in front of Claude Code's own spinner line instead (`[◉_◉]⊃━━ ✢ Choreographing… (4s · ↓ 14 tokens)`), whose word, elapsed time and tokens stay as they are. One mascot shows at a time.
 - **Finale**: for three seconds after a turn ends, confetti bursts around the mascot with the time the turn took (`(=^▽^=)ﾉ  Done · 12s`); an interrupted turn gets a sad face, a failed one a glitch.
 
@@ -49,7 +50,7 @@ The pixel scenes want a terminal with true color (Ghostty, iTerm2, WezTerm, kitt
 
 ## Commands
 
-`/showtime` shows the theme, the companion's level and affection and the theme list; `/showtime <theme>` or `/showtime random` switches live, `/showtime theme` asks which in a dialog (random and three themes offered, any other typed under Other), `/showtime preview [theme]` plays a scene above the prompt for eight seconds, `/showtime pet` pats the companion, `/showtime off` / `on` turns everything off and on, `/showtime stage off` / `on` the scene alone, `/showtime companion off` / `on` the companion alone. What `/showtime` sets it writes to the options below (`theme`, `visible`, `stage`, `companion`), so `/config` shows it and it is kept across sessions; the change applies at once, and the mod reloads with it. A `random` theme keeps the one it drew for the session through those reloads.
+`/showtime` shows the theme, the companion's level and affection and the theme list; `/showtime <theme>` or `/showtime random` switches live, `/showtime theme` asks which in a dialog (random and three themes offered, any other typed under Other), `/showtime preview [theme]` plays a scene above the prompt for eight seconds, `/showtime pet` pats the companion, `/showtime off` / `on` turns everything off and on, `/showtime stage off` / `on` the scene alone, `/showtime companion off` / `on` the companion alone, `/showtime feed off` / `on` the feed (tasks and agents) alone. What `/showtime` sets it writes to the options below (`theme`, `visible`, `stage`, `companion`, `feed`), so `/config` shows it and it is kept across sessions; the change applies at once, and the mod reloads with it. A `random` theme keeps the one it drew for the session through those reloads.
 
 ## Options
 
@@ -59,6 +60,7 @@ The pixel scenes want a terminal with true color (Ghostty, iTerm2, WezTerm, kitt
 - `stage`: the animated scene above the prompt (default on).
 - `celebrate`: the finale when a turn ends (default on).
 - `companion`: the companion's row (default on).
+- `feed`: the plan's progress and current task beside the pet, and the subagents' row under the band (default on).
 - `reducedMotion`: the mascot, the scene and the companion drawn as still pictures that change with what the model does, without moving (default off).
 - `language`: the language of `/showtime`'s replies, the companion's bubbles and the finale's label (`auto`, `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`); `auto` follows Claude Code's `language` setting, then the system locale, then English.
 

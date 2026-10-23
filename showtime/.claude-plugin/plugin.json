@@ -70,6 +70,12 @@
       "description": "A pet in a row above the prompt: it shows what the model is doing (the tool running, a permission waiting), stays between turns, levels up as turns finish, and a click or /showtime pet pats it (/showtime companion off|on overrides it)",
       "default": true
     },
+    "feed": {
+      "type": "boolean",
+      "title": "Feed",
+      "description": "Beside the pet: the plan's progress and current task, and a row under the band naming each subagent and what it runs (/showtime feed off|on overrides it). Costs no tokens: it reads the task tools' results and the engine's own events",
+      "default": true
+    },
     "reducedMotion": {
       "type": "boolean",
       "title": "Reduced motion",

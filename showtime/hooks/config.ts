@@ -18,6 +18,8 @@ export type Config = {
   hasStage: boolean
   hasFinale: boolean
   hasCompanion: boolean
+  /** The feed beside the pet and under the band: tasks, progress, subagents. */
+  hasFeed: boolean
   /** Every animation drawn as one still frame. */
   isStill: boolean
   /** `auto` or a language; the kit resolves it (kit/lang.ts). */
@@ -32,6 +34,7 @@ export function readConfig(options: PluginOptions): Config {
     hasStage: flag(options.stage, true),
     hasFinale: flag(options.celebrate, true),
     hasCompanion: flag(options.companion, true),
+    hasFeed: flag(options.feed, true),
     isStill: flag(options.reducedMotion, false),
     language: text(options.language, 'auto'),
   }

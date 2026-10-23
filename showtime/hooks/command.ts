@@ -7,13 +7,14 @@ export type SpinnerCommand =
   | { kind: 'visible'; isOn: boolean }
   | { kind: 'stage'; isOn: boolean }
   | { kind: 'companion'; isOn: boolean }
+  | { kind: 'feed'; isOn: boolean }
   | { kind: 'pat' }
   | { kind: 'preview'; theme: ThemeName | null }
   | { kind: 'theme'; theme: ThemeName | 'random' | 'rotate' }
   | { kind: 'pick' }
   | { kind: 'unknown'; name: string }
 
-export const USAGE = '[theme|random|rotate|pet|preview|off|on|stage off|companion off]'
+export const USAGE = '[theme|random|rotate|pet|preview|off|on|stage off|companion off|feed off]'
 
 export function parseCommand(args: string): SpinnerCommand {
   const [verb = '', arg = ''] = args.trim().toLowerCase().split(/\s+/)
@@ -22,6 +23,7 @@ export function parseCommand(args: string): SpinnerCommand {
   if (verb === 'off' || verb === 'on') return { kind: 'visible', isOn: verb === 'on' }
   if (verb === 'stage' && isSwitch) return { kind: 'stage', isOn: arg === 'on' }
   if (verb === 'companion' && isSwitch) return { kind: 'companion', isOn: arg === 'on' }
+  if (verb === 'feed' && isSwitch) return { kind: 'feed', isOn: arg === 'on' }
   if (verb === 'pet') return { kind: 'pat' }
   if (verb === 'preview') {
     if (!arg) return { kind: 'preview', theme: null }

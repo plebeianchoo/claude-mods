@@ -1,4 +1,4 @@
-// Generated from claude-code/kit/pet-player.tsx by scripts/sync-kit.sh: edit the source, then re-run it.
+// Forked from hoobnn's claude-code/kit; edited in place.
 // Plays a DockPet's frames on the drawing thread (see kit/pet.tsx); a click
 // on it posts `{ pat: true }` to the plugin that drew it.
 import type { ClientModule } from 'claude-code'

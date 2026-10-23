@@ -1,4 +1,4 @@
-// Generated from claude-code/kit/prefs.ts by scripts/sync-kit.sh: edit the source, then re-run it.
+// Forked from hoobnn's claude-code/kit; edited in place.
 // `/config` is where a mod's settings live: a slash command that changes one
 // (`/ts off`, `/spinner neon`) writes that row as the person would in the menu,
 // so the menu shows it, settings.json keeps it, and the engine reloads the

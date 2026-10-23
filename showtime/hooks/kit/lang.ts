@@ -1,4 +1,4 @@
-// Generated from claude-code/kit/lang.ts by scripts/sync-kit.sh: edit the source, then re-run it.
+// Forked from hoobnn's claude-code/kit; edited in place.
 // A mod's language: the `language` option, or with `auto` Claude Code's own
 // `language` setting (free text: "简体中文", "Japanese", "pt-BR"), then the locale
 // (LC_ALL, LC_MESSAGES, LANG), then English. The messages stay the mod's own:

@@ -25,6 +25,12 @@ export type DockPet = {
   tone: 'plain' | 'ask' | 'error' | 'aborted' | 'sleep'
   /** `Lv.3 ♥12`. */
   stats: string
+  /** The feed's current task, `▸ Write the feed`; absent without one, or with the feed off. */
+  task?: string
+  /** The plan's progress beside the stats, `1/4 ▮▮▯▯▯▯▯ 2m 14s`; absent as `task` is. */
+  progress?: string
+  /** The progress alone, `1/4`, for the one-row pet. */
+  ratio?: string
 }
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed'
@@ -50,6 +56,7 @@ declare module 'claude-code' {
       isHidden: boolean | null
       isStageOff: boolean | null
       isCompanionOff: boolean | null
+      isFeedOff: boolean | null
       finale: FinaleState | null
       preview: Preview | null
       activity: Activity

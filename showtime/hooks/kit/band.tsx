@@ -1,4 +1,4 @@
-// Generated from claude-code/kit/band.tsx by scripts/sync-kit.sh: edit the source, then re-run it.
+// Forked from hoobnn's claude-code/kit; edited in place.
 // A mod's rows in the band above the prompt. Several mods draw there, so each
 // stacks its rows over what the rest of the chain drew (`await next(e)`)
 // instead of replacing it, two cells in, as the engine indents the lines under

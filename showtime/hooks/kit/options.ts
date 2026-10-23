@@ -1,4 +1,4 @@
-// Generated from claude-code/kit/options.ts by scripts/sync-kit.sh: edit the source, then re-run it.
+// Forked from hoobnn's claude-code/kit; edited in place.
 // Readers for `register`'s options: each takes the raw value and the field's
 // default, so a mod's `readConfig` is one typed line per `userConfig` field.
 // The engine has validated the type already; these hold the ranges.
