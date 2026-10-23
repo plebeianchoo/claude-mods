@@ -4,14 +4,14 @@
     {
       "id": 1,
       "subject": "Task 1: Baseline green and a working typecheck",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [],
       "description": "**Goal:** `claude plugin test showtime` passes 27/27 and `pnpm exec tsc -p showtime` runs against this build's engine types, before anything changes. Plan Task 1.\n\n**Files:**\n- Create: `showtime/scripts/engine-types.sh`\n- Modify: `showtime/hooks/register.tsx` or `showtime/tests/showtime.test.tsx`, `package.json`\n\n**Acceptance Criteria:**\n- [ ] 27 pass 0 fail\n- [ ] tsc exits 0\n- [ ] engine types laid, gitignored\n- [ ] commit, push, bump\n\n**Verify:** `cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && echo TSC-OK`\n\n```json:metadata\n{\"files\": [\"showtime/scripts/engine-types.sh\", \"showtime/hooks/register.tsx\", \"showtime/tests/showtime.test.tsx\", \"package.json\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && claude plugin test showtime 2>&1 | tail -3 && pnpm exec tsc -p showtime && echo TSC-OK\", \"acceptanceCriteria\": [\"27 pass 0 fail\", \"tsc exits 0\", \"engine types laid, gitignored\"], \"modelTier\": \"standard\"}\n```"
     },
     {
       "id": 2,
       "subject": "Task 2: Theme registry, one file per theme",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         1
       ],
@@ -20,7 +20,7 @@
     {
       "id": 3,
       "subject": "Task 3: Remove the audio theme",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         2
       ],
@@ -29,7 +29,7 @@
     {
       "id": 4,
       "subject": "Task 4: The feed model (feed.ts) with unit tests",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         3
       ],
@@ -38,7 +38,7 @@
     {
       "id": 5,
       "subject": "Task 5: Wire the feed: hooks, companion block, agent row, feed option",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         4
       ],
@@ -47,7 +47,7 @@
     {
       "id": 6,
       "subject": "Task 6: Signals into every scene, shared reactions, motion tests",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         5
       ],
@@ -414,5 +414,5 @@
       "description": "**Goal:** Version 1.0.0 installed live, docs and backlog written, marketplace and upstream map updated, pushed, master bumped. Plan Task 46.\n\n**Files:**\n- Create: `showtime/THEMES-BACKLOG.md`\n- Modify: `showtime/.claude-plugin/plugin.json`, READMEs, `.claude-plugin/marketplace.json`, `upstream/maps/hoobnn-spinner.sed`, `README.md`\n\n**Acceptance Criteria:**\n- [ ] backlog written\n- [ ] check.sh clean\n- [ ] 1.0.0 installed\n- [ ] gallery shown; pushed and bumped\n\n**Verify:** `cd ~/code/claudebro/claude-mods && upstream/check.sh && claude plugin marketplace update claudebro-mods && claude plugin update showtime@claudebro-mods`\n\n```json:metadata\n{\"files\": [\"showtime/THEMES-BACKLOG.md\", \"showtime/.claude-plugin/plugin.json\", \".claude-plugin/marketplace.json\", \"upstream/maps/hoobnn-spinner.sed\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && upstream/check.sh && claude plugin marketplace update claudebro-mods && claude plugin update showtime@claudebro-mods\", \"acceptanceCriteria\": [\"backlog written\", \"check.sh clean\", \"1.0.0 installed\"], \"modelTier\": \"mechanical\"}\n```"
     }
   ],
-  "lastUpdated": "2026-10-23T17:52:30.397301+00:00"
+  "lastUpdated": "2026-10-23T18:28:40.100228+00:00"
 }
