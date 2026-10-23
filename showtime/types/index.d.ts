@@ -27,6 +27,21 @@ export type DockPet = {
   stats: string
 }
 
+export type TaskStatus = 'pending' | 'in_progress' | 'completed'
+export type FeedTask = { id: string; subject: string; status: TaskStatus }
+export type FeedAgent = { id: string; description: string; type: string; tool?: string; since: number }
+/** The running tools of the main loop, by tool_use_id. */
+export type Running = Record<string, { tool: string; label: string }>
+/** What the companion block and the scenes read: tasks, subagents, running tools. Plain data. */
+export type Feed = {
+  tasks: FeedTask[]
+  source: 'tasks' | 'todos' | null
+  /** When the in-progress task began, else when the turn began; null between turns. */
+  startedAt: number | null
+  agents: FeedAgent[]
+  running: Running
+}
+
 declare module 'claude-code' {
   interface PluginState {
     showtime: {
@@ -49,6 +64,8 @@ declare module 'claude-code' {
       isTurn: boolean
       /** True while a `/` or `@` picker is open above the band. */
       isPicking: boolean
+      /** Tasks, subagents and running tools of the turn. */
+      feed: Feed
     }
     /** hud's side of the pet's place (read only). */
     hud: {
