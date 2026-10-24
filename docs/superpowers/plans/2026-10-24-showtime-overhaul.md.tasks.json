@@ -308,7 +308,7 @@
     {
       "id": 35,
       "subject": "Task 35: coffee — new theme",
-      "status": "in_progress",
+      "status": "completed",
       "blockedBy": [
         34
       ],
@@ -317,7 +317,7 @@
     {
       "id": 36,
       "subject": "Task 36: penguins — new theme",
-      "status": "in_progress",
+      "status": "completed",
       "blockedBy": [
         35
       ],
@@ -326,7 +326,7 @@
     {
       "id": 37,
       "subject": "Task 37: ufo — new theme",
-      "status": "in_progress",
+      "status": "completed",
       "blockedBy": [
         36
       ],
@@ -335,7 +335,7 @@
     {
       "id": 38,
       "subject": "Task 38: dragon — new theme",
-      "status": "in_progress",
+      "status": "completed",
       "blockedBy": [
         37
       ],
@@ -344,7 +344,7 @@
     {
       "id": 39,
       "subject": "Task 39: samurai — new theme",
-      "status": "in_progress",
+      "status": "completed",
       "blockedBy": [
         38
       ],
@@ -353,7 +353,7 @@
     {
       "id": 40,
       "subject": "Task 40: warp — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         39
       ],
@@ -362,7 +362,7 @@
     {
       "id": 41,
       "subject": "Task 41: volcano — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         40
       ],
@@ -371,7 +371,7 @@
     {
       "id": 42,
       "subject": "Task 42: dungeon — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         41
       ],
@@ -380,7 +380,7 @@
     {
       "id": 43,
       "subject": "Task 43: mage — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         42
       ],
@@ -389,7 +389,7 @@
     {
       "id": 44,
       "subject": "Task 44: tavern — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         43
       ],
@@ -398,7 +398,7 @@
     {
       "id": 45,
       "subject": "Task 45: necromancer — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         44
       ],
@@ -414,5 +414,5 @@
       "description": "**Goal:** Version 1.0.0 installed live, docs and backlog written, marketplace and upstream map updated, pushed, master bumped. Plan Task 46.\n\n**Files:**\n- Create: `showtime/THEMES-BACKLOG.md`\n- Modify: `showtime/.claude-plugin/plugin.json`, READMEs, `.claude-plugin/marketplace.json`, `upstream/maps/hoobnn-spinner.sed`, `README.md`\n\n**Acceptance Criteria:**\n- [ ] backlog written\n- [ ] check.sh clean\n- [ ] 1.0.0 installed\n- [ ] gallery shown; pushed and bumped\n\n**Verify:** `cd ~/code/claudebro/claude-mods && upstream/check.sh && claude plugin marketplace update claudebro-mods && claude plugin update showtime@claudebro-mods`\n\n```json:metadata\n{\"files\": [\"showtime/THEMES-BACKLOG.md\", \"showtime/.claude-plugin/plugin.json\", \".claude-plugin/marketplace.json\", \"upstream/maps/hoobnn-spinner.sed\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && upstream/check.sh && claude plugin marketplace update claudebro-mods && claude plugin update showtime@claudebro-mods\", \"acceptanceCriteria\": [\"backlog written\", \"check.sh clean\", \"1.0.0 installed\"], \"modelTier\": \"mechanical\"}\n```"
     }
   ],
-  "lastUpdated": "2026-10-24T10:19:37.122488+00:00"
+  "lastUpdated": "2026-10-24T11:27:18.331250+00:00"
 }
