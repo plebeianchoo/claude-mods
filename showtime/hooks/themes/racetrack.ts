@@ -1,7 +1,7 @@
 // Theme: racetrack. Its scene, its words and its pet.
 //
 // The scene: an oval from the infield, the stands along the top (a flag every tenth column, the crowd doing
-// the wave), the far straight a dim lane with cars going the other way, the grass and the near straight, where
+// the wave), the far straight a dim lane with cars streaming back, the grass and the near straight, where
 // the lead car (#f72585) holds the left third while kerb, grass and stands scroll past at a speed each, by `t`
 // alone. Its wheels turn every fourth frame on the pace lap (think), every frame at full speed (tool: exhaust
 // in the tool's colour, skid dust, speed lines; bash: flames, dust every frame, longer lines). A car per agent
@@ -96,9 +96,9 @@ function stands(cv: Canvas, t: number, cheer: boolean): void {
   }
 }
 
-/** The far straight along pixel row 2, cars on it going the other way a cell a frame; the grass on row 3, a
- * cell every other frame; the near straight on rows 4–6 and the kerb on row 7, a cell a frame, speed lines on
- * the tarmac `streak` long while a tool runs. */
+/** The far straight along pixel row 2, cars on it streaming back a cell a frame; the grass on row 3, a cell
+ * every other frame; the near straight on rows 4–6 and the kerb on row 7, a cell a frame, speed lines on the
+ * tarmac `streak` long while a tool runs (past two, bash's extra: longer, and a second row). */
 function track(cv: Canvas, t: number, streak: number): void {
   for (let x = 0; x < cv.w; x++) {
     const far = x + t
@@ -167,6 +167,7 @@ export function racetrackScene(t: number, w: number, s: Signals): Grid {
   const isTool = s.act === 'tool'
   const bash = isTool && s.tool === 'bash'
   const isAsk = s.act === 'ask'
+  // The sign's turn names the tool, so it restarts on a tool change; the pace cues grow on `actAge` alone.
   const age = Math.min(s.actAge, s.toolAge)
   const isFail = s.news === 'testFail' && s.newsAge < FAIL_FRAMES
   const isPass = s.news === 'testPass' && s.newsAge < PASS_FRAMES
@@ -177,10 +178,10 @@ export function racetrackScene(t: number, w: number, s: Signals): Grid {
   const leadX = Math.floor(w / 3)
   const agents = Math.min(s.agents, MAX_AGENTS, Math.floor(leadX / AGENT_PITCH))
   // The wheels: stopped in the pits, a step every fourth frame on the pace lap, every other saying, every
-  // frame at full speed; speed lines grow in over the turn.
+  // frame at full speed; speed lines grow in over the turn (bash's longer ones come and go with bash).
   const cadence = isAsk ? 0 : isTool ? 1 : s.act === 'say' ? 2 : 4
   const hub = cadence ? Math.floor(t / cadence) : 0
-  const streak = isTool ? Math.min(bash ? 4 : 2, age >> 1) : 0
+  const streak = isTool ? Math.min(bash ? 4 : 2, s.actAge >> 1) : 0
 
   // Layers 1–2: the stands, then the far straight, the grass and the near straight.
   stands(cv, t, isPass || isCommit || chequer)
@@ -216,13 +217,13 @@ export function racetrackScene(t: number, w: number, s: Signals): Grid {
   for (let a = 0; every && a < EXHAUST_LIFE; a++) {
     if (mod(t - a, every) === 0) plot(cv, leadX - 1 - a, 5 - a, a < 2 ? exhaust : SMOKE[a]!)
   }
-  const dustEvery = !isTool || age < TURN_FRAMES ? 0 : bash ? 1 : 2
+  const dustEvery = !isTool || s.actAge < TURN_FRAMES ? 0 : bash ? 1 : 2
   for (let a = 0; dustEvery && a < DUST_LIFE; a++) {
     if (mod(t - a, dustEvery) !== 0) continue
     plot(cv, leadX + 1 - a, 7, DUST[Math.min(3, a)]!)
     if (a < 2) plot(cv, leadX - a, 6, DUST[a]!)
   }
-  if (bash && age >= TURN_FRAMES) {
+  if (bash && s.actAge >= TURN_FRAMES) {
     plot(cv, leadX - 1, 5, frame(FLAME, t))
     if (mod(t, 2) === 0) plot(cv, leadX - 2, 5, frame(FLAME, t + 1))
   }
@@ -230,7 +231,7 @@ export function racetrackScene(t: number, w: number, s: Signals): Grid {
   const spinning = isFail && s.newsAge < SPIN_FRAMES
   const art = spinning ? SPIN[s.newsAge]! : SIDE
   const ink: Ink = { W: PINK_DARK, B: PINK, H: GOLD, N: PINK_PALE, T: TYRE }
-  if (isPass && mod(t, 2) === 0) ink.B = GOLD
+  if (isPass && mod(t, 4) < 2) ink.B = GOLD
   draw(cv, leadX + ((LEAD_W - art[0]!.length) >> 1), 4, art, ink)
   if (!spinning) {
     wheel(cv, leadX + 1, 6, hub, bash)
