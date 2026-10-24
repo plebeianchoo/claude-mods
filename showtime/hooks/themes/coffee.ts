@@ -1,11 +1,11 @@
 // Theme: coffee. Its scene, its words and its pet.
 //
 // The scene: a barista in a brown apron (#8d5524, cream sleeves) behind a wooden counter whose top's sheen slides
-// by `t`, a red espresso machine at the left, jars on a shelf behind. Steam rises from its wand a pixel a frame
-// in every act; a tool thickens it on `actAge`, bash puffs it on a 2-frame cycle, edit drips into the shot cup,
-// and the lamp and the chalk sign on the counter name the tool. He wipes the counter thinking (12 frames), works
-// the machine in a tool, raises a hand asking, gestures saying, leans waiting. A glass mug per task, `done` of
-// them filled (the newest in four stages); a barista per agent at an apron's peg, waving as it joins. testFail tips
+// by `t`, a red espresso machine at the left, jars on a shelf behind (a glint crossing their lids). Steam rises
+// from its wand a pixel a frame in every act; a tool thickens it on `actAge`, bash puffs it on a 2-frame cycle, edit
+// drips into the shot cup, and the lamp and the chalk sign name the tool. He wipes the counter thinking (12 frames),
+// works the machine in a tool, waves at the shoulder asking, gestures saying, leans waiting. A glass mug per task,
+// `done` of them lattes (the newest filling in four stages); a barista per agent at an apron's peg. testFail tips
 // the front cup and spills a puddle; testPass stars the sign; a commit lifts a latte-art heart off the front cup.
 // Motion rules: the steam column touches the machine in every cell row and its mask changes every frame, so no
 // frame holds and it never starts a run; the shelf breaks at the front cup so the heart starts over a run start.
@@ -22,6 +22,8 @@ type Ink = Record<string, string>
  * an agent's slot pitch; the most cups and agents. */
 const [STEAM_X, BAR_X, FRONT_X, CUPS_X, CUP_PITCH, SLOT_W] = [6, 10, 16, 21, 3, 4]
 const [MAX_CUPS, MAX_AGENTS] = [12, 4]
+/** The chalk readout's column on the counter front, clear of the spill's puddle (FRONT_X + 4 ± 5). */
+const READOUT_X = 26
 /** Frames: an act's change, a fill stage, a greeting, the 100% shimmer; a passed test, the heart; a spill. */
 const [CHANGE_FRAMES, FILL_STEP, GREET_FRAMES, ALL_FRAMES, PASS_FRAMES, HEART_FRAMES, SPILL_FRAMES] =
   [4, 2, 8, 16, 16, 16, 30]
@@ -31,6 +33,7 @@ const [BODY, WAND, TRAY, STEEL, GAUGE, SHOT] = ['#c0392b', '#6c757d', '#dee2e6',
 const [STEAM_HOT, STEAM, STEAM_DIM] = ['#f8f9fa', '#ced4da', '#8d99ae']
 const [GLASS, EMPTY, ESPRESSO, MILK, FOAM, LATTE] = ['#e9ecef', '#4f5d75', '#7a4419', '#c8956b', '#fff3e0', '#a86b3c']
 const [TOP, SHEEN, FRONT, SEAM, PUDDLE, GLOSS] = [RIM, '#e6bf94', BROWN, '#a0652d', '#6f4220', '#a0612b']
+const GLINT = '#ffffff'
 const [SHELF, CLOTH, GOLD, RED, HEART, GREEN] = ['#a47148', '#8ecae6', '#ffd60a', '#ff5d5d', '#ff8fab', '#52b788']
 const JARS = [['#e9c46a', BROWN], ['#ced4da', '#f8f9fa'], ['#e9c46a', '#90be6d'], ['#ced4da', '#b5651d']]
 const AGENT_HAIR = ['#e9c46a', '#e76f51', '#90be6d', '#a8dadc']
@@ -113,12 +116,12 @@ function pose(s: Signals): { dy: number; hy: number; face: number; hands: Px[]; 
     return { dy: 0, hy: 0, face: a < 1 ? 1 : -1, hands: [[BAR_X - 1, a < 1 ? 4 : frame(PULL, a - 1)], right] }
   }
   if (s.act === 'ask') {
-    const raise: Px[][] = [[right], [[BAR_X + 4, 3]], [[BAR_X + 4, 2]], [[BAR_X + 3, 1]]]
-    const wave: Px[] = mod(a, 12) < 6 ? [[BAR_X + 3, 1], [BAR_X + 4, 0]] : [[BAR_X + 3, 1], [BAR_X + 3, 0]]
-    return { dy: 0, hy: 0, face: 1, hands: [left, ...(a < 4 ? raise[a]! : wave)] }
+    // Raised to the shoulder (never above pixel row 2, so leaving drops it a cell at most), waving up and down.
+    const hand: Px = a < 1 ? right : a < 2 ? [BAR_X + 4, 3] : [BAR_X + 4, mod(a - 2, 12) < 6 ? 2 : 3]
+    return { dy: 0, hy: 0, face: 1, hands: [left, hand] }
   }
   if (s.act === 'say') {
-    const hand: Px = a < 1 ? right : [BAR_X + 4, mod(a, 12) < 6 ? 3 : 2]
+    const hand: Px = a < 1 ? right : [BAR_X + 4, 3]
     return { dy: 0, hy: mod(a, 12) >= 6 && mod(a, 12) < 9 ? 1 : 0, face: 1, hands: [left, hand] }
   }
   return { dy: mod(a, 16) < 8 ? 0 : 1, hy: 0, face: 1, hands: a < 1 ? [left, right] : [[BAR_X, 5], [BAR_X + 3, 5]] }
@@ -155,10 +158,13 @@ export function coffeeScene(t: number, w: number, s: Signals): Grid {
 
   // Layer 1: the shelf behind (broken left of the front cup, so the heart rises from a run start) and its jars.
   for (let x = FRONT_X; x < w; x++) plot(cv, x, 2, SHELF)
-  for (let j = 0, x = CUPS_X; x + 1 <= limit; j++, x += 4) {
+  // A glint steps across the lids a pixel every other frame by `t`, then rests two steps before it comes round.
+  const jars = Math.max(0, Math.floor((limit - CUPS_X + 3) / 4))
+  const glint = mod(t >> 1, Math.max(6, 2 * jars + 2))
+  for (let j = 0, x = CUPS_X; j < jars; j++, x += 4) {
     const [lid, fill] = JARS[mod(j, JARS.length)]!
     for (const c of [0, 1]) {
-      plot(cv, x + c, 0, lid!)
+      plot(cv, x + c, 0, glint === 2 * j + c ? GLINT : lid!)
       plot(cv, x + c, 1, fill!)
     }
   }
@@ -211,13 +217,13 @@ export function coffeeScene(t: number, w: number, s: Signals): Grid {
   let puddle = -1
   if (fail >= 0) {
     const tip = fail < 1 ? 1 : fail < 2 ? 0 : fail < 5 ? 1 : fail < 24 ? 2 : fail < 26 ? 1 : 0
-    const stage = fail < 7 ? 4 : fail < 11 ? 1 : fail < 26 ? 0 : Math.min(4, fail - 25)
+    const stage = fail < 7 ? 2 : fail < 11 ? 1 : fail < 26 ? 0 : Math.min(2, fail - 25)
     mug(cv, FRONT_X, stage, tip)
     // Pouring out of its mouth (in the cup's own column, so nothing bridges to the next cup) onto the counter.
     if (fail >= 5 && fail < 13) plot(cv, FRONT_X + 3, 5 - mod(fail, 2), GLOSS)
     if (fail >= 5 && fail < 15) puddle = Math.min(5, (fail - 4) >> 1)
     else if (fail >= 15 && fail < 25) puddle = 5 - ((fail - 14) >> 1)
-  } else mug(cv, FRONT_X, 4)
+  } else mug(cv, FRONT_X, heart >= 0 ? 4 : 2)
   counter(cv, t, FRONT_X + 4, puddle)
   // A commit: a latte-art heart over the front cup, growing in and shrinking out over 16 frames.
   if (heart >= 0) {
@@ -228,7 +234,7 @@ export function coffeeScene(t: number, w: number, s: Signals): Grid {
   const g = cells(cv)
   const { text, c } = sign(s, t, { fail: fail >= 0, pass, heart: heart >= 0 })
   put(g, 2, 3, text, { c, bg: FRONT, b: true })
-  if (s.total > 0) put(g, CUPS_X, 3, `${s.done}/${s.total}`, { c: allDone ? GOLD : CREAM, bg: FRONT, b: true })
+  if (s.total > 0) put(g, READOUT_X, 3, `${s.done}/${s.total}`, { c: allDone ? GOLD : CREAM, bg: FRONT, b: true })
   return g
 }
 
