@@ -8,9 +8,9 @@
 // nearest lane, the newest flashing and honking. testFail squashes it flat, fades it out and back; testPass
 // flashes it gold; a commit brings a lily pad and a fly, its tongue out twelve frames.
 //
-// Motion rules (tests/scenes.test.ts): every pixel row is filled across the width, so each row is one run
-// and every mover changes colour only. The one hole is the sign's box: its text left-aligned, its length
-// changing every frame, its last column clear, so no frame holds and no edge moves.
+// Motion rules (tests/scenes.test.ts): every pixel row is filled across the width, so each row is one run and
+// movers change colour only; the one hole is the sign's box (blanks on the lane's colour), its text left-aligned,
+// its length changing every frame, its last column clear, so no frame holds and no edge moves.
 import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
@@ -136,14 +136,14 @@ function road(cv: Canvas, t: number, k: number, dashed: boolean): void {
   }
 }
 
-/** The nearest lane's traffic: a truck per agent at fixed slots a quarter of a lap apart, two cars between
- * them; the newest truck flashes white and lights its lamp as it joins (and again, harmlessly, when one
- * leaves). The start bank is drawn over them, so they come out from behind it. */
+/** The nearest lane's traffic: a truck per agent at fixed slots a quarter of a lap apart, two cars between,
+ * each wrapping on the lap itself (out past the right edge, back off the left, behind the start bank); the
+ * newest truck flashes white and lights its lamp as it joins (and again, harmlessly, when one leaves). */
 function traffic(cv: Canvas, t: number, s: Signals): number | undefined {
   const lap = cv.w + TRUCK_W
   const pitch = Math.floor(lap / MAX_AGENTS)
-  const at = (j: number) => mod(offOf(t, 0) + j * pitch, lap) - TRUCK_W
-  for (const j of [0, 2]) draw(cv, at(j) + (pitch >> 1), 6, CAR, { B: frame(CARS, j + 2), W: GLASS, L: LAMP })
+  const at = (j: number, half = 0) => mod(offOf(t, 0) + j * pitch + half, lap) - TRUCK_W
+  for (const j of [0, 2]) draw(cv, at(j, pitch >> 1), 6, CAR, { B: frame(CARS, j + 2), W: GLASS, L: LAMP })
   const n = Math.min(s.agents, MAX_AGENTS)
   let honk: number | undefined
   for (let i = 0; i < n; i++) {
@@ -227,16 +227,18 @@ export function froggerScene(t: number, w: number, s: Signals): Grid {
   const from = Math.min(laneOf(s.done - 1, s.total, n), MAX_LANES - 1)
   const yTo = topOf(band)
   const y = from < band ? Math.max(yTo, topOf(from) - s.doneAge) : yTo
-  const kind = kinds[band]!
-  const laneColor = kind === 'water' ? WATER : kind === 'road' ? ASPHALT : SLAB
+  const laneColor = { water: WATER, road: ASPHALT, bank: SLAB }[kinds[band]!]
   const allDone = s.total > 0 && s.done >= s.total
   if (allDone && lane >= MAX_LANES) draw(cv, FROG_X - 1, yTo + 1, ['PPPPPPP'], { P: PAD })
   const look = frogLook(t, s, laneColor)
   if (allDone && s.doneAge < DONE_ROLL_FRAMES) look.c = { ...look.c, G: frame(PALETTE, s.doneAge >> 1) }
-  draw(cv, FROG_X + look.dx, y - look.lift + (look.art.length === 1 ? 1 : 0), look.art, look.c)
+  // Its hop and rise: a pixel up (a dip in the top band, so it stays whole), none while climbing or catching.
+  const lift = y !== yTo || (s.news === 'commit' && s.newsAge < COMMIT_FRAMES) ? 0 : look.lift
+  const fy = y - lift < 0 ? y + lift : y - lift
+  draw(cv, FROG_X + look.dx, fy + (look.art.length === 1 ? 1 : 0), look.art, look.c)
   // Its splashes: the tool's colour either side as it lands, a ring spreading as it reaches a lane.
   const tool = s.act === 'tool' && Math.min(s.actAge, s.toolAge) >= TURN_FRAMES && !s.news
-  if (tool && look.lift === 0 && mod(t - 3, s.tool === 'bash' ? 4 : 8) < 2) {
+  if (tool && lift === 0 && mod(t - 3, s.tool === 'bash' ? 4 : 8) < 2) {
     for (const x of [FROG_X - 1, FROG_X + FROG_W]) plot(cv, x, y + 1, TOOL_COLOR[s.tool ?? 'other'])
   }
   const land = s.doneAge - 2 * (band - from)
@@ -244,15 +246,13 @@ export function froggerScene(t: number, w: number, s: Signals): Grid {
     plot(cv, FROG_X - 1 - (land >> 1), y + 1, RIPPLE)
     plot(cv, FROG_X + FROG_W + (land >> 1), y + 1, mod(land, 2) === 0 ? WHITE : RIPPLE)
   }
-  // The commit: a lily pad beside the frog (the lane above, or below at the top), a fly buzzing over it,
-  // the tongue out twelve frames to catch it.
+  // The commit: a lily pad beside it (above; below at the top), a fly over it, the tongue out twelve frames.
   if (s.news === 'commit' && s.newsAge < COMMIT_FRAMES) {
-    const a = s.newsAge
     const up = band < MAX_LANES - 1 ? -1 : 1
     const padY = up < 0 ? y - 1 : y + 2
-    const r = Math.min(2, a)
+    const r = Math.min(2, s.newsAge)
     draw(cv, FROG_X + 2 - r, padY, ['PPPPP'.slice(0, 2 * r + 1)], { P: PAD })
-    const ta = a - TONGUE_AT
+    const ta = s.newsAge - TONGUE_AT
     const reach = ta >= 0 && ta < TONGUE_FRAMES ? (ta < 2 || ta >= TONGUE_FRAMES - 2 ? 1 : 2) : 0
     for (let i = 0; i < reach; i++) plot(cv, FROG_X + 2, padY + up * i, TONGUE)
     if (ta < 2) plot(cv, FROG_X + 2 + frame([0, 1, 0, -1], t), padY + up, FLY)
@@ -273,9 +273,9 @@ export function froggerScene(t: number, w: number, s: Signals): Grid {
     put(g, rx, 0, readout, { c: flash ? WHITE : allDone ? GOLD : SIGN, b: true, bg: bgAt(rx, 0) })
   }
   // The sign's box: cleared, then its text from the left.
-  for (let x = SIGN_X; x < Math.min(w, SIGN_X + SIGN_W); x++) g[signRow]![x] = { ch: ' ' }
+  for (let x = SIGN_X; x < Math.min(w, SIGN_X + SIGN_W); x++) g[signRow]![x] = { ch: ' ', bg: bgAt(x, signRow) }
   const { text, c } = sign(t, s)
-  put(g, SIGN_X, signRow, text, { c, b: s.act !== 'think' || !!s.news })
+  put(g, SIGN_X, signRow, text, { c, b: s.act !== 'think' || !!s.news, bg: g[signRow]![SIGN_X]?.bg })
   return g
 }
 
