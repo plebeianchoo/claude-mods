@@ -206,6 +206,46 @@ test('band plays the scene and the companion while working, keeps other bands', 
   await off.unmount()
 })
 
+test('the band follows the model: wait for its reply, think while it reasons, say while it writes', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  // The engine's line draws with the turn's mode; the band reads it a moment later.
+  const modeIs = async (mode: (typeof SPINNER)['props']['mode'] | 'requesting' | 'responding') => {
+    const line = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...SPINNER, props: { ...SPINNER.props, mode } })
+    await line.unmount()
+    await clock.advance(10)
+  }
+  const actNow = async () => {
+    const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
+    const act = /"act":"(\w+)"/.exec(JSON.stringify(await ui.findAll({ type: 'Client' })))?.[1]
+    await ui.unmount()
+    return act
+  }
+  expect(await actNow()).toBe('think')
+  await modeIs('requesting')
+  expect(await actNow()).toBe('wait')
+  await modeIs('thinking')
+  expect(await actNow()).toBe('think')
+  await modeIs('responding')
+  expect(await actNow()).toBe('say')
+  // A tool in hand outranks the line, and its end hands the act back.
+  ends = 'ok'
+  const call = $.tool.call({ tool: 'Bash', command: 'ls' })
+  await clock.advance(10)
+  await modeIs('requesting')
+  expect(await actNow()).toBe('tool')
+  await clock.advance(1000)
+  await call
+  await modeIs('responding')
+  expect(await actNow()).toBe('say')
+  // Between turns the line has nothing to say about the band.
+  await $.turn.complete(DONE)
+  await modeIs('requesting')
+  expect(await actNow()).toBe('think')
+})
+
 test('a short band gets the pet in one row', async ($, on) => {
   const clock = host(on)
   await $.session.start(START)
