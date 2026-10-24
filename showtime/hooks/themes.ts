@@ -39,6 +39,7 @@ import { UFO } from './themes/ufo'
 import { DRAGON } from './themes/dragon'
 import { SAMURAI } from './themes/samurai'
 import { DUNGEON } from './themes/dungeon'
+import { NECROMANCER } from './themes/necromancer'
 
 export * from './cells'
 export type { ToolKind } from './feed'
@@ -78,6 +79,7 @@ export const THEME_NAMES = [
   'dragon',
   'samurai',
   'dungeon',
+  'necromancer',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
 
@@ -176,6 +178,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   dragon: DRAGON,
   samurai: SAMURAI,
   dungeon: DUNGEON,
+  necromancer: NECROMANCER,
 }
 
 export function themeOf(name: unknown): Theme {
