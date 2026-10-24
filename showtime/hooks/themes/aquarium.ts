@@ -5,7 +5,7 @@
 // clownfish crossing the tank and a fish per agent (four at most, each its own shape) in its own slot from the
 // right. A pearl per task in the sand (floor-scaled), lit when done; the chest opens and coins float up as one
 // lands. Thinking, a snail crawls the floor; a tool sends up a bubble curtain in its colour (bash densest);
-// asking, the clownfish blows a big bubble; saying, a string; waiting, it sinks and dozes. testFail clouds the
+// asking, the clownfish blows a big bubble; saying, a string; waiting, it glides tail still. testFail clouds the
 // water and the fish dart; testPass flashes them gold; a commit lowers a diver on a hose, torch on the chest.
 // Motion rules: the water rows are full, so movers there change colour only (checked by shape in the dump);
 // row 0's run starts are the surface's troughs, drifting left a cell every other frame in alternate pairs (one
@@ -245,7 +245,7 @@ export function aquariumScene(t: number, w: number, s: Signals): Grid {
   const hostAt = (tt: number) => L + swim(tt, range, 2, 6).dx
   const hostRight = (tt: number) => swim(tt, range, 2, 6).right
   const host = swimmer(t, s, hostAt, hostRight)
-  const hy = SURFACE_Y + 1 + (s.act === 'wait' && s.actAge >= 2 ? 1 : 0)
+  const hy = SURFACE_Y + 1
   const flick = s.act !== 'wait' && mod(t, isTool ? 2 : 4) < (isTool ? 1 : 2)
   const art = flick ? HOST_FLICK : HOST
   draw(cv, host.x, hy, host.right ? art : flip(art), dim(isPass ? goldOf(HOST_INK, t) : HOST_INK))
