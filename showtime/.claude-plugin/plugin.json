@@ -31,7 +31,7 @@
     "theme": {
       "type": "string",
       "title": "Theme",
-      "description": "The animations' look: clawd (Claude's mascot), thunder (a shoot-em-up), chomp, sparky, bluecat, nyan (pixel homages), cat, bunny, sakura, mecha, neon, dino, ocean, matrix, stack, plumber, snake, launch, frogger, kitchen, railway, garden, racetrack, aquarium, submarine, orchestra, roomba, random for a new one each session, or rotate for the next one each turn (starting at random). /showtime <theme> switches it live",
+      "description": "The animations' look: clawd (Claude's mascot), thunder (a shoot-em-up), chomp, sparky, bluecat, nyan (pixel homages), cat, bunny, sakura, mecha, neon, dino, ocean, matrix, stack, plumber, snake, launch, frogger, kitchen, railway, garden, racetrack, aquarium, submarine, orchestra, roomba, dragon, random for a new one each session, or rotate for the next one each turn (starting at random). /showtime <theme> switches it live",
       "options": [
         "random",
         "rotate",
@@ -61,7 +61,8 @@
         "aquarium",
         "submarine",
         "orchestra",
-        "roomba"
+        "roomba",
+        "dragon"
       ],
       "default": "random"
     },
