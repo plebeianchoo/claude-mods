@@ -25,6 +25,7 @@ Pixel-art scenes, three rows of half-block pixels:
 - `stack`: a falling-block well: pieces hover over it and drop in while tools run, done tasks settle as rows, a failed test topples the stack.
 - `plumber`: a platformer runner bouncing in place while hills, bricks and pipes scroll by, running and jumping the pipes while tools run; done tasks turn ? blocks into spinning coins, all done slides in the flagpole.
 - `snake`: a grid snake winding a figure-eight over a dotted field, growing a cell per done task; while tools run an apple appears ahead and it runs it down, a failed test makes it bite its tail, a passed test is a golden apple.
+- `garden`: flower beds along a picket fence under drifting clouds, a butterfly fluttering by the big flower; a seed per task sprouts into a flower as it lands, it rains in the tool's colour while tools run, a bee buzzes per subagent, a failed test wilts the flowers, a commit bursts the big one into petals.
 
 Character scenes, two rows: `cat`, `bunny`, `sakura`, `mecha`, `neon`, `dino`, `ocean`, `matrix`. Or `random` for a new one each session.
 
