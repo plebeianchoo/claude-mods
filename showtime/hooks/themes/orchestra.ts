@@ -42,7 +42,7 @@ const TOOL_INK: Record<ToolKind, string> = {
   agent: '#bb9af7', web: '#7aa2f7', other: '#ff5d8f',
 }
 const TOOL_SIGN: Record<ToolKind, string> = {
-  bash: '$', edit: '✎', read: '¶', search: '⌕', agent: 'ᗣ', web: '◎', other: '✦',
+  bash: '$', edit: '+', read: '=', search: '%', agent: '&', web: '@', other: '!',
 }
 
 /** The fold pattern's period and the sway's cycle; the metronome's centre; the conductor's coat and hand. */
@@ -50,8 +50,8 @@ const [FOLD_W, SWAY_FRAMES, METRO_X, CON_X, HAND_X, HAND_Y] = [6, 24, 1, 5, 8, 3
 /** The light pool's centre and reach; the sign; where the stands start and their pitch; a seat's width. */
 const [POOL_X, POOL_R, SIGN_X, STAND_X, STAND_PITCH, SEAT_W] = [6, 4, 6, 12, 3, 6]
 const MAX_AGENTS = 4
-/** Frames: a musician's greeting, a lit stand's blink; the news. */
-const [GREET_FRAMES, NOTE_FRAMES] = [8, 8]
+/** Frames: a musician's greeting, a done note's life (and its stand's blink); the news. */
+const [GREET_FRAMES, NOTE_FRAMES] = [8, 10]
 const [FAIL_FRAMES, SCATTER_FRAMES, PASS_FRAMES, CLAP_FRAMES] = [12, 12, 16, 20]
 
 /** The baton's tip from the hand, a pixel a frame; every path starts at the same pose, so an act's first frame
@@ -108,9 +108,20 @@ function valance(cv: Canvas, t: number): void {
   }
 }
 
-/** The boards along px 7, a seam every five columns, lit around the podium out to `reach`. */
-function stage(cv: Canvas, light: string, reach: number): void {
-  for (let x = 0; x < cv.w; x++) plot(cv, x, 7, Math.abs(x - POOL_X) <= reach ? light : mod(x, 5) ? FLOOR : SEAM)
+/** The boards along px 7, a seam every five columns; the pool round the podium always POOL_R wide, pale at its
+ * rim, `light` in a core out to `core`. */
+function stage(cv: Canvas, light: string, core: number): void {
+  for (let x = 0; x < cv.w; x++) {
+    const d = Math.abs(x - POOL_X)
+    plot(cv, x, 7, d <= core ? light : d <= POOL_R ? PALE : mod(x, 5) ? FLOOR : SEAM)
+  }
+}
+
+/** `from` moved `n` pixels toward `to` in each coordinate, a pose easing a pixel a frame; never into the hand. */
+function toward(from: Pose, to: Pose, n: number): Pose {
+  const step = (a: number, b: number) => a + Math.sign(b - a) * Math.min(n, Math.abs(b - a))
+  const [x, y] = [step(from[0], to[0]), step(from[1], to[1])]
+  return x === 0 && y === 0 ? [1, 0] : [x, y]
 }
 
 /** The conductor on his podium: the head leaning `lean` or bowed, the baton at `pose`, the left hand when up. */
@@ -157,22 +168,21 @@ function musician(cv: Canvas, t: number, i: number, x: number, rest: boolean, fl
 /** A failed test's notes scattering from the cymbal a cell a frame at most, fading, gone off the stage's air. */
 function scatter(cv: Canvas, cx: number, age: number): void {
   if (age < 2 || age > SCATTER_FRAMES) return
-  const c = age < 5 ? GOLD : age < 9 ? PALE : STEEL
+  const c = age < 5 ? WHITE : age < 9 ? PALE : SHIRT
   SCATTER.forEach(([vx, vy], k) => {
     const x = cx - Math.floor(vx * age)
     const y = 2 + (k % 3) + Math.trunc(vy * age)
-    if (y >= 2 && y <= 5) draw(cv, x, y, NOTE, { S: c, H: c === GOLD ? WHITE : c })
+    if (y >= 2 && y <= 5) draw(cv, x, y, NOTE, { S: c, H: age < 9 ? GOLD : PALE })
   })
 }
 
-/** The applause: a pair of hands every seven columns along the bottom, rising, clapping on a 2-frame cycle,
- * a spark over each clap. */
+/** The applause: a pair of hands every seven columns in the front row (px 6-7), rising a pixel, clapping on a
+ * 2-frame cycle (each hand a column in and out), sinking at the end. */
 function applause(cv: Canvas, age: number): void {
   const top = 6 + Math.max(0, 1 - age, age - (CLAP_FRAMES - 2))
   const shut = mod(age, 2) === 1
   for (let x = 3; x + 3 < cv.w; x += 7) {
     for (const hx of shut ? [x + 1, x + 2] : [x, x + 3]) for (let y = top; y <= 7; y++) plot(cv, hx, y, SKIN)
-    if (shut && top < 7) draw(cv, x + 1, top - 1, ['WW'], { W: WHITE })
   }
 }
 
@@ -208,7 +218,7 @@ export function orchestraScene(t: number, w: number, s: Signals): Grid {
   let light = { think: PALE, tool: TOOL_INK[tool], ask: GOLD, say: LILAC, wait: STEEL }[s.act]
   if (fail && s.newsAge < FAIL_FRAMES) light = RED
   else if (pass) light = mod(t, 2) ? GOLD : PALE
-  stage(cv, light, fail || pass || clap ? POOL_R : Math.min(POOL_R, age))
+  stage(cv, light, (fail && s.newsAge < FAIL_FRAMES) || pass ? POOL_R : Math.min(POOL_R, age))
   // The metronome at the corner, ticking a cell a frame.
   plot(cv, METRO_X + frame([-1, 0, 1, 0], t), 4, SHIRT)
   plot(cv, METRO_X, 5, WOOD)
@@ -216,24 +226,28 @@ export function orchestraScene(t: number, w: number, s: Signals): Grid {
   // Layer 3: the conductor, beating from the shared pose; bowing to the applause.
   const path = BATON[s.act]
   const held = s.act === 'ask' || s.act === 'wait'
-  let pose = held ? path[Math.min(age, path.length - 1)]! : frame(path, age)
+  const poseAt = (a: number) => (held ? path[Math.min(a, path.length - 1)]! : frame(path, a))
+  let pose = poseAt(age)
   const bowed = clap && s.newsAge >= 2 && s.newsAge < 16
-  if (clap) pose = BATON.wait[2]!
+  // On a commit the baton eases down from where it was when the news landed, and back up to the beat at the end.
+  const rest = BATON.wait[2]!
+  if (clap && s.newsAge < CLAP_FRAMES - 4) pose = toward(poseAt(Math.max(0, age - s.newsAge)), rest, s.newsAge)
+  else if (clap) pose = toward(rest, pose, s.newsAge - (CLAP_FRAMES - 4))
   const lean = s.act === 'wait' && !clap && mod(t, 16) >= 8 ? 1 : 0
   const left = s.act === 'ask' && age >= 2 ? (mod(t, 12) < 4 ? 3 : 4) : 0
   const twinkle = s.act === 'ask' && mod(t, 12) < 2
   conductor(cv, pose, lean, bowed, left, s.act === 'tool' ? TOOL_INK[tool] : twinkle ? GOLD : WHITE)
-  // The stands, `done` of them lit, the newest blinking as it is done while a note lifts off it a pixel a frame,
-  // fading into the valance.
+  // The stands, `done` of them lit, the newest blinking as it is done while a note lifts off it a pixel every
+  // other frame, fading into the valance.
   const sheet = pass || allDone ? GOLD : PALE
   for (let j = 0; j < count; j++) {
     const x = STAND_X + STAND_PITCH * j
     const blink = j === lit - 1 && s.doneAge < NOTE_FRAMES && mod(s.doneAge, 2) === 0
     draw(cv, x, 5, ['SS', '.P'], { S: blink ? WHITE : j < lit ? sheet : DIM, P: STEEL })
   }
-  if (s.done > 0 && s.doneAge < 5) {
-    const c = frame([GOLD, GOLD, PALE, LILAC, FOLD], s.doneAge)
-    draw(cv, lit > 0 ? STAND_X + STAND_PITCH * (lit - 1) : STAND_X - 1, 4 - s.doneAge, NOTE, { S: c, H: c })
+  if (s.done > 0 && s.doneAge < NOTE_FRAMES) {
+    const c = frame([GOLD, GOLD, PALE, LILAC, FOLD], s.doneAge >> 1)
+    draw(cv, lit > 0 ? STAND_X + STAND_PITCH * (lit - 1) : STAND_X - 1, 4 - (s.doneAge >> 1), NOTE, { S: c, H: c })
   }
   // Layer 4: the musicians in their seats (empty chairs past the agents), the cymbal, a failed test's notes.
   const n = Math.min(s.agents, MAX_AGENTS)
@@ -257,14 +271,15 @@ export function orchestraScene(t: number, w: number, s: Signals): Grid {
   return g
 }
 
-/** A metronome: a tapered wooden case on its base, the silver arm swinging from the foot, a gold weight on it. */
+/** A metronome: a narrow wooden pyramid, the pendulum standing out of its apex, swinging, a gold weight at its
+ * tip; pale eyes low on the case. */
 export const PET: PetArt = {
-  body: ['........A...', '....WWWG....', '...WWWAWW...', '...WWAWWW...', '..DDDDDDDD..'],
-  step: ['...A........', '....GWWW....', '...WWAWWW...', '...WWWAWW...', '..DDDDDDDD..'],
-  colors: { W: WOOD, D: '#8b5a2b', A: SHIRT, G: GOLD },
+  body: ['.......G....', '......A.....', '.....WW.....', '....WWWW....', '...WWWWWW...'],
+  step: ['....G.......', '.....A......', '.....WW.....', '....WWWW....', '...WWWWWW...'],
+  colors: { W: WOOD, A: SHIRT, G: GOLD },
   eyes: [4, 7],
-  eyeRow: 2,
-  eye: '#1d1d1d',
+  eyeRow: 3,
+  eye: PALE,
   lid: WOOD,
   blush: '#ff8fab',
   spark: LILAC,
