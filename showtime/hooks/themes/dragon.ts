@@ -110,14 +110,16 @@ function sprite(cv: Canvas, x: number, y: number, face: 1 | -1, art: string[][],
   }))
 }
 
-/** The dragon, its wings on frame `wing`, its jaws open (the snout dark, a mouth over the jaw) when `open`;
- * `nose` recolours its snout and jaw, `wingInk` its wing (lit, and tinting the rest: a tool's colour). */
-function dragon(cv: Canvas, x: number, y: number, face: 1 | -1, wing: number, ink: Ink, open = false,
-  nose?: string, wingInk = GOLD): void {
+/** The dragon, its wings on frame `wing`: its jaws open (the snout dark, a mouth over the jaw) when `open`, its
+ * body white when `struck`; `nose` recolours its snout and jaw, `wingInk` its wing (lit, tinting the rest). */
+function dragon(cv: Canvas, x: number, y: number, face: 1 | -1, wing: number, ink: Ink,
+  { open = false, struck = false, nose, wingInk = GOLD }: { open?: boolean; struck?: boolean; nose?: string;
+    wingInk?: string }): void {
   const art = DRAGON_ART.map(r => [...r])
   if (open) art[2]![10] = 'M'
   const lit = WING_LIT[mod(wing, WING_LIT.length)]!
-  const keys: Record<string, string> = { ...DRAGON_INK, ...(nose ? { S: nose, J: nose } : {}) }
+  const body = struck ? Object.fromEntries(Object.keys(DRAGON_INK).map(k => [k, WHITE])) : DRAGON_INK
+  const keys: Record<string, string> = { ...body, ...(nose ? { S: nose, J: nose } : {}) }
   const dim = (k: string) => (wingInk === GOLD ? WING_DIM[k]! : mix(WING_DIM[k]!, wingInk, 0.45))
   for (const k of 'daL') keys[k] = lit.includes(k) ? wingInk : dim(k)
   sprite(cv, x, y, face, art, keys, ink)
@@ -151,10 +153,10 @@ function cone(cv: Canvas, f: Fly, y: number, len: number, t: number, ink: Ink): 
 
 /** Sparks streaming off its nose in a tool's colour, `len` columns: a checkerboard over the snout's and jaw's
  * rows (one cell row, so it stays one shape with the head) flipping every frame, each spark a column further out. */
-function sparks(cv: Canvas, f: Fly, y: number, len: number, t: number, ink: string): void {
+function sparks(cv: Canvas, f: Fly, y: number, len: number, t: number, hue: string, ink: Ink): void {
   for (let i = 0; i < len; i++) {
     const x = f.face > 0 ? f.x + DRAGON_W + i : f.x - 1 - i
-    for (const j of [2, 3]) if (mod(x + j - f.face * t, 2) === 0) plot(cv, x, y + j, i % 3 === 2 ? PALE : ink)
+    for (const j of [2, 3]) if (mod(x + j - f.face * t, 2) === 0) plot(cv, x, y + j, ink(i % 3 === 2 ? PALE : hue))
   }
 }
 
@@ -255,15 +257,16 @@ export function dragonScene(t: number, w: number, s: Signals): Grid {
   const f = fly(ca >= 0 && ca < OFF ? t - ca : t, g)
   // Dipping, it keeps the height it was hit at (its path's own drop held off), so it moves a cell a frame at most.
   const top = fail >= HIT && fail < HIT + DIP ? dipTop(g, t - fail + HIT, fail - HIT) : f.y
-  // Its props belong to the act, held off through a reaction and around each turn (so none swaps sides); the fire
-  // stays through a reaction, dipping and fading with it. Both stop short of the keep and the moon.
+  // Its jaws' work is held off through a reaction; a tool's fire or sparks stay through one, dipping and fading with
+  // it, held off around each turn (so none swaps sides) and short of the keep and the moon.
   const free = ca < 0 && fail < 0
   const tool = s.act === 'tool' ? s.tool ?? 'other' : undefined
+  const hue = tool && tool !== 'bash' ? TOOL_INK[tool] : undefined
   const room = f.face > 0 ? w - 8 - (f.x + DRAGON_W - 1) : f.x - (KEEP_X + KEEP_W + 2)
   const breath = (most: number, from: number) =>
     Math.max(0, Math.min(grown(t, g, Math.min(s.actAge + 1 - from, f.since - 1), most), f.until - 2, room))
   const len = tool === 'bash' && !onKeep ? breath(CONE, 0) : 0
-  const spark = free && tool !== undefined && tool !== 'bash' ? breath(SPARKS, 2) : 0
+  const spark = tool !== undefined && tool !== 'bash' && !onKeep ? breath(SPARKS, 2) : 0
   const reach = Math.max(len, spark)
   // The wyverns a fifth of a loop apart behind it; the columns clouds hide in (the dragon's with its cone, each
   // wyvern's, the roar's).
@@ -271,7 +274,8 @@ export function dragonScene(t: number, w: number, s: Signals): Grid {
   const n = Math.min(s.agents, MAX_WYVERNS)
   const flock = Array.from({ length: n }, (_, i) => fly(t - Math.round(((i + 1) * g.p) / 5), g))
   for (const v of flock) holes.push([v.x + WYVERN_DX, v.x + WYVERN_DX + WYVERN_W - 1])
-  if (onKeep) holes.push([KEEP_X - 1, KEEP_X + DRAGON_W - 2 + blast])
+  const seated = hue && s.actAge >= 2 ? SPARKS : 0
+  if (onKeep) holes.push([KEEP_X - 1, KEEP_X + DRAGON_W - 2 + Math.max(blast, seated)])
   else holes.push([f.x - (f.face < 0 ? reach : 0), f.x + DRAGON_W - 1 + (f.face > 0 ? reach : 0)])
 
   // Layer 1: the moon and the clouds; layer 2: the castle and the brazier's embers.
@@ -280,7 +284,6 @@ export function dragonScene(t: number, w: number, s: Signals): Grid {
   wall(cv, t)
   towers(cv, s, t, pass)
   // A tool's colour catches in the brazier and its new embers.
-  const hue = tool && tool !== 'bash' && free ? TOOL_INK[tool] : undefined
   keep(cv, t, s.act === 'ask' ? s.actAge : 0, hue)
   embers(cv, t, hue)
   // Layer 3: the wyverns trailing it, the newest greeting as it joins.
@@ -288,14 +291,17 @@ export function dragonScene(t: number, w: number, s: Signals): Grid {
     const greet = i === n - 1 && s.agentsAge < GREET && mod(s.agentsAge, 2) === 0
     wyvern(cv, v, mod(t + i, 4) < 2, HUES[i]!, greet)
   })
-  // Layer 4: the dragon, white as the arrow strikes, its wings flashing on a passed test, faded on a commit.
+  // Layer 4: the dragon, its body white as the arrow strikes, faded on a commit; on the keep a tool's sparks keep
+  // streaming (under the roar).
   const struck = fail >= HIT && fail < HIT + 2
-  const ink: Ink = c => {
-    const lit = struck ? WHITE : pass && c === GOLD && mod(t, 2) === 0 ? WHITE : c
-    return k >= 1 ? lit : mix(FADE_TO, lit, k)
-  }
+  const ink: Ink = c => (k >= 1 ? c : mix(FADE_TO, c, k))
+  // A tool but bash: its nose sparks, its wing lights in the tool's colour (blended in over four frames); a passed
+  // test flashes the wing white.
+  const nose = hue && s.actAge >= 2 ? (mod(t, 4) < 2 ? hue : WHITE) : undefined
+  const wingInk = pass && mod(t, 2) === 0 ? WHITE : hue ? mix(GOLD, hue, Math.min(1, s.actAge / 4)) : GOLD
   if (onKeep) {
-    dragon(cv, KEEP_X - 1, 0, 1, roaring && mod(t, 4) >= 2 ? 1 : 0, ink, roaring)
+    dragon(cv, KEEP_X - 1, 0, 1, roaring && mod(t, 4) >= 2 ? 1 : 0, ink, { open: roaring, nose, wingInk })
+    if (hue) sparks(cv, { x: KEEP_X - 1, y: 0, face: 1, since: 0, until: 0 }, 0, seated, t, hue, ink)
     // The roar: a blast out of its jaws a column a frame, rings running out along it, drawn back at the end.
     for (let r = 0; r < blast; r++) {
       const ring = RING_INK[mod(r - (ca - ON), RING_INK.length)]!
@@ -303,12 +309,9 @@ export function dragonScene(t: number, w: number, s: Signals): Grid {
     }
   } else {
     const open = free && s.act === 'say' && s.actAge >= 2 && mod(t, 6) < 3
-    // A tool but bash: its nose sparks, its wing lights in the tool's colour (blended in over four frames).
-    const nose = hue && s.actAge >= 2 ? (mod(t, 4) < 2 ? hue : WHITE) : undefined
-    const wingInk = hue ? mix(GOLD, hue, Math.min(1, s.actAge / 4)) : GOLD
-    dragon(cv, f.x, top, f.face, ca >= 0 && ca < OFF ? t - ca : t, ink, open, nose, wingInk)
+    dragon(cv, f.x, top, f.face, ca >= 0 && ca < OFF ? t - ca : t, ink, { open, struck, nose, wingInk })
     if (len > 0) cone(cv, f, top, len, t, ink)
-    if (hue && spark > 0) sparks(cv, f, top, spark, t, hue)
+    if (hue && spark > 0) sparks(cv, f, top, spark, t, hue, ink)
   }
 
   // testFail: an arrow up from the wall to where it will be at HIT, then a puff there (anchored at the
