@@ -274,16 +274,16 @@ export function gardenScene(t: number, w: number, s: Signals): Grid {
   return g
 }
 
-/** A sprout: two leaves on a stem over a round green seedling in its soil. */
+/** A sprout: two leaves forking up and out in a V from a thin stem in a small soil mound, eyes on the leaves. */
 export const PET: PetArt = {
-  body: ['.....L...L..', '.....LLSLL..', '....GGGGGG..', '...GGGGGGGG.', '..BBBBBBBBBB'],
-  step: ['....L.....L.', '.....LLSLL..', '....GGGGGG..', '...GGGGGGGG.', '..BBBBBBBBBB'],
-  colors: { L: LEAF, S: STEM, G: GREEN, B: SOIL_LIGHT },
-  eyes: [5, 8],
-  eyeRow: 2,
-  eye: '#1d1d1d',
-  lid: GREEN,
-  mouth: [6, 3],
+  body: ['LLLL...LLLL.', '.LLLG.GLLL..', '....GSG.....', '.....S......', '..DDDSDDD...'],
+  step: ['LLL.....LLL.', 'LLLLG.GLLLL.', '....GSG.....', '.....S......', '..DDDSDDD...'],
+  colors: { L: LEAF, G: GREEN, S: STEM, D: SOIL_LIGHT },
+  eyes: [2, 8],
+  eyeRow: 0,
+  eye: '#2d6a4f',
+  lid: LEAF,
+  mouth: [5, 2],
   blush: PINK,
   spark: GOLD,
 }
