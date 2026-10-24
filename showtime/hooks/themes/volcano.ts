@@ -6,9 +6,9 @@
 // in the tool's colour; bash pulses faster and brighter and throws sparks. ask: the crater bubbles, the cone throbs;
 // say: smoke signals; wait: the crater cools, the plume greys. A hut per task on the shore (floor-scaled), roofed
 // when done, the newest roof dropping on; a rowing boat per agent in a fixed slot, flashing as it joins. testFail:
-// rocks arc out for twelve frames under a reddening sky; commit: a rainbow fades in and out over the island. Motion
-// rules: the plume's newest end and the crater's left horn are one run that never moves; the sky's glow widens a
-// column a frame from the crater's left column; lava, waves and the cone's shimmer only change colours.
+// rocks arc out for twelve frames as the whole sky reddens; commit: a rainbow fades in and out over the island. Motion
+// rules: the plume's newest end and the crater's left horn are one run that never moves; the red sky keeps one
+// footprint and only eases its colour; lava, waves and the cone's shimmer only change colours.
 import { canvas, cells, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
@@ -22,8 +22,8 @@ const [RIM_Y, SAND_Y] = [2, 6]
 const CONE_HALF = [2, 4, 6, 8]
 /** Frames: an act's change, between puffs, a puff's life; lava cells; a greeting, a roof's drop, the 100% flare. */
 const [CHANGE, PUFF_GAP, PUFF_LIFE, FLOW_LEN, GREET, DROP, FLARE] = [4, 2, 10, 9, 8, 6, 16]
-/** testFail: the rocks' flight, the sky's glow (frames), its widest, its middle; commit: the rainbow's frames. */
-const [ROCK_FRAMES, GLOW_FRAMES, GLOW_MAX, GLOW_X, BOW_FRAMES] = [12, 30, 14, CX + 3, 20]
+/** testFail: the rocks' flight, the sky's glow (frames), its easing in and out; commit: the rainbow's frames. */
+const [ROCK_FRAMES, GLOW_FRAMES, GLOW_IN, GLOW_OUT, BOW_FRAMES] = [12, 30, 6, 6, 20]
 /** The rocks: columns a frame, and height by frame (never above row 0): the fast ones thrown high, the slow ones
  * low (off row 0 before a bash spark is born beside them). */
 const ARC_HIGH = [1, 0, 0, 0, 1, 1, 2, 3, 4, 5, 6, 7]
@@ -31,7 +31,7 @@ const ARC_LOW = [1, 0, 0, 1, 2, 3, 4, 5, 6, 7]
 const ROCKS = [[-1, ARC_HIGH], [-0.5, ARC_LOW], [0.5, ARC_LOW], [0.75, ARC_HIGH]] as const
 /** A boat's oar blade by stroke phase (column, pixel row); the newest roof's top row by doneAge as it drops. */
 const BLADE = [[0, 5], [0, 6], [1, 6], [1, 5]] as const
-const ROOF_TOP = [1, 1, 1, 2, 2, 2]
+const ROOF_TOP = [2, 2, 2, 3, 3, 3]
 /** The lava's path down the right slope from the rim: each cell (column, pixel row) on the cone's surface. */
 const FLOW: readonly (readonly [number, number])[] = [[CX + 1, 1], [CX + 1, 2], [CX + 2, 3], [CX + 3, 3],
   [CX + 4, 4], [CX + 5, 4], [CX + 6, 5], [CX + 7, 5], [CX + 8, 6]]
@@ -46,7 +46,7 @@ const SMOKE = ['#e9ecef', '#ced4da', '#adb5bd', '#868e96']
 const [POST, WALL, DOOR, ROOF, PEAK, WINDOW] = ['#7f5539', '#a47148', '#6f4518', '#e76f51', '#f4a261', '#ffd166']
 const [HULL, KEEL, OAR, SKIN, FOAM] = ['#a47148', '#7f5539', '#d4a373', '#ffddd2', '#caf0f8']
 const HUES = ['#52b788', '#b185db', '#4cc9f0', '#f4a261']
-const [SKY_DIM, SKY_RED, ROCK_COOL, FADE_TO] = ['#4a1616', '#c1121f', '#9d0208', '#262a36']
+const [SKY_DIM, SKY_RED, ROCK_COOL, FADE_TO] = ['#662a2a', '#c1121f', '#9d0208', '#262a36']
 const BOW = ['#ff595e', '#ffca3a', '#8ac926', '#1982c4']
 const TOOL_INK: Record<ToolKind, string> = { bash: PALE, edit: '#ff9e64', read: '#e0af68', search: '#7dcfff',
   agent: '#bb9af7', web: '#7aa2f7', other: '#ff5d8f' }
@@ -67,25 +67,26 @@ function layout(w: number): { boats: number; huts: number; shore: number } {
   return { boats, huts, shore: HUT0 + HUT_P * Math.max(1, huts) }
 }
 
-/** The sky's glow on a failed test, `age` frames in: from the crater's left column (clear of the bash sparks and
- * the rocks flying left) it widens a column a frame to GLOW_MAX and back, and across the top rows to the right
- * four a frame; reddest low and near the crater; in pixel rows 2-3 it stops short of the roofs. */
+/** The sky's glow on a failed test, `age` frames in: every empty pixel above the sand (drawn last, so behind every
+ * cue, roof and boat), the same footprint every frame; only its colour eases in over GLOW_IN frames and out over
+ * GLOW_OUT, reddest near the crater and low, and nothing at all once it has eased out. */
 function skyGlow(cv: Canvas, age: number): void {
-  const r = Math.min(age + 1, GLOW_FRAMES - 1 - age, GLOW_MAX)
-  const k = Math.min(1, r / 6)
-  for (let y = 0; y < 4; y++) {
-    const right = y < 2 ? 4 * r : Math.min(r, CX + 8 - GLOW_X)
-    for (let x = GLOW_X - Math.min(r, GLOW_X - CX + 1); x <= GLOW_X + right; x++) {
-      const near = 1 - Math.abs(x - GLOW_X) / (2 * GLOW_MAX) - (3 - y) * 0.08
-      plot(cv, x, y, mix(SKY_DIM, SKY_RED, Math.max(0, k * near)))
+  const k = Math.min(1, (age + 1) / GLOW_IN, (GLOW_FRAMES - 1 - age) / GLOW_OUT)
+  if (k <= 0) return
+  for (let y = 0; y < SAND_Y; y++) {
+    for (let x = 0; x < cv.w; x++) {
+      if (cv.px[y * cv.w + x]) continue
+      const near = Math.max(0, 1 - Math.abs(x - CX) / 40) * (0.7 + 0.06 * y)
+      plot(cv, x, y, mix(SKY_DIM, SKY_RED, k * near))
     }
   }
 }
 
 /** The rainbow over the island on a commit, `age` frames in: four bands on an arc from shore to shore, fading in
- * over five frames and out over the last five. */
+ * from nothing over five frames and back to nothing over the last five. */
 function rainbow(cv: Canvas, age: number, shore: number): void {
-  const k = Math.min(1, (age + 1) / 5, (BOW_FRAMES - age) / 5)
+  const k = Math.min(1, age / 5, (BOW_FRAMES - 1 - age) / 5)
+  if (k <= 0) return
   const [c, a, b] = [shore / 2, shore / 2 + 1, 6.6]
   for (let y = 0; y < SAND_Y; y++) {
     for (let x = 0; x < Math.min(cv.w, shore + 2); x++) {
@@ -178,10 +179,12 @@ function huts(cv: Canvas, t: number, s: Signals, fit: number): void {
     const x = HUT0 + HUT_P * k
     const roofed = k < lit
     const top = roofed && fresh && k === lit - 1 ? ROOF_TOP[s.doneAge] ?? 3 : 3
-    if (!roofed || top >= 3) for (const dx of [0, 2]) plot(cv, x + dx, 4, POST)
+    for (const dx of [0, 2]) plot(cv, x + dx, 4, POST)
     if (roofed) {
-      if (s.doneAge > 0 || !fresh || k !== lit - 1) plot(cv, x + 1, top, PEAK)
-      for (let dx = 0; dx < 3; dx++) plot(cv, x + dx, top + 1, ROOF)
+      const newest = fresh && k === lit - 1
+      const pale = newest && s.doneAge < 3 ? 0.6 - 0.2 * s.doneAge : 0
+      if (!newest || s.doneAge > 0) plot(cv, x + 1, top, mix(PEAK, WHITE, pale))
+      for (let dx = 0; dx < 3; dx++) plot(cv, x + dx, top + 1, mix(ROOF, WHITE, pale))
     }
     const win = flare && mod(t + k, 2) === 0 ? WHITE : mod(t + 5 * k, 12) < 2 ? LAVA_HI : WINDOW
     for (let dx = 0; dx < 3; dx++) plot(cv, x + dx, 5, dx !== 1 ? WALL : roofed ? win : DOOR)
@@ -189,11 +192,12 @@ function huts(cv: Canvas, t: number, s: Signals, fit: number): void {
 }
 
 /** A rowing boat facing the island at `x` (seven columns: the oar's sweep, then the hull), stroke phase `p`: the
- * oar level, dipped, pulled back under, lifted; the rower leans back on the pull. White while it greets. */
+ * oar level, dipped, pulled back under, lifted; the rower leans back on the pull. Its rower and oar flash white
+ * while it greets. */
 function boat(cv: Canvas, x: number, p: number, hue: string, flash: boolean): void {
   const at = (dx: number, y: number, c: string) => plot(cv, x + dx, y, flash ? WHITE : c)
-  for (let dx = 2; dx < 7; dx++) at(dx, 6, HULL)
-  for (let dx = 3; dx < 6; dx++) at(dx, 7, KEEL)
+  for (let dx = 2; dx < 7; dx++) plot(cv, x + dx, 6, HULL)
+  for (let dx = 3; dx < 6; dx++) plot(cv, x + dx, 7, KEEL)
   at(4, 5, hue)
   at(p < 2 ? 4 : 5, 4, SKIN)
   at(3, 5, OAR)
@@ -233,7 +237,6 @@ export function volcanoScene(t: number, w: number, s: Signals): Grid {
   const tool = s.act === 'tool' ? s.tool ?? 'other' : undefined
   const bash = tool === 'bash'
   // Layer 1: the sky (red in an eruption, a rainbow on a commit), behind everything.
-  if (fail >= 0) skyGlow(cv, fail)
   if (bow >= 0) rainbow(cv, bow, lay.shore)
   // Layer 2: the island, its crater lit by the act: brighter over CHANGE frames of a tool, throbbing on an ask.
   const lit = tool ? Math.min(1, (s.actAge + 1) / CHANGE) : 0
@@ -245,7 +248,7 @@ export function volcanoScene(t: number, w: number, s: Signals): Grid {
   if (tool) lava(cv, t, Math.min(FLOW_LEN, s.actAge >> 1), bash, TOOL_INK[tool])
   sea(cv, t)
   // Layer 3: the plume, lit from below by a tool (over CHANGE frames of actAge), dimmed in an eruption.
-  const dark = fail >= 0 ? Math.min(1, fail / 4, (GLOW_FRAMES - fail) / 6) * 0.5 : 0
+  const dark = fail >= 0 ? Math.min(1, fail / 4, (GLOW_FRAMES - fail) / GLOW_OUT) * 0.5 : 0
   plume(cv, t, s.act, bash ? CORE : LAVA, lit, dark)
   if (bash && s.actAge >= 2) sparks(cv, t)
   // ask: the crater bubbles over eight frames, growing in, swelling, popping.
@@ -268,9 +271,12 @@ export function volcanoScene(t: number, w: number, s: Signals): Grid {
     boat(cv, x, mod(t + i, 4), HUES[i]!, greet)
   }
 
+  // testFail: the sky reddens behind everything, its whole footprint from the start, only its colour easing.
+  if (fail >= 0) skyGlow(cv, fail)
   const g = cells(cv)
   const [text, c] = sign(s, t, fail >= 0 ? 'fail' : bow >= 0 ? 'commit' : undefined)
-  put(g, SIGN_X, 0, text, { c, b: true })
+  // The sign keeps the sky behind it (red in an eruption).
+  put(g, SIGN_X, 0, text, { c, b: true, bg: g[0]![SIGN_X]!.bg ?? g[0]![SIGN_X]!.c })
   return g
 }
 
