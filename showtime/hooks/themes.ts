@@ -38,6 +38,7 @@ import { PENGUINS } from './themes/penguins'
 import { UFO } from './themes/ufo'
 import { DRAGON } from './themes/dragon'
 import { SAMURAI } from './themes/samurai'
+import { WARP } from './themes/warp'
 import { DUNGEON } from './themes/dungeon'
 import { MAGE } from './themes/mage'
 import { NECROMANCER } from './themes/necromancer'
@@ -79,6 +80,7 @@ export const THEME_NAMES = [
   'ufo',
   'dragon',
   'samurai',
+  'warp',
   'dungeon',
   'mage',
   'necromancer',
@@ -179,6 +181,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   ufo: UFO,
   dragon: DRAGON,
   samurai: SAMURAI,
+  warp: WARP,
   dungeon: DUNGEON,
   mage: MAGE,
   necromancer: NECROMANCER,
