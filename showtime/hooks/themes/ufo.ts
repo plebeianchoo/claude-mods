@@ -3,12 +3,12 @@
 // The scene: a flying saucer over a farm at night (#b5e48c): a barn and a stretch of fence standing still,
 // stars twinkling, grass tufts swaying, cows grazing. The saucer hovers at a fixed column in the right half,
 // bobbing a pixel on twelve frames by `t`, rim lights chasing; a sign left of it reads the act. A cow per task
-// (floor-scaled) at spots out from either side of the beam's sweep, nearest first: a done one rises from its
-// spot in a shaft of light (a pixel every two frames), then fades. A tool beam grows down and sweeps on `t`,
-// wide on bash, in the tool's colour; a small saucer per agent in a fixed slot, flashing as it joins. testFail
+// (floor-scaled) at fixed spots, nearest the saucer first: a done one rises from its spot in a shaft of light
+// (a pixel every two frames), then fades. A tool beam grows down and sweeps on `t` over them as light, wide on
+// bash, in the tool's colour; a small saucer per agent in a fixed slot, flashing as it joins. testFail
 // rocks it down to the grass (each half a pixel a frame), smoking, and lifts it back by frame 30; a commit
 // zips it right a cell a frame for eight frames, fading, and fades it back in where it left; testPass flashes.
-// Motion rules: the grass fills pixel row 7; no cow stands where the beam sweeps; the sign's dot blinks.
+// Motion rules: the grass fills pixel row 7; cows never move sideways; the sign's tail dot blinks every frame.
 import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
@@ -19,7 +19,7 @@ import type { Signals, Theme, ToolKind } from '../themes'
 const SAUCER = ['...DPD...', 'RRRRRRRRR', '..UUUUU..']
 const MINI = ['.DD.', 'RRRR']
 /** Widths: the saucer, a mini's slot, a cow, a cow's slot, the barn, its fence; the most agents and cows. */
-const [SAUCER_W, MINI_PITCH, COW_W, COW_PITCH, BARN_W, FENCE_W, MAX_AGENTS, MAX_COWS] = [9, 6, 7, 8, 10, 4, 4, 10]
+const [SAUCER_W, MINI_PITCH, COW_W, COW_PITCH, BARN_W, FENCE_W, MAX_AGENTS, MAX_COWS] = [9, 5, 7, 8, 10, 4, 4, 10]
 /** Pixel rows: the cows' top, the fence's rail, the grass; the saucer's lowest top (resting on the grass). */
 const [COW_Y, RAIL_Y, GRASS_Y, GROUND_Y] = [4, 5, 7, 4]
 /** Frames: an act's change, a beamed cow's rise and its fade, a greeting, testPass, the 100% roll. */
@@ -58,7 +58,7 @@ const TOOL_INK: Record<ToolKind, string> = {
   bash: '#e0fbfc', edit: '#ff9e64', read: '#e0af68', search: '#7dcfff', agent: '#bb9af7', web: '#7aa2f7',
   other: '#ff5d8f',
 }
-const TOOL_SIGN: Record<ToolKind, string> = { bash: '$', edit: '✎', read: '¶', search: '⌕', agent: 'ᗣ', web: '◎',
+const TOOL_SIGN: Record<ToolKind, string> = { bash: '$', edit: '✎', read: '¶', search: '*', agent: '&', web: '◎',
   other: '✦' }
 const mirror = (art: readonly string[]) => art.map(r => [...r].reverse().join(''))
 
@@ -171,36 +171,24 @@ export function ufoScene(t: number, w: number, s: Signals): Grid {
     if (a < BACK_FROM) [x, fade] = [sx + zip, sx + ZIP_FRAMES >= w ? 0 : zip / ZIP_FRAMES]
     else fade = 1 - (a - BACK_FROM + 1) / (BACK_FRAMES + 1)
   }
-  // Agents: a small saucer per agent in a fixed slot left of the sign, as many as fit right of the barn.
-  const slots = Math.min(MAX_AGENTS, Math.max(0, Math.floor((sx - 4 - fieldL + 2) / MINI_PITCH)))
+  // Agents: a small saucer per agent in a fixed slot left of the sign, as many as fit in the sky right of the
+  // barn (over the fence: the minis fly in pixel rows 0-2, the fence stands in 3-6).
+  const skyL = hasBarn ? BARN_W + 1 : 1
+  const slots = Math.min(MAX_AGENTS, Math.max(0, Math.floor((sx - 9 - skyL) / MINI_PITCH) + 1))
   const minis = Math.min(s.agents, slots)
-  const miniX = (i: number) => sx - 4 - MINI_PITCH * (i + 1) + 2
+  // Two columns clear of the sign, so a bobbing mini never parts from it.
+  const miniX = (i: number) => sx - 9 - MINI_PITCH * i
   const busy = (c: number) => (hasBarn && c <= BARN_W + 1) || (c >= sx - 4 && c <= sx + SAUCER_W + 1) ||
     (c >= miniX(slots - 1) - 1 && c < sx - 4)
 
-  // Layer 1: the stars; the barn and the fence, still; the grass, its tufts swaying.
+  // Layer 1: the stars; layer 2: the barn and the fence, still; the grass, its tufts swaying.
   stars(cv, t, busy)
   farm(cv, t, hasBarn)
-  // Layer 2: the tool beam, grown a row a frame and strengthening over CHANGE_FRAMES as the act starts; it
-  // follows the saucer (faded with it) and is dimmed while it crashes.
-  const crash = isFail && a < FAIL_L.length - 5 ? Math.min(1, (a + 1) / 3) : 0
-  if (s.act === 'tool') {
-    const k = Math.min(1, (s.actAge + 1) / CHANGE_FRAMES) * (1 - fade) * (1 - crash)
-    const ink = TOOL_INK[s.tool ?? 'other']
-    // After a crash it grows back a row a frame, as it does when the act starts.
-    const rows = Math.min(s.actAge + 1, isFail ? Math.max(0, a - FAIL_L.length + 5) : 9)
-    if (k > 0) beam(cv, x, y, frame(SWEEP, t >> 1), s.tool === 'bash', ink, rows, k)
-  }
   // Layer 3: the cows, at fixed spots; the done ones (nearest the saucer first) gone, the newest rising in a
-  // shaft of light a pixel every two frames, then fading out.
-  // Spots: a cow's every COW_PITCH out from either side of where the tool beam sweeps (none under it: the
-  // beam would part from a cow two columns at once), nearest first; none depends on `total`.
-  const spots: number[] = []
-  for (let k = 0; k < MAX_COWS; k++) {
-    const [l, r] = [sx - 3 - COW_W - k * COW_PITCH, sx + SAUCER_W + 2 + k * COW_PITCH]
-    if (l >= fieldL) spots.push(l)
-    if (r + COW_W <= w) spots.push(r)
-  }
+  // shaft of light a pixel every two frames, into the saucer if it stood under it, fading out.
+  // Spots: every COW_PITCH from the fence, taken nearest the saucer first; none depends on `total`.
+  const spots = Array.from({ length: Math.floor((w - fieldL) / COW_PITCH) }, (_, k) => fieldL + k * COW_PITCH)
+    .sort((p, q) => Math.abs(p + 3 - sx - 4) - Math.abs(q + 3 - sx - 4) || p - q).slice(0, MAX_COWS)
   const count = Math.min(s.total, MAX_COWS, spots.length)
   const litOf = (d: number) => (s.total > count ? Math.floor((d * count) / s.total) : Math.min(d, count))
   const lit = litOf(s.done)
@@ -227,7 +215,16 @@ export function ufoScene(t: number, w: number, s: Signals): Grid {
     const art = COW[head]!.map((row, j2) => (flick && j2 < 3 ? row.slice(0, 6) + (j2 === 1 ? 'T' : '.') : row))
     draw(cv, cx, COW_Y, faces ? art : mirror(art), ink)
   })
-  // Layer 4: the minis, each bobbing on its own beat, the newest flashing as it joins; the saucer, its smoke.
+  // Layer 4: the tool beam over the cows as light, grown a row a frame and strengthening over CHANGE_FRAMES as
+  // the act starts; it follows the saucer (faded with it), fades out over the crash's first three frames and
+  // back in over its lift, home at full strength as the reaction ends.
+  const crash = isFail ? Math.max(0, Math.min(1, (a + 1) / 3, (FAIL_L.length - 1 - a) / 8)) : 0
+  if (s.act === 'tool') {
+    const k = Math.min(1, (s.actAge + 1) / CHANGE_FRAMES) * (1 - fade) * (1 - crash)
+    const ink = TOOL_INK[s.tool ?? 'other']
+    if (k > 0) beam(cv, x, y, frame(SWEEP, t >> 1), s.tool === 'bash', ink, Math.min(9, s.actAge + 1), k)
+  }
+  // Layer 5: the minis, each bobbing on its own beat, the newest flashing as it joins; the saucer, its smoke.
   for (let i = 0; i < minis; i++) {
     const flash = i === minis - 1 && s.agentsAge < GREET_FRAMES && mod(s.agentsAge, 2) === 0
     const rim = flash ? WHITE : MINI_INK[i]!
