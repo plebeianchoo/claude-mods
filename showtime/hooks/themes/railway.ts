@@ -1,32 +1,15 @@
 // Theme: railway. Its scene, its words and its pet.
 //
-// The scene: a steam train (#6c757d, #e5383b accents) standing in the right half of the band and
-// facing right, the world scrolling toward it: dim hills far (pixel rows 2–3, a quarter of the speed),
-// the rails and the bridge's piers near (rows 6–7, a cell a frame), and its own smoke drifting back
-// along the top rows a cell a frame. A puff is born over the funnel every other frame; one in six is a
-// full puff while it idles, one in four in a tool (in the tool's colour), every one on bash, the rest
-// wisps. Its wheels turn on a four-frame cycle in a tool (slowly otherwise), sparks fly on bash. A
-// carriage per task (six at most, fewer on a narrow band, floor-scaled) trails behind it, loaded with a
-// block as the task lands, the newest flashing, all rolling colours at 100%; a `done/total` readout
-// sits at the top right. A signal stands ahead of the engine: its arm drops over three frames while a
-// permission waits and rises over four as the next act begins, its lamp red while asking. A sign right
-// of it reads the act (dots, `?`, notes, the tool's mark). Each subagent (four at most) is a small
-// engine of its own hue at the back of the train, puffing a greeting as it joins and a wisp every
-// twelve frames after. A failed test greys the train, sparks at its wheels and jolts it a cell for ten
-// frames under a `×`; a passed test turns the window and the loads gold under a `★`; a commit sends a
-// tunnel in from the right edge, a cell a frame, that swallows the signal and the train (the engine
-// dark twelve frames) and lets them out the other side.
+// A steam train facing right with the world scrolling toward it (hills far at a quarter, track and
+// bridge near and smoke a cell a frame), a carriage per task, a signal whose arm drops on ask, an
+// agent's engine per subagent in a fixed slot at the back, and a tunnel mouth around the engine on a
+// commit (in four frames, dark twelve, out four).
 //
-// Motion rules (tests/scenes.test.ts): pixel row 3 (the hills) and rows 6–7 (the track) are filled
-// across the width, so the test sees cell rows 0 and 2 only; every vehicle fills row 4 across its own
-// width and stands a column apart from the next, so wheels, sparks and loads change colour, never ink,
-// and a leaving agent's engine only disappears. Every funnel stands in rows 1–3, a run start in cell
-// row 0 that each puff is born over and leaves a cell at a time, and all the puffs drift at the
-// scroll's pace on schedules of `t` alone, so they merge and part only with each other and the
-// funnels; the jolt moves the bodies, never the smoke. The signal's lamp never goes out (it blinks in
-// colour) and the sign changes its ink every other frame. The tunnel is empty cells between two stone
-// columns under a hill roof, so what it hides and uncovers always appears beside a column that stood
-// a cell away the frame before.
+// Motion rules (tests/scenes.test.ts): pixel row 3 (the hills) and rows 6–7 (the track) fill the width,
+// so the test sees cell rows 0 and 2 only; every vehicle fills row 4 across its width a column apart
+// from the next, so wheels, sparks and loads change colour, never ink. Funnels stand in rows 1–3, a run
+// start each puff is born over and leaves a cell at a time on schedules of `t` alone; the jolt moves
+// the bodies, never the smoke. The lamp never goes out and the sign changes its ink every other frame.
 import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
@@ -46,8 +29,8 @@ const MAX_CARS = 6
 const AGENT_FUNNEL_X = 3
 const AGENT_PITCH = 6
 const MAX_AGENTS = 4
-/** Columns kept free behind the carriages for agent engines on a narrow band. */
-const AGENT_RESERVE = 6
+/** Columns the carriages keep on a narrow band before the agents get slots. */
+const CARS_FIRST = 15
 const HILL_Y = 2
 const RAIL_Y = 6
 const TICK_PITCH = 4
@@ -59,13 +42,15 @@ const PUFF_EVERY = { idle: 6, tool: 4, bash: 2 }
 const WISP_EVERY = 12
 const WISP_LIFE = 4
 const GREET_FRAMES = 8
-/** The signal arm's level by `actAge`: dropping while asking, rising as the next act begins. */
-const ARM_RISE = [2, 1, 1, 0]
+/** The signal arm's level by `actAge` while a permission waits: horizontal, half down, down. */
+const ARM_DROP = [0, 1, 1, 2]
 const FAIL_FRAMES = 20
 const JOLT_FRAMES = 10
 const PASS_FRAMES = 12
-/** The tunnel's length: the engine and twelve more cells, so the engine is dark for twelve frames. */
-const TUNNEL_W = ENGINE_W + 12
+/** The tunnel mouth around the engine: fading in over four frames, dark twelve, fading out over four. */
+const FADE_FRAMES = 4
+const DARK_FRAMES = 12
+const COMMIT_FRAMES = 2 * FADE_FRAMES + DARK_FRAMES
 const DONE_FLASH_FRAMES = 8
 const DONE_ROLL_FRAMES = 16
 const TURN_FRAMES = 4
@@ -122,13 +107,22 @@ const paint = (c: string, isFail: boolean) => (isFail ? DULL[c] ?? c : c)
 const toned = (colors: Record<string, string>, isFail: boolean) =>
   Object.fromEntries(Object.entries(colors).map(([k, c]) => [k, paint(c, isFail)]))
 
-/** The engine's left column, how many carriages trail it and how many agent engines fit behind them. */
-function layout(w: number, s: Signals): { engineX: number; cars: number; carsL: number; agents: number } {
+/** The engine, carriages and agent slots by the width alone: the slots sit left of the widest carriage
+ * zone, so a change of `total` never moves an agent engine. */
+function layout(w: number, s: Signals): { engineX: number; cars: number; slotsL: number; agents: number } {
   const engineX = Math.max(0, w - ENGINE_W - RIGHT_ZONE)
-  const cars = Math.min(s.total, MAX_CARS, Math.max(0, Math.floor((engineX - AGENT_RESERVE) / CAR_PITCH)))
-  const carsL = engineX - cars * CAR_PITCH
-  const agents = Math.min(s.agents, MAX_AGENTS, Math.max(0, Math.floor(carsL / AGENT_PITCH)))
-  return { engineX, cars, carsL, agents }
+  // One slot whenever an agent's engine fits at all, more once the carriages have their first columns.
+  const more = Math.floor((engineX - CARS_FIRST) / AGENT_PITCH)
+  const slots = Math.min(MAX_AGENTS, Math.max(engineX >= AGENT_PITCH ? 1 : 0, more))
+  const carsMax = Math.min(MAX_CARS, Math.max(0, Math.floor((engineX - slots * AGENT_PITCH) / CAR_PITCH)))
+  const slotsL = engineX - carsMax * CAR_PITCH
+  return { engineX, cars: Math.min(s.total, carsMax), slotsL, agents: Math.min(s.agents, slots) }
+}
+
+/** A `#rrggbb` colour at `f` of its brightness. */
+function shade(c: string, f: number): string {
+  const ch = (i: number) => Math.round(parseInt(c.slice(i, i + 2), 16) * f).toString(16).padStart(2, '0')
+  return '#' + ch(1) + ch(3) + ch(5)
 }
 
 /** The far hills: a silhouette on pixel rows 2–3, row 3 always filled, drifting at `far`. */
@@ -150,37 +144,37 @@ function track(cv: Canvas, t: number): void {
 }
 
 /** The engine's smoke: a puff born over the funnel at `fx` every other frame, drifting back a cell a
- * frame for eight; one in `every` a full puff in `color` fading to grey, the rest wisps (all wisps
- * while a failed test smarts). */
-function smoke(cv: Canvas, t: number, fx: number, every: number, color: string, isFail: boolean): void {
-  for (let age = mod(t, 2); age < PUFF_LIFE; age += 2) {
+ * frame for `life` frames; one in `every` a full puff in `color` fading to grey, the rest wisps (all
+ * wisps while a failed test smarts). */
+function smoke(cv: Canvas, t: number, fx: number, every: number, color: string, isFail: boolean, life: number): void {
+  for (let age = mod(t, 2); age < life; age += 2) {
     const full = !isFail && mod(t - age, every) === 0
-    plot(cv, fx - age, PUFF_ROWS[age]!, !full ? WISP : age < 2 ? color : SMOKE[age >> 1]!)
+    plot(cv, fx - age, frame(PUFF_ROWS, age), !full ? WISP : age < 2 ? color : SMOKE[Math.min(3, age >> 1)]!)
   }
 }
 
-/** The signal ahead of the engine: a pole with a lamp, its arm horizontal, dropped a level a frame
- * while a permission waits and rising over four frames as the next act begins. */
+/** The signal ahead of the engine: a pole with a lamp, its arm horizontal, dropping over four frames
+ * as a permission starts to wait and down until it is answered. */
 function signal(cv: Canvas, t: number, s: Signals, poleX: number, isFail: boolean): void {
   for (let y = 1; y <= 5; y++) plot(cv, poleX, y, STEEL)
-  const level = s.act === 'ask' ? Math.min(2, s.actAge) : s.actAge < ARM_RISE.length ? ARM_RISE[s.actAge]! : 0
+  const level = s.act === 'ask' ? frame(ARM_DROP, Math.min(s.actAge, ARM_DROP.length - 1)) : 0
   plot(cv, poleX + 1, level > 1 ? 2 : 1, paint(RED, isFail))
   plot(cv, poleX + 2, 1 + level, paint(RED, isFail))
   const lamp = s.act === 'ask' ? (mod(t, 8) < 6 ? RED : RED_DARK) : s.act === 'tool' ? GOLD : GREEN
   plot(cv, poleX, 1, isFail ? LIGHT : lamp)
 }
 
-/** The tunnel on a commit: its mouth in from the right edge a cell a frame, every pixel under it
- * cleared, a stone column at each end and a hill roof along the top rows. Returns its columns. */
-function tunnel(cv: Canvas, age: number): [number, number] {
-  const x0 = cv.w - 1 - age
-  const x1 = x0 + TUNNEL_W
+/** The tunnel mouth on a commit, around the engine from `x0` to `x1`, `f` of the way in: stone columns
+ * and a hill roof brighten as everything inside dims, cleared to dark at `f` = 1. */
+function tunnel(cv: Canvas, x0: number, x1: number, f: number): void {
   for (let x = Math.max(0, x0); x < Math.min(cv.w, x1); x++) {
-    for (let y = 0; y < cv.h; y++) cv.px[y * cv.w + x] = undefined
-    if (x === x0 || x === x1 - 1) for (let y = 0; y < cv.h; y++) plot(cv, x, y, STEEL)
-    else for (let y = 0; y < 2; y++) plot(cv, x, y, HILL)
+    const stone = x === x0 || x === x1 - 1
+    for (let y = 0; y < cv.h; y++) {
+      const i = y * cv.w + x
+      if (stone || y < 2) cv.px[i] = shade(stone ? STEEL : HILL, f)
+      else cv.px[i] = cv.px[i] && f < 1 ? shade(cv.px[i]!, 1 - f) : undefined
+    }
   }
-  return [x0, x1]
 }
 
 /** The sign right of the signal: the news first, else the act, dots while the act turns. Each changes
@@ -206,11 +200,14 @@ export function railwayScene(t: number, w: number, s: Signals): Grid {
   const isFail = s.news === 'testFail' && s.newsAge < FAIL_FRAMES
   const jolting = isFail && s.newsAge < JOLT_FRAMES
   const isPass = s.news === 'testPass' && s.newsAge < PASS_FRAMES
-  const isCommit = s.news === 'commit' && s.newsAge < w + TUNNEL_W
+  const isCommit = s.news === 'commit' && s.newsAge < COMMIT_FRAMES
   const allDone = s.total > 0 && s.done >= s.total
   const age = Math.min(s.actAge, s.toolAge)
-  const { engineX, cars, carsL, agents } = layout(w, s)
-  const lit = s.total > cars ? Math.floor(s.done * cars / s.total) : Math.min(s.done, cars)
+  const { engineX, cars, slotsL, agents } = layout(w, s)
+  const litOf = (done: number) => (s.total > cars ? Math.floor(done * cars / s.total) : Math.min(done, cars))
+  const lit = litOf(s.done)
+  // The newest load flashes only when this task lit a carriage (floor-scaled, not every task does).
+  const newLoad = lit > litOf(s.done - 1) && s.doneAge < DONE_FLASH_FRAMES
   // The jolt: the whole train a cell back on odd frames while the brakes screech.
   const dx = jolting && mod(s.newsAge, 2) === 1 ? -1 : 0
   const ex = engineX + dx
@@ -221,10 +218,10 @@ export function railwayScene(t: number, w: number, s: Signals): Grid {
   // Layer 1: the hills, far and slow; layer 2: the track, a cell a frame.
   hills(cv, t >> 2)
   track(cv, t)
-  // Layer 3: the agents' engines at the back, each puffing a wisp every twelve frames out of step; the
-  // newest flashes its cab and puffs a greeting as it joins (and again, harmlessly, when one leaves).
+  // Layer 3: the agents' engines in fixed slots, a wisp every twelve frames out of step; the newest flashes
+  // its cab and puffs a greeting as it joins (and again, harmlessly, when one leaves).
   for (let i = 0; i < agents; i++) {
-    const x = carsL - AGENT_PITCH * (i + 1)
+    const x = slotsL - AGENT_PITCH * (i + 1)
     const newest = i === agents - 1 && s.agentsAge < GREET_FRAMES
     const cab = newest && mod(s.agentsAge, 2) === 0 ? WHITE : paint(AGENT_HUES[i]!, isFail)
     draw(cv, x + dx, 1, AGENT, { ...toned(AGENT_COLORS, isFail), C: cab })
@@ -242,7 +239,7 @@ export function railwayScene(t: number, w: number, s: Signals): Grid {
     CAR_WHEELS.forEach((wx, k) => plot(cv, x + wx, 5, paint(frame(WHEEL_SPIN, spin + k + j), isFail)))
     if (j >= lit) continue
     let load = paint(LOADS[j % LOADS.length]!, isFail)
-    if (j === lit - 1 && s.doneAge < DONE_FLASH_FRAMES && mod(s.doneAge, 2) === 0) load = WHITE
+    if (j === lit - 1 && newLoad && mod(s.doneAge, 2) === 0) load = WHITE
     else if (allDone && s.doneAge < DONE_ROLL_FRAMES) load = frame(PALETTE, j + (s.doneAge >> 1))
     else if (isPass && mod(t, 2) === 0) load = GOLD
     plot(cv, x + 1, 2, load)
@@ -258,20 +255,22 @@ export function railwayScene(t: number, w: number, s: Signals): Grid {
   }
   // Layer 6: the smoke, in the tool's colour while one runs, unmoved by the jolt; layer 7: the signal.
   const every = bash ? PUFF_EVERY.bash : isTool ? PUFF_EVERY.tool : PUFF_EVERY.idle
-  smoke(cv, t, engineX + FUNNEL_X, every, isTool ? PUFF_TOOL[s.tool ?? 'other'] : SMOKE[0]!, isFail)
+  // On a commit the puffs live a frame longer each frame, then shorter: steam rolls out of the back mouth.
+  const life = PUFF_LIFE + (isCommit ? Math.min(s.newsAge, COMMIT_FRAMES - s.newsAge) : 0)
+  smoke(cv, t, engineX + FUNNEL_X, every, isTool ? PUFF_TOOL[s.tool ?? 'other'] : SMOKE[0]!, isFail, life)
   signal(cv, t, s, poleX, isFail)
-  // The tunnel over everything on a commit.
-  const [tx0, tx1] = isCommit ? tunnel(cv, s.newsAge) : [w, w]
-  const covered = (x0: number, x1: number) => x0 < tx1 && x1 > tx0
+  // The tunnel mouth around the engine on a commit: fading in, dark twelve frames, fading out.
+  if (isCommit) {
+    const f = Math.min(FADE_FRAMES + 1, s.newsAge + 1, COMMIT_FRAMES - s.newsAge) / (FADE_FRAMES + 1)
+    tunnel(cv, engineX - 1, engineX + ENGINE_W + 1, f)
+  }
 
   const g = cells(cv)
   const readout = s.total > 0 ? `${s.done}/${s.total}` : ''
   const readoutX = w - readout.length
-  if (readout && !covered(readoutX, w)) {
-    put(g, readoutX, 0, readout, { c: isPass ? GOLD : allDone ? GREEN : LIGHT, b: true })
-  }
-  // The sign; it yields to the readout when the band is narrow, and hides inside the tunnel.
-  if ((!readout || signX + SIGN_W <= readoutX - 1) && !covered(signX, signX + SIGN_W)) {
+  if (readout) put(g, readoutX, 0, readout, { c: isPass ? GOLD : allDone ? GREEN : LIGHT, b: true })
+  // The sign; it yields to the readout when the band is narrow.
+  if (!readout || signX + SIGN_W <= readoutX - 1) {
     const [text, c] = sign(s, t, age, isFail, isPass, isCommit)
     put(g, signX, 0, text, { c, b: s.act !== 'think' || isFail || isPass || isCommit })
   }
