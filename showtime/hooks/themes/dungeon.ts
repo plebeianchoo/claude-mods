@@ -153,7 +153,7 @@ export function dungeonScene(t: number, w: number, s: Signals): Grid {
 
   // Layers 1-3: the wall and its torches, the doors, the floor.
   wall(cv, t, s)
-  doors(cv, t, s, gx)
+  doors(cv, t, s, mx)
   floor(cv, t)
 
   // testFail: the party hops and lands a pixel back (the spikes spring up in front of its feet, below).
@@ -161,22 +161,24 @@ export function dungeonScene(t: number, w: number, s: Signals): Grid {
   const hop = isFail ? (HOP[s.newsAge] ?? 0) : 0
 
   // The tool act's own, grown on actAge and kept through any reaction: a spell from the staff's orb to the first
-  // monster's slot (a cell a frame), a white spark running along it, the orb and the blade in the tool's colour.
+  // monster's slot (a cell a frame, over the party's heads), a white spark along it, the orb and blade tinted.
   const ox = px - back + 5
   const spell = isTool ? Math.min(mx - ox, s.actAge + 1) : 0
-  for (let j = 0; j < spell; j++) plot(cv, ox + j, 0, mod(t, SPARK) === j % SPARK ? WHITE : ink)
   const reached = isTool && spell >= mx - ox
-  if (reached && mod(t, 4) < 2) plot(cv, mx - 1, 1, WHITE)
 
   // Layer 4: the party, stepping on four frames (the three out of phase), cheering a hop each on testPass.
   const glow = s.act === 'think' && s.actAge >= 4 ? Math.abs(mod(t, 12) - 6) / 6 : 0
   const blade = isTool ? mix(PARTY.B!, ink, 0.7) : PARTY.B!
-  const party: Ink = { ...PARTY, O: isTool ? ink : mix(ORB, WHITE, glow), B: blade }
+  const passing = s.news === 'testPass' && s.newsAge < CHEER
+  const orb = isTool ? ink : passing ? WHITE : mix(ORB, WHITE, glow)
+  const party: Ink = { ...PARTY, O: orb, B: passing ? WHITE : blade }
   const step = (i: number) => (mod(t + 2 * i, 4) < 2 ? 0 : 1)
-  const cheer = (i: number) => (s.news === 'testPass' && s.newsAge < CHEER && mod(s.newsAge - 3 * i, 12) < 3 ? 1 : 0)
+  const cheer = (i: number) => (s.news === 'testPass' && s.newsAge < CHEER && mod(s.newsAge - i, 6) < 3 ? 1 : 0)
   const figs = [[MAGE, LEGS.mage], [ROGUE, LEGS.rogue], [WARRIOR, LEGS.warrior]] as const
   figs.forEach(([art, legs], i) => draw(cv, px - back + 5 * i, 1 - hop - cheer(i), [...art, legs[step(i)]!], party))
   if (glow > 0.5) for (const [dx, dy] of [[-1, 1], [1, 1], [0, 0]] as const) plot(cv, px - back + 4 + dx, dy, HALO)
+  for (let j = 0; j < spell; j++) plot(cv, ox + j, 0, mod(t, SPARK) === j % SPARK ? WHITE : ink)
+  if (reached && mod(t, 4) < 2) plot(cv, mx - 1, 1, WHITE)
   // The trap's spikes at the party's fixed spot, in front of its feet, rising and sinking a pixel a frame.
   if (s.news === 'testFail' && s.newsAge < SPIKES.length) {
     for (let j = 0; j < 5; j++) for (let k = 0; k < SPIKES[s.newsAge]!; k++) {
@@ -210,19 +212,20 @@ export function dungeonScene(t: number, w: number, s: Signals): Grid {
     draw(cv, gx + 1, 3 - (mod(t, 12) >> 2), Z_ART.slice(0, Math.min(3, s.actAge + 1)), { Z: ZED })
   }
 
-  // 100%: a chest beside the party, fading in, its lid lifting a pixel every other frame, gold and a glint
-  // rising out of it, fading after.
+  // 100%: a chest in the gap, eased in from the wall behind it over three frames, its lid lifting a pixel every
+  // other frame, gold and a glint rising out of it, eased back into the wall by its last frame.
   if (s.total > 0 && s.done >= s.total && s.doneAge < CHEST) {
     const a = s.doneAge
-    const fade = (c: string) => mix(WALL, c, clamp(Math.min(a + 1, CHEST - a) / 3))
+    const k = clamp(Math.min(a, CHEST - 1 - a) / 3)
+    const box = (x: number, y: number, c: string) => plot(cv, x, y, mix(cv.px[y * w + x] ?? WALL, c, k))
     const lift = Math.min(2, Math.max(0, (a - 3) >> 1))
     for (let dx = 0; dx < 4; dx++) {
-      plot(cv, gx + dx, 3 - lift, fade('#bc6c25'))
-      if (lift > 0) plot(cv, gx + dx, 3, fade(TORCH))
-      plot(cv, gx + dx, 4, fade(dx === 1 ? RING : DOOR))
-      plot(cv, gx + dx, 5, fade(DOOR2))
+      box(gx + dx, 3 - lift, '#bc6c25')
+      if (lift > 0) box(gx + dx, 3, TORCH)
+      box(gx + dx, 4, dx === 1 ? RING : DOOR)
+      box(gx + dx, 5, DOOR2)
     }
-    if (a >= 7 && a < 13) plot(cv, gx + 1 + (a & 1), 2 - ((a - 7) >> 1), fade(WHITE))
+    if (a >= 7 && a < 13) box(gx + 1 + (a & 1), 2 - ((a - 7) >> 1), WHITE)
   }
 
   // commit: the d20 rolls from the gap a cell a frame, tumbling, rests on 20 (its number flashing), fades; at a
@@ -240,15 +243,15 @@ export function dungeonScene(t: number, w: number, s: Signals): Grid {
   return cells(cv)
 }
 
-/** A d20 face-on: a hexagon of red side facets (its eyes on them), dark below, a pale triangle up the middle with
- * its number (a dark red pixel). */
+/** A d20 face-on, 7 wide and 5 tall: a hexagon pointed top and bottom, red upper side facets, dark lower ones, a
+ * pale triangle up the middle with its number (a red pixel) and the eyes on its flanks. */
 export const PET: PetArt = {
-  body: ['....STS....', '..SSTTTSS..', '.SSTTNTTSS.', '..STTTTTS..', '...sssss...'],
-  colors: { S: DIE, T: DIE_LIT, N: DIE_DARK, s: DIE_DARK },
-  eyes: [2, 8],
+  body: ['....STS....', '..SSTTTSS..', '..STTTTTS..', '..dTTNTTd..', '....ddd....'],
+  colors: { S: DIE, T: DIE_LIT, N: DIE, d: DIE_DARK },
+  eyes: [4, 6],
   eyeRow: 1,
   eye: '#2b2d42',
-  lid: DIE,
+  lid: DIE_LIT,
   blush: '#ff758f',
   spark: TORCH,
 }
