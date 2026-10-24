@@ -11,7 +11,7 @@
 // pixels along the top a column every four frames, mid pink pixels along the bottom every other
 // frame, near white crosses through the middle every frame; while bash runs the near stars streak,
 // a dash trailing right of each that grows a pixel a frame from the moment bash starts. Each subagent is a small nyan cat flying in echelon off his nose (alternately low
-// and high), the newest entering from the right edge a column a frame; agents the band is too
+// and high), each in its slot from its first frame, the newest flashing white as it joins; agents the band is too
 // narrow for are pips at the right edge. A failed test greys the rainbow and the stars and droops
 // his head for twenty frames; a passing test bursts a white star off his ear for sixteen; a commit
 // doubles the rainbow for twenty-four: a fainter three-band rainbow sweeps in above a compressed
@@ -111,6 +111,9 @@ const MINI_W = 6
 const MINI_PITCH = 7
 const MINI_COLORS = { r: '#ff0000', y: '#ffff00', b: '#0099ff', T: TART_COLOR, P: DOT, G: FUR }
 const MAX_AGENTS = 4
+/** Frames the newest mini cat flashes as its agent joins, and its colours on those frames. */
+const GREET_FRAMES = 12
+const MINI_FLASH = { r: '#ffffff', y: '#ffffff', b: '#ffffff', T: '#ffffff', P: '#ffffff', G: '#ffffff' }
 /** Pips stack up the right edge from the bottom; three keep the top cell (the glyph's, at width 16) clear. */
 const MAX_PIPS = 3
 
@@ -200,18 +203,19 @@ function burst(cv: Canvas, x: number, age: number, frames: number, colors: reado
   }
 }
 
-/** Subagents: a mini nyan cat each in echelon off his nose, low then high; the newest enters from the right edge. Extras are pips up the right edge, from the bottom (clear of the glyph). */
+/** Subagents: a mini nyan cat each in echelon off his nose, low then high, each in its slot from its first frame;
+ * the newest flashes white for GREET_FRAMES as it joins. Extras are pips up the right edge, from the bottom (clear of the glyph). */
 function minis(cv: Canvas, t: number, x: number, s: Signals): void {
   const w = cv.w
   const first = x + CAT_W + 1
   const fits = Math.max(0, Math.floor((w - first - MINI_W) / MINI_PITCH) + 1)
   const n = Math.max(0, Math.min(s.agents, MAX_AGENTS, fits))
   for (let i = 0; i < n; i++) {
-    let mx = first + i * MINI_PITCH
-    if (i === s.agents - 1) mx = Math.max(mx, w - 1 - s.agentsAge)
+    const mx = first + i * MINI_PITCH
     const py = i % 2 ? 0 : 4
-    draw(cv, mx, py, MINI, MINI_COLORS)
-    for (const lx of frame(MINI_LEGS, t + i)) plot(cv, mx + lx, py + 3, FUR)
+    const greet = i === n - 1 && s.agentsAge < GREET_FRAMES && mod(s.agentsAge, 2) === 0
+    draw(cv, mx, py, MINI, greet ? MINI_FLASH : MINI_COLORS)
+    for (const lx of frame(MINI_LEGS, t + i)) plot(cv, mx + lx, py + 3, greet ? WHITE : FUR)
   }
   const pips = Math.max(0, Math.min(s.agents - n, MAX_PIPS))
   for (let i = 0; i < pips; i++) {
