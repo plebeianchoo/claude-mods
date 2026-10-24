@@ -5,8 +5,8 @@
 // every four frames, eased at the ends), bumps the wall and turns over four frames at each end; its light and a
 // sign on the left wall tell the act. A crumb per task (twelve at most, floor-scaled), gone as done, the newest
 // sparkling; a suction trail in the tool's colour in a tool, a spinning brush on bash; a mini per agent at its
-// dock right of the wall, beeping as it joins. testFail wedges it under a sofa (wheels spinning sixteen frames),
-// backs it out and catches it up to its pass, both eased; a commit gives a cat a 24-frame ride, eased on and off.
+// dock right of the wall, beeping as it joins. testFail wedges it under a sofa where it stops (wheels spinning 16
+// frames), backs it out and catches it up, both eased; a commit gives a cat a 24-frame ride, faded on and off.
 // Motion rules: the wainscot and the rug fill pixel rows 2-7, so only the top cell row has shapes: single-column
 // walls and legs, the sign (its tail dot blinking every frame) and motes that only drift left.
 import { canvas, cells, frame, mod, noise, plot, put } from '../cells'
@@ -15,19 +15,20 @@ import { SCENE_ROWS } from '../draw'
 import type { PetArt } from '../pets'
 import type { Signals, Theme, ToolKind } from '../themes'
 
-/** Where the roomba is on its pass: left column, facing, the turn's frame (-1: none), the bump's (-1). */
-type Pose = { x: number; face: 1 | -1; turn: number; bump: number }
+/** Where the roomba is on its pass: left column, facing, the turn's frame (-1: none), the bump's (-1), τ into
+ * this leg. */
+type Pose = { x: number; face: 1 | -1; turn: number; bump: number; u: number }
 type Look = { light: string; bumper: string; wheel: string; brush?: number; puff?: boolean }
 
 /** Widths: the roomba, a mini, an agent's slot, the least pass; the most agents and crumbs; the sofa. */
 const [ROOMBA_W, MINI_W, SLOT_W, MIN_MAIN, MAX_AGENTS, MAX_CRUMBS, SOFA_W] = [8, 4, 8, 26, 4, 12, 14]
 /** τ per cell: the first and last two cells of a crossing, the rest; frames of the bump and the turn. */
 const [SLOW, FAST, BUMP_FRAMES, TURN_FRAMES] = [8, 4, 4, 4]
-/** Frames: an act's change, the trail's growth, a crumb's sparkle, an agent's beep, the 100% flash. */
-const [CHANGE_FRAMES, TRAIL_LEN, SPARKLE_FRAMES, GREET_FRAMES, DONE_FLASH] = [4, 8, 8, 8, 16]
+/** Frames: an act's change, the trail's growth (and the last leg's fading), a crumb's sparkle, a beep, 100%. */
+const [CHANGE_FRAMES, TRAIL_LEN, TRAIL_FADE, SPARKLE_FRAMES, GREET_FRAMES, DONE_FLASH] = [4, 8, 6, 8, 8, 16]
 /** Frames of a failed test: wheels spinning, the sofa's; the whole reaction. Its τ a frame from newsAge 1 (four
  * is a cell a frame): held, backing out eased in and out, catching up eased in and out, one a frame from 28. */
-const [STUCK, SOFA_TO, FAIL_FRAMES] = [16, 19, 30]
+const [STUCK, SOFA_TO, SOFA_FADE, FAIL_FRAMES] = [16, 22, 3, 30]
 const FAIL_STEPS = [...Array(STUCK - 1).fill(0), -2, -4, -2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 2]
 /** Frames of a passed test's flash and of the cat's ride, of which the first and last four ease it on and off. */
 const [PASS_FRAMES, CAT_FRAMES, CAT_EASE] = [16, 24, 4]
@@ -71,9 +72,9 @@ function pose(tau: number, x0: number, d: number): Pose {
   const back = mod(tau, 2 * leg) >= leg
   const [u, face] = [mod(tau, leg), back ? -1 : 1] as const
   const at = (k: number) => (back ? x0 + d - k : x0 + k)
-  if (u < cross) return { x: at(along(u, d)), face, turn: -1, bump: -1 }
-  if (u < cross + BUMP_FRAMES) return { x: at(d), face, turn: -1, bump: u - cross }
-  return { x: at(d), face, turn: u - cross - BUMP_FRAMES, bump: -1 }
+  if (u < cross) return { x: at(along(u, d)), face, turn: -1, bump: -1, u }
+  if (u < cross + BUMP_FRAMES) return { x: at(d), face, turn: -1, bump: u - cross, u }
+  return { x: at(d), face, turn: u - cross - BUMP_FRAMES, bump: -1, u }
 }
 
 /** How far τ trails `t` on a failed test: the frames so far less the τ stepped (zero again from newsAge 28). */
@@ -158,15 +159,16 @@ function minis(cv: Canvas, t: number, s: Signals, wallX: number, slots: number):
 }
 
 /** The sofa it wedges under: cushions over a fringed skirt above its front three columns, arms and legs. */
-function sofa(cv: Canvas, x: number, face: 1 | -1, wallX: number): void {
+function sofa(cv: Canvas, x: number, face: 1 | -1, wallX: number, k: number): void {
+  const ink = (at: number, y: number, c: string) => plot(cv, at, y, mix(cv.px[y * cv.w + at] ?? PANEL, c, k))
   const sx = face > 0 ? x + ROOMBA_W - 3 : x + 2 - (SOFA_W - 1)
   for (let c = 0; c < SOFA_W; c++) {
     const at = sx + c
     if (at < 1 || at >= wallX) continue
     const arm = c === 0 || c === SOFA_W - 1
-    plot(cv, at, R_Y - 2, arm ? SOFA_ARM : mod(c, 6) === 0 ? SOFA[1]! : SOFA[0]!)
-    plot(cv, at, R_Y - 1, arm ? SOFA_ARM : SOFA[mod(c, 2) + 1]!)
-    if (arm) for (let y = R_Y; y <= FLOOR_Y; y++) plot(cv, at, y, SOFA_LEG)
+    ink(at, R_Y - 2, arm ? SOFA_ARM : mod(c, 6) === 0 ? SOFA[1]! : SOFA[0]!)
+    ink(at, R_Y - 1, arm ? SOFA_ARM : SOFA[mod(c, 2) + 1]!)
+    if (arm) for (let y = R_Y; y <= FLOOR_Y; y++) ink(at, y, SOFA_LEG)
   }
 }
 
@@ -222,41 +224,46 @@ export function roombaScene(t: number, w: number, s: Signals): Grid {
     if (k >= lit) plot(cv, x, FLOOR_Y, CRUMB)
     else if (k === lit - 1 && s.doneAge < SPARKLE_FRAMES && lit > litOf(s.done - 1)) {
       const on = mod(s.doneAge, 2) === 0
-      plot(cv, x, FLOOR_Y, on ? WHITE : GOLD)
-      plot(cv, x - 1, FLOOR_Y, on ? GOLD : SPARK)
-      plot(cv, x + 1, FLOOR_Y, on ? GOLD : SPARK)
+      for (const dx of [-1, 0, 1]) plot(cv, x + dx, FLOOR_Y, dx ? (on ? GOLD : SPARK) : on ? WHITE : GOLD)
     }
   }
   // Layer 3: the roomba, its pass by τ (= t but on a failed test); the trail where its back was in a tool.
   const [tau, d] = [t - lagOf(s), Math.max(0, wallX - ROOMBA_W - 1)]
-  const at = pose(tau, 1, d)
+  const [at, held] = [pose(tau, 1, d), pose(t - s.newsAge, 1, d)]
   const f = at.turn >= 0 ? at.turn + 1 : 0
   if (s.act === 'tool') {
-    // The cells its back was on 0..len-1 cells ago (FAST τ a cell), so the trail moves with the pass, turns
-    // included, fading into the rug; grown a cell a frame as the act starts (it is the tool act's own).
+    // The cells its back was on 0..len-1 cells ago (FAST τ a cell), fading into the rug, grown a cell a frame as
+    // the act starts (it is the tool act's own). Cells laid before this leg began (the turn; while stuck, the held
+    // pose's leg if later) lie ahead of it and fade out over TRAIL_FADE frames since that start.
     const ink = TRAIL[s.tool ?? 'other']
+    const heldStart = isFail ? t - s.newsAge - held.u : -Infinity
+    const [start, since] = heldStart >= tau - at.u ? [heldStart, held.u + s.newsAge] : [tau - at.u, at.u]
     for (let k = 0; k < Math.min(TRAIL_LEN, s.actAge + 1); k++) {
       const was = pose(tau - FAST * k, 1, d)
       const back = was.face > 0 ? was.x - 1 : was.x + ROOMBA_W
-      if (back >= 1 && back < wallX) plot(cv, back, FLOOR_Y, mix(ink, RUG_TOP, k / TRAIL_LEN))
+      const old = tau - FAST * k < start
+      if (old && s.actAge < since + TRAIL_LEN) continue   // the trail was still growing when the leg began
+      const fade = old ? 1 - (1 - k / TRAIL_LEN) * (1 - since / TRAIL_FADE) : k / TRAIL_LEN
+      if (back >= 1 && back < wallX && fade < 1) plot(cv, back, FLOOR_Y, mix(ink, RUG_TOP, fade))
     }
   }
-  if (isFail && s.newsAge < SOFA_TO) sofa(cv, at.x, at.face, wallX)
+  // Where it got stuck (τ = t at newsAge 0): the sofa stays there while it backs out, then fades.
+  const sofaInk = Math.min(1, (SOFA_TO - s.newsAge) / (SOFA_FADE + 1))
+  if (isFail && s.newsAge < SOFA_TO) sofa(cv, held.x, held.face, wallX, sofaInk)
   const [stuck, flash] = [isFail && s.newsAge < STUCK, isPass || (allDone && s.doneAge < DONE_FLASH)]
   const bumping = at.bump >= 0 && at.bump < 2
-  roomba(cv, at.x, at.face, f, {
-    light: lightOf(s, t, s.actAge, flash, isCat),
-    bumper: bumping ? WHITE : BUMPER_INK,
-    wheel: stuck && mod(t, 2) === 0 ? DOME : WHEEL,
-    brush: s.act === 'tool' && s.tool === 'bash' && !stuck ? mod(t, 2) : undefined,
-    puff: stuck && mod(t, 4) < 2,
-  })
+  roomba(cv, at.x, at.face, f, { light: lightOf(s, t, s.actAge, flash, isCat), bumper: bumping ? WHITE : BUMPER_INK,
+    wheel: stuck && mod(t, 2) === 0 ? DOME : WHEEL, puff: stuck && mod(t, 4) < 2,
+    brush: s.act === 'tool' && s.tool === 'bash' && !stuck ? mod(t, 2) : undefined })
   if (bumping) plot(cv, at.face > 0 ? at.x + ROOMBA_W - 1 : at.x, R_Y - 1, SPARK)
+  // A passed test: sparks twinkling over both of the dome's corners, white then gold, with the flashing light.
+  if (isPass && mod(t, 4) < 2) for (const c of [0, ROOMBA_W - 1]) plot(cv, at.x + c, R_Y - 1, mod(t, 2) ? GOLD : WHITE)
   if (isCat) {
-    // On and off over CAT_EASE frames: fading in over what is under it, its tail still; the same leaving.
+    // On and off over CAT_EASE frames: fading in over what is under it, its tail still; the same leaving. It
+    // keeps the way it faced as it got on (`held`), riding backwards after a turn rather than flipping.
     const k = Math.min(1, (s.newsAge + 1) / (CAT_EASE + 1), (CAT_FRAMES - s.newsAge) / (CAT_EASE + 1))
     const art = CAT[k < 1 ? 0 : mod(t >> 2, 2)]!
-    const rows = at.face > 0 ? art : mirror(art)
+    const rows = held.face > 0 ? art : mirror(art)
     rows.forEach((row, j) => [...row].forEach((key, c) => {
       const y = R_Y - 2 + j
       const ink = CAT_INK[key as keyof typeof CAT_INK]
