@@ -34,6 +34,7 @@ import { SUBMARINE } from './themes/submarine'
 import { ORCHESTRA } from './themes/orchestra'
 import { ROOMBA } from './themes/roomba'
 import { COFFEE } from './themes/coffee'
+import { PENGUINS } from './themes/penguins'
 import { UFO } from './themes/ufo'
 import { SAMURAI } from './themes/samurai'
 
@@ -70,6 +71,7 @@ export const THEME_NAMES = [
   'orchestra',
   'roomba',
   'coffee',
+  'penguins',
   'ufo',
   'samurai',
 ] as const
@@ -165,6 +167,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   orchestra: ORCHESTRA,
   roomba: ROOMBA,
   coffee: COFFEE,
+  penguins: PENGUINS,
   ufo: UFO,
   samurai: SAMURAI,
 }
