@@ -39,6 +39,7 @@ import { UFO } from './themes/ufo'
 import { DRAGON } from './themes/dragon'
 import { SAMURAI } from './themes/samurai'
 import { DUNGEON } from './themes/dungeon'
+import { MAGE } from './themes/mage'
 import { NECROMANCER } from './themes/necromancer'
 
 export * from './cells'
@@ -79,6 +80,7 @@ export const THEME_NAMES = [
   'dragon',
   'samurai',
   'dungeon',
+  'mage',
   'necromancer',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
@@ -178,6 +180,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   dragon: DRAGON,
   samurai: SAMURAI,
   dungeon: DUNGEON,
+  mage: MAGE,
   necromancer: NECROMANCER,
 }
 
