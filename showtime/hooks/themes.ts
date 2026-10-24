@@ -35,6 +35,7 @@ import { ORCHESTRA } from './themes/orchestra'
 import { ROOMBA } from './themes/roomba'
 import { COFFEE } from './themes/coffee'
 import { UFO } from './themes/ufo'
+import { SAMURAI } from './themes/samurai'
 
 export * from './cells'
 export type { ToolKind } from './feed'
@@ -70,6 +71,7 @@ export const THEME_NAMES = [
   'roomba',
   'coffee',
   'ufo',
+  'samurai',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
 
@@ -164,6 +166,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   roomba: ROOMBA,
   coffee: COFFEE,
   ufo: UFO,
+  samurai: SAMURAI,
 }
 
 export function themeOf(name: unknown): Theme {
