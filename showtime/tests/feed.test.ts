@@ -18,6 +18,19 @@ test('TaskCreate adds a pending task; TaskUpdate moves it; in_progress sets star
   expect(f.tasks[0]!.status).toBe('completed')
 })
 
+test('a TaskUpdate to deleted takes the task out: out of the count, off the current line', () => {
+  let f = applyTaskResult(EMPTY_FEED, 'TaskCreate', {}, { task: { id: '1', subject: 'Doomed' } }, NOW)
+  f = applyTaskResult(f, 'TaskCreate', {}, { task: { id: '2', subject: 'Kept' } }, NOW)
+  f = applyTaskResult(f, 'TaskUpdate', {}, { success: true, taskId: '1', updatedFields: ['status'], statusChange: { from: 'pending', to: 'in_progress' } }, NOW)
+  expect(taskLine(f, 40)).toBe('▸ Doomed')
+  f = applyTaskResult(f, 'TaskUpdate', {}, { success: true, taskId: '1', updatedFields: ['status'], statusChange: { from: 'in_progress', to: 'deleted' } }, NOW)
+  expect(f.tasks.map(t => t.id)).toEqual(['2'])
+  expect(progressOf(f, NOW)!.total).toBe(1)
+  expect(taskLine(f, 40)).toBe('▹ Kept')
+  // An unknown id deleted: nothing to take out, the same feed back.
+  expect(applyTaskResult(f, 'TaskUpdate', {}, { success: true, taskId: '9', updatedFields: ['status'], statusChange: { from: 'pending', to: 'deleted' } }, NOW)).toBe(f)
+})
+
 test('a TaskUpdate for an unseen id names it task <id> until TaskList names it', () => {
   let f = applyTaskResult(EMPTY_FEED, 'TaskUpdate', { taskId: '7', status: 'in_progress' }, { success: true, taskId: '7', updatedFields: ['status'], statusChange: { from: 'pending', to: 'in_progress' } }, NOW)
   expect(f.tasks).toEqual([{ id: '7', subject: 'task 7', status: 'in_progress' }])

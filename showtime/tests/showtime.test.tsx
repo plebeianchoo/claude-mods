@@ -128,8 +128,11 @@ test('a theme row from before 1.0 naming audio loads as random', { options: { th
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
-  const text = (await $.command.run({ command: 'showtime', args: '', ...RUN })).text
-  expect(text).toContain('random')
+  const text = (await $.command.run({ command: 'showtime', args: '', ...RUN })).text ?? ''
+  // The random note (not the usage line, which names random too) and a drawn theme that exists.
+  expect(text).toContain('（每个会话随机）')
+  const drawn = /当前主题：(\w+)/.exec(text)?.[1]
+  expect(THEME_NAMES as readonly string[]).toContain(drawn)
   expect(text).not.toContain('audio')
 })
 
@@ -511,6 +514,40 @@ test('nextTheme walks the drawable themes in order and wraps', () => {
   const pool = THEME_NAMES
   expect(nextTheme(pool[0]!)).toBe(pool[1]!)
   expect(nextTheme(pool[pool.length - 1]!)).toBe(pool[0]!)
+})
+
+test('the registry: 38 themes in order, no audio; random and rotate only draw names that exist', () => {
+  expect([...THEME_NAMES]).toEqual([
+    'clawd', 'thunder', 'chomp', 'sparky', 'bluecat', 'nyan', 'cat', 'bunny', 'sakura', 'mecha', 'neon', 'dino', 'ocean',
+    'matrix', 'stack', 'plumber', 'snake', 'launch', 'frogger', 'kitchen', 'railway', 'garden', 'racetrack', 'aquarium',
+    'submarine', 'orchestra', 'roomba', 'coffee', 'penguins', 'ufo', 'dragon', 'samurai', 'warp', 'volcano', 'dungeon',
+    'mage', 'tavern', 'necromancer',
+  ])
+  expect(THEME_NAMES).toHaveLength(38)
+  expect(THEME_NAMES as readonly string[]).not.toContain('audio')
+  expect(Object.keys(THEMES).sort()).toEqual([...THEME_NAMES].sort())
+  for (let i = 0; i < 200; i++) expect(THEME_NAMES).toContain(pickRandom(i))
+  for (const name of THEME_NAMES) expect(THEME_NAMES).toContain(nextTheme(name))
+})
+
+test('a subagent starting its run is not a main-loop turn: no theme draw, the running tool stays', { options: { theme: 'rotate' } }, async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  const themeNow = async () => /当前主题：(\w+)/.exec((await $.command.run({ ...RUN, command: 'showtime', args: '' })).text ?? '')![1]!
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  const first = await themeNow()
+  ends = 'ok'
+  const call = $.tool.call({ tool: 'Read', file_path: '/a/b.ts' })
+  await clock.settle()
+  await $.turn.start({ text: 'sub', turnId: 't2', agentId: 'a-x' })
+  await clock.settle()
+  expect(await themeNow()).toBe(first)
+  const ui = await $.ui.mount({ plugin: 'showtime', surface: 'terminal', ...BAND })
+  expect(await said(ui)).toContain('Read: b.ts')
+  await ui.unmount()
+  await clock.advance(1000)
+  await call
 })
 
 test('rotate moves to the next theme on each turn', { options: { theme: 'rotate' } }, async ($, on) => {

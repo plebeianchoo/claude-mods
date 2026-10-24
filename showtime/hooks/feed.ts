@@ -43,8 +43,15 @@ export function applyTaskResult(feed: Feed, tool: string, input: unknown, result
   }
   if (tool === 'TaskUpdate') {
     const change = result.statusChange
-    if (result.success !== true || typeof result.taskId !== 'string' || !isRecord(change) || !isStatus(change.to)) return feed
+    if (result.success !== true || typeof result.taskId !== 'string' || !isRecord(change)) return feed
     const id = result.taskId
+    // Deleted: out of the list, so out of the count and off the current line.
+    if (change.to === 'deleted') {
+      if (feed.source !== 'tasks') return feed
+      const kept = feed.tasks.filter(t => t.id !== id)
+      return kept.length === feed.tasks.length ? feed : { ...feed, tasks: kept }
+    }
+    if (!isStatus(change.to)) return feed
     const tasks = feed.source === 'tasks' ? [...feed.tasks] : []
     const at = tasks.findIndex(t => t.id === id)
     if (at === -1) tasks.push({ id, subject: taskName(id), status: change.to })
