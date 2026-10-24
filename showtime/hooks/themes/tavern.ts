@@ -1,14 +1,14 @@
 // Theme: tavern. Its scene, its words and its pet.
 //
-// The scene: an adventurers' tavern (#c9a227) against a plank wall, in fixed spots from the left: a hearth whose fire
-// crackles on two frames, a bard who plays while thinking (notes rising on 12), the barkeep at his counter, two tables
-// under the quest board. A scroll per task on the board (fixed pitch, floor-scaled), the newest done one torn off
-// and falling six frames; the tally chalked on the counter. A patron per agent (four seats) drinks on eight frames,
-// the newest raising a mug in place. tool: he polishes a mug (4 frames) or pours at the tap on bash, the pints fill
-// in the tool's colour and its light warms the counter (on actAge); ask/say: a bubble over the bar; wait: a doze.
-// testFail: a brawl, a chair hurled from each table crashing in dust; testPass: the fire flares; commit: a toast.
-// Motion rules: the wall fills every row but the firebox, whose flame tips are the run that moves; cues and props
-// keep their own columns, clear of the board; patrons' mugs stay under it.
+// The scene: an adventurers' tavern (#c9a227) against a lamplit plank wall, in fixed spots from the left: a hearth
+// whose fire crackles on two frames, a bard who plays while thinking (notes rising on 12), the barkeep at his counter,
+// two tables under the quest board. A scroll per task on the board (fixed pitch, floor-scaled), the newest done one
+// torn off and falling six frames; the tally chalked on the counter. A patron per agent (four seats) drinks on eight
+// frames, the newest raising a mug in place. tool: he polishes a mug (4 frames) or pours at the tap on bash, the pints
+// fill in the tool's colour and its light warms the counter (on actAge); ask/say/wait: a bubble over the bar, his
+// arms folded waiting. testFail: a brawl, chairs hurled right from each table, crashing in dust; testPass: the fire
+// flares; commit: a toast. Motion rules: the wall fills every row but the firebox, whose flame tips are the run that
+// moves; cues and props keep their own columns, clear of the board; patrons' mugs stay under it.
 import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
@@ -24,20 +24,22 @@ const PINTS = [23, 25]
 const [TABLE_X, TABLE_PITCH, BOARD_X, MAX_SCROLLS, SEAT_TILES] = [31, 10, 28, 12, 6]
 /** Frames: an act's change, a greeting, the torn scroll (2 tearing, 6 falling), the 100% glow, a flare. */
 const [CHANGE_FRAMES, GREET_FRAMES, TEAR_FRAMES, ALL_FRAMES, FLARE_FRAMES] = [4, 12, 8, 16, 12]
-/** testFail: a chair's flight (12 frames, a column each), its top row by frame (under the board); the dust. */
-const CHAIR_ARC = [3, 2, 2, 2, 2, 2, 2, 2, 3, 3, 4, 4]
+/** testFail: a chair's flight (12 frames, a column each, rising out of its table over 3), its top row by frame
+ * (under the board, right of the bar); the dust. */
+const CHAIR_ARC = [3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 4, 4]
 const [DUST_FROM, DUST_TO, BRAWL_TO] = [11, 24, 20]
 /** commit: every mug's lift by newsAge, rising over 10 frames and back over 10 (eased), foam on the hold; the
  * patrons' mugs a pixel at most, so they stay under the board. A greeting: a mug up, the hair flashing. */
 const TOAST = [0, 0, 0, 1, 1, 1, 1, 1, 2, 2, ...Array(8).fill(2), 2, 2, 1, 1, 1, 1, 1, 0, 0, 0]
 const GREET = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
 
-const GOLD = '#c9a227'
+const [GOLD, DOZE] = ['#c9a227', '#8d99ae']
 const [STONE, MANTEL, LOG, EMBER] = [['#6c757d', '#868e96'], '#7f5539', '#6f4518', '#ff8500']
 const FIRE: Record<string, string> = { r: '#e85d04', o: '#ff8500', y: '#ffb703', w: '#ffe066' }
 /** The fire's two crackle frames, pixel rows 2-4 inside the hearth (columns 1-4). */
 const FLAMES = [['.r..', 'royr', 'oywo'], ['..r.', '.yor', 'owyo']]
-const [FLOOR, PLANK, SEAM, WALL, BEAM] = ['#8b5e34', '#7f5539', '#6f4518', '#4f3829', '#5a4030']
+const [FLOOR, PLANK, SEAM, WALL, BEAM, LAMPLIGHT] = ['#8b5e34', '#7f5539', '#6f4518', '#4f3829', '#5a4030', '#ffd8a8']
+const LIGHT_PITCH = 8
 const [TOP, SHEEN, FRONT, PANEL] = ['#b08968', '#e6ccb2', '#8b5e34', '#6f4518']
 const [SKIN, HAIR, APRON, SHIRT, BROW] = ['#f1c27d', '#adb5bd', '#f8f9fa', '#457b9d', '#6f4518']
 const [HAT, FEATHER, TUNIC, LUTE, NECK] = ['#52b788', '#e63946', '#9d4edd', '#dda15e', '#bc6c25']
@@ -84,19 +86,21 @@ function hearth(cv: Canvas, t: number, flare: number): void {
 
 /** The bard on his stool by the barrel: hat and feather, face, tunic, the lute across him (its neck up to the
  * right); strumming in think (the hand on a 4-frame cycle) with notes rising off the neck on 12, else resting,
- * his foot tapping on 12 in every act. */
-function bard(cv: Canvas, t: number, playing: boolean): void {
-  draw(cv, BARD_X, 0, ['...F..', '.HHH..', '.SS..N', '.TT.N.', '.TTLL.', '.TTLL.', '.BB...'],
-    { F: FEATHER, H: HAT, S: SKIN, T: TUNIC, L: LUTE, N: NECK, B: STOOL })
+ * his foot tapping on 12 in every act; dozing (his head sunk a pixel, the lute's neck with it) while waiting. */
+function bard(cv: Canvas, t: number, playing: boolean, doze: boolean): void {
+  const art = doze ? ['......', '...F..', '.HHH.N', '.SS.N.', '.TTLL.', '.TTLL.', '.BB...']
+    : ['...F..', '.HHH..', '.SS..N', '.TT.N.', '.TTLL.', '.TTLL.', '.BB...']
+  draw(cv, BARD_X, 0, art, { F: FEATHER, H: HAT, S: SKIN, T: TUNIC, L: LUTE, N: NECK, B: STOOL })
   plot(cv, BARD_X + 3, playing && mod(t, 4) >= 2 ? 5 : 4, SKIN)
   plot(cv, BARD_X + (mod(t, 12) < 6 ? 3 : 4), 6, TUNIC)
-  // A note every six frames beside the lute's head, rising a pixel every other frame and swaying a column.
-  if (playing) plot(cv, MUG_X - (mod(t, 6) >> 1 === 1 ? 1 : 0), 2 - (mod(t, 6) >> 1), NOTE[mod(t / 6 | 0, 2)]!)
+  // A note every 12 frames beside the lute's head, rising a pixel every third frame (3 px) and swaying a column.
+  const step = mod(t, 12) / 3 | 0
+  if (playing) plot(cv, MUG_X + 1 - mod(step, 2), 3 - step, NOTE[mod(t / 12 | 0, 2)]!)
 }
 
 /** The barkeep's hands for the act, keyed on `actAge` from rest (both hands down on the counter's edge), and the
  * cloth while he polishes: around the work mug a pixel a frame. */
-function keeper(s: Signals, t: number): { hands: Px[]; cloth?: Px; head: number } {
+function keeper(s: Signals, t: number): { hands: Px[]; cloth?: Px; head: number; fold?: boolean } {
   const a = s.actAge
   const rest: Px[] = [[KEEP_X, 3], [KEEP_X + 3, 3]]
   if (s.act === 'tool' && s.tool === 'bash') return { hands: [rest[0]!, [KEEP_X + 3, 2]], head: 0 }
@@ -109,7 +113,11 @@ function keeper(s: Signals, t: number): { hands: Px[]; cloth?: Px; head: number 
     const open = a >= 1 && mod(a, 12) < 6
     return { hands: [open ? [KEEP_X - 1, 2] : rest[0]!, [KEEP_X + 4, a < 1 ? 3 : 1]], head: 0 }
   }
-  if (s.act === 'wait') return { hands: rest, head: a >= 2 && mod(a, 16) < 10 ? 1 : 0 }
+  // Waiting he folds his arms over the apron (a frame per hand) and dozes, his head sinking on a 16-frame breath.
+  if (s.act === 'wait') {
+    return { hands: [a < 2 ? rest[0]! : [KEEP_X + 1, 3], a < 1 ? rest[1]! : [KEEP_X + 2, 3]], fold: a >= 2,
+      head: a >= 2 && mod(a, 16) < 10 ? 1 : 0 }
+  }
   return { hands: rest, head: 0 }
 }
 
@@ -126,7 +134,7 @@ function bar(cv: Canvas, t: number, s: Signals, glow: number, fill: number, lift
   const y0 = k.head
   draw(cv, KEEP_X, y0, ['.HH.', '.SB.'], { H: HAIR, S: SKIN, B: BROW })
   for (const y of [2, 3]) for (const c of [1, 2]) if (y >= y0 + 2) plot(cv, KEEP_X + c, y, APRON)
-  for (const c of [0, 3]) plot(cv, KEEP_X + c, 2, SHIRT)
+  for (const c of [0, 3]) for (const y of k.fold ? [2, 3] : [2]) plot(cv, KEEP_X + c, y, SHIRT)
   for (const [x, y] of k.hands) plot(cv, x, y, SKIN)
   // The work mug on the counter, under the tap: poured on bash (the stream flickering), else pewter.
   const pour = s.act === 'tool' && s.tool === 'bash'
@@ -181,19 +189,20 @@ function board(cv: Canvas, t: number, s: Signals): Px | undefined {
   return tear >= 2 && lit > 0 && lit <= tiles ? [BOARD_X + 1 + 3 * (lit - 1), tear - 1] : undefined
 }
 
-/** A table: top, pedestal, a candle flickering (now and then a pixel taller). */
-function table(cv: Canvas, t: number, tx: number, k: number): void {
+/** A table: top, pedestal, a candle flickering (now and then a pixel taller), burning low and red while `low`. */
+function table(cv: Canvas, t: number, tx: number, k: number, low: boolean): void {
   for (let c = 0; c < 3; c++) plot(cv, tx + c, 5, TABLE)
   plot(cv, tx + 1, 6, TABLE)
   plot(cv, tx + 1, 4, CANDLE)
-  plot(cv, tx + 1, 3, FLAME[noise(k * 5 + (t >> 1)) < 0.5 ? 0 : 1]!)
-  if (mod(t + 5 * k, 14) < 3) plot(cv, tx + 1, 2, FLAME[0]!)
+  const flame = low ? ['#e85d04', '#9d4b1c'] : FLAME
+  plot(cv, tx + 1, 3, flame[noise(k * 5 + (t >> 1)) < 0.5 ? 0 : 1]!)
+  if (mod(t + 5 * k, 14) < 3 && !low) plot(cv, tx + 1, 2, flame[0]!)
 }
 
 /** A patron at seat `side` (0 left of the table, facing right; 1 right of it, mirrored), the mug lifted `lift`
  * above the table, the hair flashing white in a greeting. An empty seat is a stool. */
 function patron(cv: Canvas, tx: number, side: number, i: number, sat: boolean,
-  o: { lift: number; flash: boolean }): void {
+  o: { lift: number; flash: boolean; froth: boolean }): void {
   const at = (c: number, y: number, ink: string) => plot(cv, side ? tx + 5 - c : tx - 3 + c, y, ink)
   for (const y of sat ? [6] : [5, 6]) [at(0, y, STOOL), at(1, y, STOOL)]
   if (!sat) return
@@ -204,12 +213,13 @@ function patron(cv: Canvas, tx: number, side: number, i: number, sat: boolean,
   for (const y of [4, 5]) [at(0, y, body!), at(1, y, body!)]
   at(2, 4 - o.lift, SKIN)
   mug(cv, side ? tx + 2 : tx, 4, o.lift)
+  if (o.froth) plot(cv, side ? tx + 2 : tx, 3 - o.lift, '#ffffff')
 }
 
-/** A hurled chair, three by three, tumbling (flipped every three frames). */
+/** A hurled chair, three by three, tumbling (flipped every three frames), its first frames only its lower rows. */
 function chair(cv: Canvas, x: number, y: number, a: number): void {
   const art = mod(a, 6) < 3 ? ['c..', 'ccc', 'c.c'] : ['..c', 'ccc', 'c.c']
-  art.forEach((row, j) => [...row].forEach((k, c) => k === 'c' && plot(cv, x + c, y + j, CHAIR)))
+  art.forEach((row, j) => [...row].forEach((k, c) => k === 'c' && j >= 2 - a && plot(cv, x + c, y + j, CHAIR)))
 }
 
 /** Dust where a chair crashed, `a` frames on: a solid puff spreading to three pixels each way and back, its middle
@@ -230,7 +240,7 @@ function sign(s: Signals, t: number, k: { fail: boolean; pass: boolean; toast: b
   if (s.act === 'tool') return { text: TOOL_SIGN[s.tool ?? 'other'], c: TOOL_INK[s.tool ?? 'other'] }
   if (s.act === 'ask') return { text: '?', c: GOLD }
   if (s.act === 'say') return { text: frame(['♪', '♫'], t >> 2), c: NOTE[1]! }
-  if (s.act === 'wait') return { text: frame(['z', 'Z'], t >> 2), c: HAIR }
+  if (s.act === 'wait') return { text: frame(['z', 'Z'], t >> 2), c: DOZE }
   return { text: frame(['·', ':'], t >> 2), c: RIM }
 }
 
@@ -241,20 +251,24 @@ export function tavernScene(t: number, w: number, s: Signals): Grid {
   const toast = s.news === 'commit' && s.newsAge < TOAST.length ? s.newsAge : -1
   const isTool = s.act === 'tool'
 
-  // Layer 1: the wall (a ceiling beam, warmed by the fire's flicker near it; the firebox and its left side dark),
+  // Layer 1: the wall (a ceiling beam, lamplight bands drifting right a column every other frame, LIGHT_PITCH
+  // apart, so every column brightens within 16 frames; warmed by the fire's flicker; the firebox dark),
   // the floor and the hearth, its fire crackling in every act and flaring on a passed test.
   const warm = mod(t, 2) ? 0.22 : 0.14
   for (let x = 0; x < w; x++) {
     for (let y = 0; y < 7; y++) {
       if ((x >= 1 && x <= 4 && y >= 1 && y <= 4) || (x === 0 && (y === 2 || y === 3))) continue
       const base = y === 0 ? BEAM : WALL
-      plot(cv, x, y, x < 11 ? mix(base, EMBER, warm * (1 - x / 11)) : base)
+      const band = Math.abs(mod(x - (t >> 1), LIGHT_PITCH) - 1)
+      const lit = band < 2 ? mix(base, LAMPLIGHT, band ? 0.07 : 0.14) : base
+      plot(cv, x, y, x < 11 ? mix(lit, EMBER, warm * (1 - x / 11)) : lit)
     }
     plot(cv, x, 7, mod(x, 6) === 5 ? SEAM : mod(x, 12) < 6 ? FLOOR : PLANK)
   }
   hearth(cv, t, pass < 0 ? 0 : pass < 2 || pass >= FLARE_FRAMES - 2 ? 1 : 2)
   // Layer 2: the bard, his barrel and mug (raised in a toast).
-  bard(cv, t, s.act === 'think')
+  const dozing = s.act === 'wait' && s.actAge >= 3
+  bard(cv, t, s.act === 'think', dozing)
   for (const y of [5, 6]) for (const c of [0, 1]) plot(cv, MUG_X + c, y, y === 5 ? HOOP : STOOL)
   const lift = toast >= 0 ? TOAST[toast]! : 0
   const hold = toast >= 10 && toast < 18 ? toast : -1
@@ -263,16 +277,17 @@ export function tavernScene(t: number, w: number, s: Signals): Grid {
   // Layer 3: the bar. The tool's own (the pints filling, the light on the counter) grow in on actAge alone.
   const glow = isTool ? 0.45 * Math.min(1, s.actAge / 8) : 0
   if (BAR_X < w) bar(cv, t, s, glow, isTool ? s.actAge : -99, toast >= 0 ? lift : -1, hold)
-  // ask and say: a speech bubble over the bar (gold asking, white saying), growing out of its tail over 3 frames.
-  const talk = s.act === 'ask' || s.act === 'say' ? Math.min(3, s.actAge) : 0
-  const bubble = s.act === 'ask' ? GOLD : APRON
+  // ask, say, wait: a bubble over the bar (gold asking, white saying, slate dozing), grown over 3 frames of actAge.
+  const talk = s.act === 'ask' || s.act === 'say' || s.act === 'wait' ? Math.min(3, s.actAge) : 0
+  const bubble = s.act === 'ask' ? GOLD : s.act === 'wait' ? DOZE : APRON
   for (const [x, y, from] of [[SIGN_X - 2, 1, 1], [SIGN_X - 1, 0, 2], [SIGN_X - 1, 1, 2], [SIGN_X, 0, 3],
     [SIGN_X, 1, 3], [SIGN_X + 1, 0, 3], [SIGN_X + 1, 1, 3]] as const) if (talk >= from) plot(cv, x, y, bubble)
   // Layer 4: the quest board and the tables, a patron per agent in fixed seats (two a table).
   const falling = board(cv, t, s)
   const seats = [0, 1, 2, 3].filter(i => TABLE_X + TABLE_PITCH * (i >> 1) + (i & 1 ? 5 : 2) < w)
   const n = Math.min(s.agents, seats.length)
-  for (let k = 0; 2 * k < seats.length; k++) table(cv, t, TABLE_X + TABLE_PITCH * k, k)
+  const low = s.act === 'wait' && s.actAge >= 4
+  for (let k = 0; 2 * k < seats.length; k++) table(cv, t, TABLE_X + TABLE_PITCH * k, k, low)
   for (const i of seats) {
     const tx = TABLE_X + TABLE_PITCH * (i >> 1)
     const isNew = i === n - 1 && s.agentsAge < GREET_FRAMES
@@ -282,13 +297,14 @@ export function tavernScene(t: number, w: number, s: Signals): Grid {
     patron(cv, tx, i & 1, i, i < n, {
       lift: toast >= 0 ? Math.min(1, lift) : brawl >= 0 ? brawl : greet || drink,
       flash: isNew && s.agentsAge < 8 && mod(s.agentsAge, 4) < 2,
+      froth: hold >= 0 && mod(hold + i, 2) === 0,
     })
   }
-  // testFail: a chair hurled from each table (the first to the left, the next to the right), crashing in dust.
+  // testFail: a chair hurled to the right from each table (away from the bar), crashing in dust.
   if (fail >= 0) for (let k = 0; 2 * k < seats.length; k++) {
-    const [tx, dir] = [TABLE_X + TABLE_PITCH * k, k % 2 ? 1 : -1]
-    if (fail < CHAIR_ARC.length) chair(cv, tx + dir * fail, CHAIR_ARC[fail]!, fail)
-    else if (fail >= DUST_FROM) dust(cv, tx + 1 + dir * DUST_FROM, fail - DUST_FROM)
+    const tx = TABLE_X + TABLE_PITCH * k
+    if (fail < CHAIR_ARC.length) chair(cv, tx + fail, CHAIR_ARC[fail]!, fail)
+    else if (fail >= DUST_FROM) dust(cv, tx + 1 + DUST_FROM, fail - DUST_FROM)
   }
 
   // The torn scroll falls in front of everything.
