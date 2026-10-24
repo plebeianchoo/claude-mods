@@ -36,10 +36,10 @@ const WYVERN = ['F.dd.H', '.TBBNS', 'F.dd.J']
 const [DRAGON_W, WYVERN_W, WYVERN_DX, MAX_WYVERNS] = [11, 6, 2, 4]
 /** The keep's left column and width; the flyers' zone from ZONE_X to w - ZONE_R; the most swing; the sign. */
 const [KEEP_X, KEEP_W, ZONE_X, ZONE_R, MAX_A, SIGN_X, MAX_TOWERS] = [5, 7, 14, 7, 22, 1, 12]
-/** Frames: an act's change; the cone's columns (grown one a still frame); a greeting, a window brightening. */
-const [CHANGE, CONE, GREET, BRIGHT] = [4, 4, 8, 8]
-/** testFail: the arrow's flight; the dip a frame from the hit (a cell for six frames); the puff; testPass. */
-const [HIT, DIP, PUFF, PASS] = [4, [0, 2, 2, 2, 2, 2, 2, 0], 12, 12] as const
+/** Frames: an act's change; the cone's and sparks' columns (one a still frame); a greeting; a window brightening. */
+const [CHANGE, CONE, SPARKS, GREET, BRIGHT] = [4, 4, 8, 8, 8]
+/** testFail: the arrow's flight; from the hit, the dip (a cell down six frames, two back), the puff; testPass. */
+const [HIT, DIP, PUFF, PASS] = [4, 9, 12, 12]
 /** commit (newsAge bounds): fading off its path, onto the keep, roaring, off the keep, back onto its path. */
 const [OFF, ON, ROAR, LEAVE, BACK, ROAR_LEN] = [4, 8, 20, 24, 28, 6]
 
@@ -50,7 +50,7 @@ const [STONE, STONE_DARK, STONE_TOP, TOWER, KEEP, KEEP_TOP, GATE, BOWL] =
 const [WINDOW_OFF, LAMP, MOON, CRATER, CLOUD, CLOUD_TOP, FADE_TO] =
   ['#4a4e69', '#ffd166', '#f1faee', '#cfd8dc', '#5c677d', '#6c7a93', '#262a36']
 /** The arrow (head, shaft), the puff, the roar's rings, the wyverns' hues. */
-const [STEEL, SHAFT, PUFF_INK] = ['#e9ecef', '#a47148', ['#f8f9fa', '#dee2e6', '#adb5bd']] as const
+const [STEEL, SHAFT, PUFF_INK] = ['#e9ecef', '#a47148', ['#f8f9fa', '#dee2e6', '#adb5bd', '#6c757d']] as const
 const RING_INK = [PALE, LAMP, GOLD, EMBER, DEEP_EMBER, '#bc6c25']
 const HUES = ['#52b788', '#b185db', '#4cc9f0', '#f4a261']
 const DRAGON_INK: Record<string, string> = { F: GOLD, T: RED, B: RED, N: RED, H: RED, K: LAMP, E: PALE, S: '#ff758f',
@@ -85,12 +85,19 @@ function fly(t: number, g: Geo): Fly {
   return { x: g.cx + Math.round(g.a * Math.sin(th)), y, face: s < half ? 1 : -1, since, until: half - since }
 }
 
-/** How long the cone has grown over the last `window` frames: a column on each frame the dragon held its column,
- * so its tip never moves two in a frame (CONE at most). */
-function grown(t: number, g: Geo, window: number): number {
+/** How far a breath (fire or sparks) has grown over the last `window` frames: a column on each frame the dragon
+ * held its column, so its tip never moves two in a frame (`most` at most). */
+function grown(t: number, g: Geo, window: number, most: number): number {
   let n = 0
-  for (let j = 0; j < window && n < CONE; j++) if (fly(t - j, g).x === fly(t - j - 1, g).x) n++
+  for (let j = 0; j < window && n < most; j++) if (fly(t - j, g).x === fly(t - j - 1, g).x) n++
   return n
+}
+
+/** Its height `i` frames after the arrow hit at `t0`: the hit's height, a cell lower for six frames, then up a cell
+ * a frame to where its path is at the dip's end; never back up past that, so the path goes on from there. */
+function dipTop(g: Geo, t0: number, i: number): number {
+  const [held, end] = [fly(t0, g).y, fly(t0 + DIP, g).y]
+  return i === 0 ? held : i < 7 ? held + 2 : Math.max(end, held + 2 - 2 * (i - 6))
 }
 
 /** Draws `art` (rows of keys) at (x, y), mirrored when facing left, each key's colour through `ink`. */
@@ -104,14 +111,15 @@ function sprite(cv: Canvas, x: number, y: number, face: 1 | -1, art: string[][],
 }
 
 /** The dragon, its wings on frame `wing`, its jaws open (the snout dark, a mouth over the jaw) when `open`;
- * `nose` recolours its snout and jaw (a tool's sparks). */
+ * `nose` recolours its snout and jaw, `wingInk` its wing (lit, and tinting the rest: a tool's colour). */
 function dragon(cv: Canvas, x: number, y: number, face: 1 | -1, wing: number, ink: Ink, open = false,
-  nose?: string): void {
+  nose?: string, wingInk = GOLD): void {
   const art = DRAGON_ART.map(r => [...r])
   if (open) art[2]![10] = 'M'
   const lit = WING_LIT[mod(wing, WING_LIT.length)]!
   const keys: Record<string, string> = { ...DRAGON_INK, ...(nose ? { S: nose, J: nose } : {}) }
-  for (const k of 'daL') keys[k] = lit.includes(k) ? GOLD : WING_DIM[k]!
+  const dim = (k: string) => (wingInk === GOLD ? WING_DIM[k]! : mix(WING_DIM[k]!, wingInk, 0.45))
+  for (const k of 'daL') keys[k] = lit.includes(k) ? wingInk : dim(k)
   sprite(cv, x, y, face, art, keys, ink)
   // The lit wing's first and last columns pale at the top and the bottom of the beat.
   const edge = mod(wing, 6) === 0 ? [0, 4, 6] : mod(wing, 6) === 4 ? [3, 3, 7] : undefined
@@ -130,14 +138,23 @@ function wyvern(cv: Canvas, f: Fly, up: boolean, hue: string, flash: boolean): v
 /** The fire cone ahead of the jaws, `len` columns: a core along the snout's row, edges over the head's and the
  * jaw's rows (fire under the snout joins it to the jaw, so it stays one shape with the head in every cell row);
  * core, edges and tip trade colours every frame; the lower edge grows in a column behind the rest. */
-function cone(cv: Canvas, f: Fly, y: number, len: number, t: number): void {
+function cone(cv: Canvas, f: Fly, y: number, len: number, t: number, ink: Ink): void {
   const odd = mod(t, 2) === 1
-  if (len > 0) plot(cv, f.face > 0 ? f.x + DRAGON_W - 1 : f.x, y + 3, FLAME)
+  if (len > 0) plot(cv, f.face > 0 ? f.x + DRAGON_W - 1 : f.x, y + 3, ink(FLAME))
   for (let i = 0; i < len; i++) {
     const x = f.face > 0 ? f.x + DRAGON_W + i : f.x - 1 - i
-    plot(cv, x, y + 2, i === 3 ? (odd ? EMBER : FLAME) : (i === 0) === odd ? FLAME : PALE)
-    plot(cv, x, y + 1, i === 0 ? FLAME : odd ? EMBER : DEEP_EMBER)
-    if (i < Math.min(3, len - 1)) plot(cv, x, y + 3, i === 0 ? FLAME : odd ? EMBER : DEEP_EMBER)
+    plot(cv, x, y + 2, ink(i === 3 ? (odd ? EMBER : FLAME) : (i === 0) === odd ? FLAME : PALE))
+    plot(cv, x, y + 1, ink(i === 0 ? FLAME : odd ? EMBER : DEEP_EMBER))
+    if (i < Math.min(3, len - 1)) plot(cv, x, y + 3, ink(i === 0 ? FLAME : odd ? EMBER : DEEP_EMBER))
+  }
+}
+
+/** Sparks streaming off its nose in a tool's colour, `len` columns: a checkerboard over the snout's and jaw's
+ * rows (one cell row, so it stays one shape with the head) flipping every frame, each spark a column further out. */
+function sparks(cv: Canvas, f: Fly, y: number, len: number, t: number, ink: string): void {
+  for (let i = 0; i < len; i++) {
+    const x = f.face > 0 ? f.x + DRAGON_W + i : f.x - 1 - i
+    for (const j of [2, 3]) if (mod(x + j - f.face * t, 2) === 0) plot(cv, x, y + j, i % 3 === 2 ? PALE : ink)
   }
 }
 
@@ -153,7 +170,7 @@ function wall(cv: Canvas, t: number): void {
 
 /** The keep: merlons, two lamplit windows (flickering on fourteen frames), a gate, a brazier in its middle crenel
  * whose flame flickers (flaring a pixel higher, gold and white, `flare` frames into an ask). */
-function keep(cv: Canvas, t: number, flare: number): void {
+function keep(cv: Canvas, t: number, flare: number, hue?: string): void {
   for (let i = 0; i < KEEP_W; i++) {
     if (mod(i, 2) === 0) plot(cv, KEEP_X + i, 4, KEEP_TOP)
     for (let y = 5; y < 8; y++) plot(cv, KEEP_X + i, y, i >= 2 && i <= 4 && y >= 6 ? GATE : KEEP)
@@ -161,17 +178,17 @@ function keep(cv: Canvas, t: number, flare: number): void {
   for (const dx of [1, 5]) plot(cv, KEEP_X + dx, 5, mod(t + 5 * dx, 14) < 2 ? '#f4a261' : LAMP)
   const mid = KEEP_X + 3
   plot(cv, mid, 4, BOWL)
-  plot(cv, mid, 3, frame([GOLD, EMBER, FLAME, EMBER], t >> 1))
+  plot(cv, mid, 3, frame([GOLD, EMBER, hue ?? FLAME, EMBER], t >> 1))
   if (flare >= 1) plot(cv, mid, 2, flare >= 3 && mod(t, 4) < 2 ? WHITE : FLAME)
 }
 
 /** Embers off the brazier: two streams, an ember every twelve frames (a few skipped), rising a pixel and drifting
  * right a cell every other frame until they burn out. */
-function embers(cv: Canvas, t: number): void {
+function embers(cv: Canvas, t: number, hue?: string): void {
   for (const off of [0, 6]) {
     const e = mod(t + off, 12)
     if (e >= 7 || noise(Math.floor((t + off) / 12) * 3 + off) < 0.2) continue
-    plot(cv, KEEP_X + 3 + (e >> 1), e < 3 ? 2 : e < 5 ? 1 : 0, e < 3 ? FLAME : e < 5 ? EMBER : DEEP_EMBER)
+    plot(cv, KEEP_X + 3 + (e >> 1), e < 3 ? 2 : e < 5 ? 1 : 0, e < 3 ? hue ?? FLAME : e < 5 ? EMBER : DEEP_EMBER)
   }
 }
 
@@ -191,18 +208,17 @@ function clouds(cv: Canvas, t: number, holes: readonly (readonly [number, number
   }
 }
 
-/** A tower per task along the wall (floor-scaled, spread evenly): merlons, a window lit when done, the newest
- * brightening through white to gold; a lit one flickers on twelve frames, and twinkles on a passed test. */
+/** A tower per task along the wall, four columns apart from the left (floor-scaled): merlons, a window lit when
+ * done, the newest brightening through white to gold; a lit one flickers on twelve frames, twinkles on a pass. */
 function towers(cv: Canvas, s: Signals, t: number, pass: boolean): void {
   const span = cv.w - 3 - ZONE_X
   const count = Math.min(s.total, MAX_TOWERS, Math.max(0, Math.floor(span / 4)))
   const litOf = (d: number) => (s.total > count ? Math.floor((d * count) / s.total) : Math.min(d, count))
   const lit = litOf(s.done)
   for (let k = 0; k < count; k++) {
-    const x = ZONE_X + Math.floor(((k + 0.5) * span) / count) - 1
+    const x = ZONE_X + 4 * k
     for (let c = 0; c < 3; c++) {
-      if (c !== 1) plot(cv, x + c, 4, STONE_TOP)
-      for (let y = 5; y < 8; y++) plot(cv, x + c, y, TOWER)
+      for (let y = c === 1 ? 5 : 4; y < 8; y++) plot(cv, x + c, y, y === 4 ? STONE_TOP : TOWER)
     }
     let win = k < lit ? (mod(t + 5 * k, 12) < 2 ? EMBER : GOLD) : WINDOW_OFF
     if (k === lit - 1 && s.doneAge < BRIGHT && lit > litOf(s.done - 1)) {
@@ -225,7 +241,7 @@ function sign(s: Signals, t: number, news: 'fail' | 'pass' | 'commit' | undefine
 export function dragonScene(t: number, w: number, s: Signals): Grid {
   const cv = canvas(w, SCENE_ROWS)
   const g = geoOf(w)
-  const fail = s.news === 'testFail' && s.newsAge < HIT + DIP.length ? s.newsAge : -1
+  const fail = s.news === 'testFail' && s.newsAge < HIT + PUFF ? s.newsAge : -1
   const pass = s.news === 'testPass' && s.newsAge < PASS
   const ca = s.news === 'commit' && s.newsAge < BACK ? s.newsAge : -1
   // On a commit it fades off its path, onto the keep, roars, and back the same way.
@@ -238,15 +254,17 @@ export function dragonScene(t: number, w: number, s: Signals): Grid {
   // Fading off its path it holds the pose it had as the commit began (`t - newsAge`); back on it, the live one.
   const f = fly(ca >= 0 && ca < OFF ? t - ca : t, g)
   // Dipping, it keeps the height it was hit at (its path's own drop held off), so it moves a cell a frame at most.
-  const dipping = fail >= HIT && fail < HIT + DIP.length
-  const top = dipping ? fly(t - fail + HIT, g).y + DIP[fail - HIT]! : f.y
-  // Its props belong to the act, held off through a reaction and around each turn (so none swaps sides).
+  const top = fail >= HIT && fail < HIT + DIP ? dipTop(g, t - fail + HIT, fail - HIT) : f.y
+  // Its props belong to the act, held off through a reaction and around each turn (so none swaps sides); the fire
+  // stays through a reaction, dipping and fading with it. Both stop short of the keep and the moon.
   const free = ca < 0 && fail < 0
-  const bash = free && s.act === 'tool' && s.tool === 'bash'
-  // The cone stops short of the keep and the moon (its tip held there as the dragon nears them).
+  const tool = s.act === 'tool' ? s.tool ?? 'other' : undefined
   const room = f.face > 0 ? w - 8 - (f.x + DRAGON_W - 1) : f.x - (KEEP_X + KEEP_W + 2)
-  const len = bash ? Math.max(0, Math.min(grown(t, g, Math.min(s.actAge + 1, f.since - 1)), f.until - 2, room)) : 0
-  const spark = free && s.act === 'tool' && s.tool !== 'bash' && s.actAge >= 2
+  const breath = (most: number, from: number) =>
+    Math.max(0, Math.min(grown(t, g, Math.min(s.actAge + 1 - from, f.since - 1), most), f.until - 2, room))
+  const len = tool === 'bash' && !onKeep ? breath(CONE, 0) : 0
+  const spark = free && tool !== undefined && tool !== 'bash' ? breath(SPARKS, 2) : 0
+  const reach = Math.max(len, spark)
   // The wyverns a fifth of a loop apart behind it; the columns clouds hide in (the dragon's with its cone, each
   // wyvern's, the roar's).
   const holes: [number, number][] = []
@@ -254,15 +272,17 @@ export function dragonScene(t: number, w: number, s: Signals): Grid {
   const flock = Array.from({ length: n }, (_, i) => fly(t - Math.round(((i + 1) * g.p) / 5), g))
   for (const v of flock) holes.push([v.x + WYVERN_DX, v.x + WYVERN_DX + WYVERN_W - 1])
   if (onKeep) holes.push([KEEP_X - 1, KEEP_X + DRAGON_W - 2 + blast])
-  else holes.push([f.x - (f.face < 0 ? len : 0), f.x + DRAGON_W - 1 + (f.face > 0 ? len : 0)])
+  else holes.push([f.x - (f.face < 0 ? reach : 0), f.x + DRAGON_W - 1 + (f.face > 0 ? reach : 0)])
 
   // Layer 1: the moon and the clouds; layer 2: the castle and the brazier's embers.
   draw(cv, w - 5, 0, ['.MM.', mod(t, 16) < 8 ? 'MCMM' : 'MMCM', '.MM.'], { M: MOON, C: CRATER })   // a shadow drifting
   clouds(cv, t, holes)
   wall(cv, t)
   towers(cv, s, t, pass)
-  keep(cv, t, s.act === 'ask' ? s.actAge : 0)
-  embers(cv, t)
+  // A tool's colour catches in the brazier and its new embers.
+  const hue = tool && tool !== 'bash' && free ? TOOL_INK[tool] : undefined
+  keep(cv, t, s.act === 'ask' ? s.actAge : 0, hue)
+  embers(cv, t, hue)
   // Layer 3: the wyverns trailing it, the newest greeting as it joins.
   flock.forEach((v, i) => {
     const greet = i === n - 1 && s.agentsAge < GREET && mod(s.agentsAge, 2) === 0
@@ -283,9 +303,12 @@ export function dragonScene(t: number, w: number, s: Signals): Grid {
     }
   } else {
     const open = free && s.act === 'say' && s.actAge >= 2 && mod(t, 6) < 3
-    const nose = spark ? (mod(t, 4) < 2 ? TOOL_INK[s.tool ?? 'other'] : WHITE) : undefined
-    dragon(cv, f.x, top, f.face, ca >= 0 && ca < OFF ? t - ca : t, ink, open, nose)
-    if (len > 0) cone(cv, f, f.y, len, t)
+    // A tool but bash: its nose sparks, its wing lights in the tool's colour (blended in over four frames).
+    const nose = hue && s.actAge >= 2 ? (mod(t, 4) < 2 ? hue : WHITE) : undefined
+    const wingInk = hue ? mix(GOLD, hue, Math.min(1, s.actAge / 4)) : GOLD
+    dragon(cv, f.x, top, f.face, ca >= 0 && ca < OFF ? t - ca : t, ink, open, nose, wingInk)
+    if (len > 0) cone(cv, f, top, len, t, ink)
+    if (hue && spark > 0) sparks(cv, f, top, spark, t, hue)
   }
 
   // testFail: an arrow up from the wall to where it will be at HIT, then a puff there (anchored at the
@@ -297,9 +320,11 @@ export function dragonScene(t: number, w: number, s: Signals): Grid {
       plot(cv, hx - (HIT - fail), hy + HIT - fail, STEEL)
       plot(cv, hx - (HIT - fail) - 1, hy + HIT - fail + 1, SHAFT)
     } else if (fail < HIT + PUFF) {
-      const [q, smoke] = [fail - HIT, PUFF_INK[Math.min(2, (fail - HIT) >> 2)]!]
+      // Two pixels, six, three, then one in the last shade before it is gone.
+      const q = fail - HIT
+      const smoke = PUFF_INK[q < 4 ? 0 : q < 8 ? 1 : q < 10 ? 2 : 3]
       const blob = q < 2 ? [[0, 0], [0, -1]] : q < 8 ? [[-1, 0], [0, 0], [1, 0], [-1, -1], [0, -1], [1, -1]]
-        : [[-1, 0], [1, 0], [0, -1]]
+        : q < 10 ? [[-1, 0], [1, 0], [0, -1]] : [[0, -1]]
       for (const [px, py] of blob) plot(cv, hx + px!, Math.max(0, hy - (q >> 2) + py!), smoke)
     }
   }
