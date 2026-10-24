@@ -280,13 +280,13 @@ function sign(s: Signals, t: number, age: number): { text: string; c: string } {
   return { text: frame(['z', 'Z'], t >> 2) + dot, c: DIM }
 }
 
-/** A seahorse facing left, an S in 5 px: a long horse head, a pale coronet, a 2-px snout angled down, a pale belly
- * bulging out the front, a back fin, and its dark tail hooking forward and up under it. */
+/** A seahorse facing left, an upright S: its head with a pale coronet, a long dark snout (the eye's second pixel
+ * on it), a 1-px neck, the belly out in front, a 2-px waist, and its tail curling forward in one stroke. */
 export const PET: PetArt = {
-  body: ['.....hhhhc..', '....shhhh...', '...s.bBBf...', '.....t.B....', '......tt....'],
-  step: ['.....hhhhc..', '....shhhh...', '...s.bBB....', '.....t.Bf...', '......tt....'],
-  colors: { h: '#ffb703', s: '#ffb703', c: '#fff3b0', b: '#ffd166', B: '#ffb703', f: '#fff3b0', t: '#e85d04' },
-  eyes: [6],
+  body: ['.....hhhc...', '...sssh.....', '....bBf.....', '.....BB.....', '....ttB.....'],
+  step: ['.....hhhc...', '...sssh.....', '....bB......', '.....BBf....', '....ttB.....'],
+  colors: { h: '#ffb703', s: '#a34f00', c: '#fff3b0', b: '#ffd166', B: '#ffb703', f: '#fff3b0', t: '#e85d04' },
+  eyes: [5],
   eyeRow: 0,
   eye: '#a34f00',
   lid: '#ffb703',
