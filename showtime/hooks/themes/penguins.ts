@@ -1,15 +1,15 @@
 // Theme: penguins. Its scene, its words and its pet.
 //
-// The scene: penguins huddled on an ice floe (#90e0ef) in a dark sea, an aurora over them whose curtains breathe
-// a cell a frame and shimmer in colour by `t`, the sea's waves scrolling left by `t` alone. A penguin per agent
-// (four at most, the host when none) in a fixed slot, shuffling on eight frames, the newest flapping and hopping
-// as it joins. think: they waddle in unison; ask: every head turns up over four frames; tool: each drops a line
-// into a hole by its side and a fish in the tool's colour leaps a six-frame arc in from the right edge (twice a
-// cycle on bash). A done task: the newest penguin belly-slides out of its slot and waddles back (4 + 3 cells
-// frames); a fish on the floe's face per task, floor-scaled. testFail cracks the floe between the first two
-// slots, the halves drifting a pixel apart and back; testPass flaps every flipper; a commit pulls a fish from the
-// host's hole, tosses it up and gulps it. Motion rules: floe and sea fill the bottom cell row, the aurora keeps
-// to the top one with fixed starts, the leaping fish starts at the edge and the sign sits in the corner.
+// The scene: penguins huddled on an ice floe (#90e0ef) in a dark sea under an aurora arc whose far end breathes a
+// cell a frame and whose curtains shimmer by `t`, the sea's waves scrolling left by `t` alone. A penguin per agent
+// (four at most, the host when none) in a fixed slot it never leaves, shuffling on eight frames, the newest
+// flapping and hopping as it joins. think: they waddle; ask: every head turns up over four frames; tool: each
+// fishes a line into a hole by its side, a fish in the tool's colour leaping a six-frame arc in from the right edge
+// (twice a cycle on bash). A done task: a young penguin fades in at the floe's end and belly-slides across in
+// front of the huddle; a fish on the floe's face per task. testFail cracks the floe between the first two slots,
+// its halves drifting a pixel apart and back; testPass flaps every flipper; commit: a fish comes up beside the
+// host's line and over into its beak. Motion rules: floe and sea fill the bottom cell row, the aurora the top
+// one; the leap starts at the edge, the slider only moves left, the sign sits in a corner.
 import { canvas, cells, draw, frame, hsl, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
@@ -17,30 +17,33 @@ import type { PetArt } from '../pets'
 import type { Signals, Theme, ToolKind } from '../themes'
 
 /** A penguin's pose: its head's turn (front, side, tilted, up), lean, feet, flippers out, beak open, hop. */
-type Pose = { head: number; lean: number; feet: number; flap: boolean; open: boolean; y: number; sink: number }
+type Pose = { head: number; lean: number; feet: number; flap: boolean; open: boolean; y: number }
 /** The crack's line and hairlines' inks, how far the hairlines reach, whether their tips still glint. */
 type Crack = { line: string; hair: string; reach: number; tip: boolean }
 type Layout = { water: number; f0: number; f1: number; c: number; n: number }
 
 /** The penguin, 5 wide, 5 tall from pixel row PEN_Y: head and face by the head's turn, belly, feet (both, one up,
- * tucked in a hop); a pixel shorter per `sink` as it gets down to slide. Looking up, its beak sticks up a pixel. */
+ * tucked in a hop). Looking up, its beak sticks up a pixel over its head. */
 const HEADS = [['.KKK.', 'KWBWK'], ['.KKK.', 'KWWBK'], ['.KKKB', 'KWWWK'], ['.KWK.', 'KWWWK']]
 const BELLY = 'KWWWK'
 const FEET = ['.O.O.', '...O.', '.O...', '.OOO.']
-/** Lying on its belly, facing left from its standing column: its back over beak, head, belly and feet. */
+/** The slider, a young penguin on its belly facing left: its back over beak, head, belly and feet. */
 const SLIDE = ['.KKKK.', 'BKWWWO']
 const PEN_Y = 1
 const FLOE_Y = 6
-/** Slots from the huddle's centre: the host's, then right, left, right; the side each shuffles and slides to. */
+/** Slots from the huddle's centre: the host's, then right, left, right; the side each shuffles to. */
 const SLOT_DX = [-6, 1, -13, 8]
 const [SIDE, MAX_FISH] = [[-1, 1, -1, 1], 12]
-/** Frames: an act's change, a greeting, a done fish's sparkle, the 100% twinkle; the slide's most cells. */
-const [CHANGE, GREET, SPARKLE, ALL_DONE, SLIDE_MAX] = [4, 8, 8, 16, 8]
-/** A leap's frames and head rows; testPass; the commit: the toss from the host's hole to its beak, then gulped. */
+/** Frames: an act's change, a greeting, a done fish's sparkle, the 100% twinkle. */
+const [CHANGE, GREET, SPARKLE, ALL_DONE] = [4, 8, 8, 16]
+/** The slider: its most cells, a cell a frame; its fades in and out; gone at doneAge SLIDE_END. */
+const [SLIDE_RUN, SLIDE_FADE, SLIDE_END] = [22, 4, 28]
+/** A leap's frames and head rows; testPass; the commit: the toss from the host's hole, up beside its rod's line
+ * and over into its beak, then gulped. */
 const [LEAP, PASS, COMMIT] = [6, 12, 16]
 const LEAP_Y = [5, 4, 3, 3, 4, 5]
-const TOSS = [[5, 5], [5, 4], [5, 3], [5, 2], [5, 1], [6, 0], [5, 0], [4, 0], [3, 0]] as const
-/** The host's head through the commit: watching the hole, tilting up, beak up for the catch, and back down. */
+const TOSS = [[6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [5, 0], [4, 0], [3, 0]] as const
+/** The host's head through the commit: watching the fish, tilting up, beak up for the catch, and back down. */
 const TOSS_HEAD = [1, 1, 1, 2, 2, 3, 3, 3, 3, 3, 3, 2, 2, 1, 1, 0]
 /** testFail: the crack runs (0-7), the left half drifts off (9-20), the right (11-18), the crack fades (22-25). */
 const [LEFT_FROM, LEFT_TO, RIGHT_FROM, RIGHT_TO, FADE_FROM, FAIL] = [9, 21, 11, 19, 22, 30]
@@ -51,11 +54,12 @@ const [FLOE, SNOW, FACE, CRACK, HAIR] = ['#90e0ef', '#caf0f8', '#48b5d4', '#1b49
 const [SEA, CREST, DEEP, FOAM, ROD, LINE] = ['#2a6f97', '#61a5c2', '#1f5f8b', '#e0fbfc', '#c08552', '#dee2e6']
 const [BOBBER, HOLE] = [RED, CRACK]
 const [FISH, FISH_TAIL, NOTCH, SILVER, FIN] = ['#ffb703', '#fb8500', '#2c7da0', '#e0fbfc', '#8ecae6']
-const TOOL_INK: Record<ToolKind, string> = { bash: '#e0fbfc', edit: '#ff9e64', read: '#e0af68', search: '#7dcfff',
+const TOOL_INK: Record<ToolKind, string> = { bash: '#caffbf', edit: '#ff9e64', read: '#e0af68', search: '#7dcfff',
   agent: '#bb9af7', web: '#7aa2f7', other: '#ff5d8f' }
 const TOOL_SIGN: Record<ToolKind, string> = { bash: '$', edit: '✎', read: '¶', search: '⌕', agent: 'ᗣ', web: '◎',
   other: '✦' }
 const PALETTE = [FLOE, '#80ffdb', INK.B, '#c77dff']
+const DIM = '#3d4a5c'
 
 /** `a` blended toward `b` by `k` (0..1). */
 function mix(a: string, b: string, k: number): string {
@@ -75,10 +79,9 @@ function layout(w: number): Layout {
   return { water, f0, f1, c, n: Math.max(1, n) }
 }
 
-/** The aurora along the top cell row: one faint arc across the sky, its right end breathing a cell a frame (so no
- * frame holds) short of the sign, covering the penguins' heads so they never part from it; brighter curtains
- * drift along it, green above rose-violet folds (none just round a penguin's head), hues and glow shimmering by
- * `t` (colour only). */
+/** The aurora along the top cell row: one faint arc across the sky, covering the penguins' heads so they never
+ * part from it, its right end breathing a cell a frame (so no frame holds) short of the sign. Brighter curtains
+ * drift along it, green over rose-violet folds; the folds stop short of each head. Hue and glow shimmer by `t`. */
 function aurora(cv: Canvas, t: number, clear: (x: number) => boolean): void {
   const end = cv.w - 5 - Math.abs(mod(t, 6) - 3)
   for (let x = 0; x <= end; x++) {
@@ -125,14 +128,14 @@ function floe(cv: Canvas, L: Layout, dl: number, dr: number, crack?: Crack): voi
 /** A penguin at (x, PEN_Y + hop): head and face by its turn and lean, belly, feet; flippers out, beak up. */
 function penguin(cv: Canvas, x: number, p: Pose): void {
   const ink = { ...INK, B: p.open ? OPEN : INK.B }
-  const y = PEN_Y + p.y + p.sink
+  const y = PEN_Y + p.y
   // The sky over its head is cleared of the aurora so the head stands out (the head fills that cell either way).
   for (let c = x + p.lean; y === 1 && c < x + p.lean + 5; c++) {
     if (c >= 0 && c < cv.w && HEADS[p.head]![0]![c - x - p.lean] !== '.') cv.px[c] = undefined
   }
   draw(cv, x + p.lean, y, HEADS[p.head]!, ink)
   if (p.head === 3) plot(cv, x + 2 + p.lean, y - 1, INK.B)
-  draw(cv, x, y + 2, [...Array<string>(2 - p.sink).fill(BELLY), FEET[p.y < 0 ? 3 : p.feet]!], ink)
+  draw(cv, x, y + 2, [BELLY, BELLY, FEET[p.y < 0 ? 3 : p.feet]!], ink)
   if (p.flap) for (const dx of [-1, 5]) plot(cv, x + dx, y + 2, INK.K)
 }
 
@@ -146,15 +149,17 @@ function rod(cv: Canvas, x: number, stage: number, t: number): void {
   if (stage >= 4) plot(cv, at, PEN_Y + 4, mod(t + 5 * x, 12) < 9 ? BOBBER : LINE)
 }
 
-/** The slide after a done task, `a` frames in, `d` cells out: get down a pixel a frame, slide a cell a frame, rest,
- * get up the same way and waddle back a cell every other frame; home at 5 + 3d frames (29 at most). */
-function slideAt(a: number, d: number): { p: number; sink: number; lying: boolean; step: number } | undefined {
-  if (a < 2) return { p: 0, sink: a + 1, lying: false, step: 0 }
-  if (a <= d + 3) return { p: Math.min(a - 2, d), sink: 2, lying: true, step: 0 }
-  if (a <= d + 5) return { p: d, sink: d + 6 - a, lying: false, step: 0 }
-  const back = a - (d + 6)
-  if (back >= 2 * d) return undefined
-  return { p: d - ((back + 1) >> 1), sink: 0, lying: false, step: 1 + ((back >> 1) % 2) }
+/** The slider after a done task, `a` frames in: a young penguin on its belly in front of the huddle, fading in at
+ * the floe's right end, sliding left a cell a frame (snow spraying behind it) and fading out by SLIDE_END. It is no
+ * huddle penguin, so a done that lands mid-slide only makes it vanish and a new one fade in at the start. */
+function slider(cv: Canvas, L: Layout, a: number): void {
+  if (a >= SLIDE_END) return
+  const d = Math.max(0, Math.min(SLIDE_RUN, L.f1 - L.f0 - 7))
+  const x = L.f1 - 5 - Math.min(a, d)
+  const k = Math.min(1, (a + 1) / SLIDE_FADE, (SLIDE_END - a) / SLIDE_FADE)
+  const ink = Object.fromEntries(Object.entries(INK).map(([key, c]) => [key, mix(DIM, c, k)]))
+  draw(cv, x, PEN_Y + 3, SLIDE, ink)
+  if (a > 0 && a <= d && mod(a, 2) === 1) plot(cv, x + 6, PEN_Y + 4, mix(DIM, SNOW, k))
 }
 
 /** The sign in the top-right corner: the news first, else the act, a dot while the act changes. */
@@ -203,15 +208,14 @@ export function penguinsScene(t: number, w: number, s: Signals): Grid {
     plot(cv, x + 1, 7, k >= lit ? NOTCH : fresh || twinkle ? GOLD : FISH_TAIL)
   }
 
-  // Layer 3: the penguins. Act motion holds still while the act changes and through any reaction.
-  const reacting = isFail || isPass || isCommit
-  const still = s.actAge < CHANGE || reacting
-  const slider = s.done > 0 ? n - 1 : -1
+  // Layer 3: the penguins, never leaving their slots, their rods kept through every reaction; the slider in front.
+  // Act motion holds still while the act changes and through any reaction.
+  const still = s.actAge < CHANGE || isFail || isPass || isCommit
   for (let i = 0; i < n; i++) {
     const side = SIDE[i]!
     const home = L.c + SLOT_DX[i]! + (side < 0 ? -dl : dr)
     const ph = mod(t + 3 * i, 8)
-    const pose: Pose = { head: 0, lean: 0, feet: 0, flap: false, open: false, y: 0, sink: 0 }
+    const pose: Pose = { head: 0, lean: 0, feet: 0, flap: false, open: false, y: 0 }
     let off = 0
     if (s.act === 'think') {
       if (!still) pose.lean = frame([0, 1, 0, -1], t >> 2)
@@ -233,19 +237,10 @@ export function penguinsScene(t: number, w: number, s: Signals): Grid {
     if (isFail && a >= 2 && a < LEFT_FROM) pose.flap = mod(a + i, 4) < 2
     if (i === 0 && isCommit) pose.head = TOSS_HEAD[a]!
     if (pose.head === 3) pose.y = 0   // no hop while looking up: the beak keeps to the top pixel row
-    // The slide: the newest penguin, out to its side as far as the floe allows, eight cells at most.
-    const room = side < 0 ? home - (L.f0 - dl) : L.f1 + dr - (home + 5)
-    const sl = i === slider ? slideAt(s.doneAge, Math.max(0, Math.min(SLIDE_MAX, room))) : undefined
-    if (sl) {
-      const x = home + side * sl.p
-      const lying = side < 0 ? SLIDE : SLIDE.map(r => [...r].reverse().join(''))
-      if (sl.lying) draw(cv, x, PEN_Y + 3, lying, INK)
-      else penguin(cv, x, { ...pose, head: 0, lean: 0, feet: sl.step, flap: false, y: 0, sink: sl.sink })
-      continue
-    }
-    if (s.act === 'tool' && !(i === 0 && isCommit)) rod(cv, home, Math.min(4, s.actAge), t)
+    if (s.act === 'tool') rod(cv, home, Math.min(4, s.actAge), t)
     penguin(cv, home + (still ? 0 : off), pose)
   }
+  if (s.done > 0) slider(cv, L, s.doneAge)
 
   // Layer 4: the fish. In a tool, a leap in from the right edge every twelve frames, every six on bash (an extra
   // leap shows only if bash was already running as it began); its tail the leap's last pixel; splashes.
@@ -259,12 +254,12 @@ export function penguinsScene(t: number, w: number, s: Signals): Grid {
     }
   }
   if (isCommit) {
-    // Pulled from the host's hole, up past its head and down into its beak, its tail the path's last pixel.
+    // Out of the host's hole, up beside its rod's line, over its head and into its beak, its tail the last pixel.
     const P = L.c + SLOT_DX[0]!
     if (a <= 10) plot(cv, P + 5, FLOE_Y, HOLE)
     if (a < TOSS.length) {
       const [hx, hy] = TOSS[a]!
-      const [tx, ty] = a > 0 ? TOSS[a - 1]! : ([5, 6] as const)
+      const [tx, ty] = a > 0 ? TOSS[a - 1]! : ([5, FLOE_Y] as const)
       plot(cv, P + tx, ty, FIN)
       plot(cv, P + hx, hy, SILVER)
     } else if (a === TOSS.length) plot(cv, P + 3, 0, FIN)
@@ -279,9 +274,9 @@ export function penguinsScene(t: number, w: number, s: Signals): Grid {
 /** An emperor chick: a dark cap down the sides of a white face, two eyes and a small dark beak between them, a
  * fluffy grey body with lighter tufts, dark feet. */
 export const PET: PetArt = {
-  body: ['...KKKKKK...', '..KWWWWWWK..', '..KWWBBWWK..', '..GFGGGGFG..', '...GF..FG...'],
-  step: ['...KKKKKK...', '..KWWWWWWK..', '..KWWBBWWK..', '..GFGGGGFG..', '..GF.GG.FG..'],
-  colors: { K: '#4a4e5a', W: '#f8f9fa', B: '#e9a15a', G: '#adb5bd', F: '#ced4da' },
+  body: ['...KKKKKK...', '..KWWWWWWK..', '.FGWWBBWWGF.', '.FGGGGGGGGF.', '..FGD..DGF..'],
+  step: ['...KKKKKK...', '..KWWWWWWK..', '.FGWWBBWWGF.', '.FGGGGGGGGF.', '..FD.GG.DF..'],
+  colors: { K: '#4a4e5a', W: '#f8f9fa', B: '#e9a15a', G: '#adb5bd', F: '#ced4da', D: '#7d8597' },
   eyes: [4, 7],
   eyeRow: 1,
   eye: '#212529',
