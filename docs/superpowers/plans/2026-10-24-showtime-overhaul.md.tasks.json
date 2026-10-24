@@ -263,7 +263,7 @@
     {
       "id": 30,
       "subject": "Task 30: racetrack — new theme",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         29
       ],
@@ -272,7 +272,7 @@
     {
       "id": 31,
       "subject": "Task 31: aquarium — new theme",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         30
       ],
@@ -281,7 +281,7 @@
     {
       "id": 32,
       "subject": "Task 32: submarine — new theme",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         31
       ],
@@ -290,7 +290,7 @@
     {
       "id": 33,
       "subject": "Task 33: orchestra — new theme",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         32
       ],
@@ -299,7 +299,7 @@
     {
       "id": 34,
       "subject": "Task 34: roomba — new theme",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         33
       ],
@@ -308,7 +308,7 @@
     {
       "id": 35,
       "subject": "Task 35: coffee — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         34
       ],
@@ -317,7 +317,7 @@
     {
       "id": 36,
       "subject": "Task 36: penguins — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         35
       ],
@@ -326,7 +326,7 @@
     {
       "id": 37,
       "subject": "Task 37: ufo — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         36
       ],
@@ -335,7 +335,7 @@
     {
       "id": 38,
       "subject": "Task 38: dragon — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         37
       ],
@@ -344,7 +344,7 @@
     {
       "id": 39,
       "subject": "Task 39: samurai — new theme",
-      "status": "pending",
+      "status": "in_progress",
       "blockedBy": [
         38
       ],
@@ -414,5 +414,5 @@
       "description": "**Goal:** Version 1.0.0 installed live, docs and backlog written, marketplace and upstream map updated, pushed, master bumped. Plan Task 46.\n\n**Files:**\n- Create: `showtime/THEMES-BACKLOG.md`\n- Modify: `showtime/.claude-plugin/plugin.json`, READMEs, `.claude-plugin/marketplace.json`, `upstream/maps/hoobnn-spinner.sed`, `README.md`\n\n**Acceptance Criteria:**\n- [ ] backlog written\n- [ ] check.sh clean\n- [ ] 1.0.0 installed\n- [ ] gallery shown; pushed and bumped\n\n**Verify:** `cd ~/code/claudebro/claude-mods && upstream/check.sh && claude plugin marketplace update claudebro-mods && claude plugin update showtime@claudebro-mods`\n\n```json:metadata\n{\"files\": [\"showtime/THEMES-BACKLOG.md\", \"showtime/.claude-plugin/plugin.json\", \".claude-plugin/marketplace.json\", \"upstream/maps/hoobnn-spinner.sed\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && upstream/check.sh && claude plugin marketplace update claudebro-mods && claude plugin update showtime@claudebro-mods\", \"acceptanceCriteria\": [\"backlog written\", \"check.sh clean\", \"1.0.0 installed\"], \"modelTier\": \"mechanical\"}\n```"
     }
   ],
-  "lastUpdated": "2026-10-24T09:31:58.371053+00:00"
+  "lastUpdated": "2026-10-24T10:19:37.122488+00:00"
 }
