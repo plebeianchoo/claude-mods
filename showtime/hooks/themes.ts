@@ -42,6 +42,7 @@ import { WARP } from './themes/warp'
 import { VOLCANO } from './themes/volcano'
 import { DUNGEON } from './themes/dungeon'
 import { MAGE } from './themes/mage'
+import { TAVERN } from './themes/tavern'
 import { NECROMANCER } from './themes/necromancer'
 
 export * from './cells'
@@ -85,6 +86,7 @@ export const THEME_NAMES = [
   'volcano',
   'dungeon',
   'mage',
+  'tavern',
   'necromancer',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
@@ -187,6 +189,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   volcano: VOLCANO,
   dungeon: DUNGEON,
   mage: MAGE,
+  tavern: TAVERN,
   necromancer: NECROMANCER,
 }
 
