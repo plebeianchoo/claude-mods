@@ -68,6 +68,7 @@ const WAKE_INK = ['#d0e1ff', '#a8c5ff', '#7a9cf0', '#5a78f0']
 const RING_INK = ['#e0f0ff', '#b3cfff', '#8eacf5', '#7090e0']
 const PIP_OFF = '#4a5584'
 const PIP_ON = '#80ffdb'
+const GAUGE = '#3c4470'
 const HUES = ['#7dcfff', '#bb9af7', '#f7768e', '#9ece6a']
 const FISH_HUES = ['#ff9e40', '#4cc9f0', '#ff7eb6']
 const PALETTE = [DEEP, HULL, '#4cc9f0', '#c77dff', PIP_ON]
@@ -80,13 +81,16 @@ const TOOL_SIGN: Record<ToolKind, string> = {
 
 /** Light rays slanting down from the top over four pixel rows, a cell every six frames, one cell per row;
  * their lower half shows only in open water past `from` (clear of the escorts, the sub and the ring's birth),
- * their top pixel passes behind the gauge's pips from `gaugeL`. */
+ * its last pixel two columns further, so a ray shortens a pixel at a time; their upper half passes behind the
+ * gauge from `gaugeL`. */
 function rays(cv: Canvas, t: number, from: number, gaugeL: number): void {
   const n = Math.max(2, Math.floor(cv.w / 14))
   const span = cv.w + 4
   for (let i = 0; i < n; i++) {
     const x = mod(Math.floor((i * span) / n + noise(i + 7) * 4) - Math.floor(t / 6), span) - 2
-    for (let y = 0; y < 4; y++) if (y === 0 ? x < gaugeL : y === 1 || x + 1 > from) plot(cv, x + (y >> 1), y, RAYS[y]!)
+    for (let y = 0; y < 4; y++) {
+      if (y < 2 ? x < gaugeL : x + 1 > from + 2 * (y - 2)) plot(cv, x + (y >> 1), y, RAYS[y]!)
+    }
   }
 }
 
@@ -135,13 +139,13 @@ function sub(cv: Canvas, x: number, y: number, ink: Ink, blades: boolean, hinge:
 }
 
 /** The sonar ring: an arc ahead of the bow, every pixel row a cell further each frame, lagging by RING_LAG
- * above and below the bow's row, shown only clear of the bow; dimming as it spreads. */
-function ring(cv: Canvas, x: number, y: number, r: number): void {
+ * above and below the bow's row, shown only clear of the bow, its top short of `stop` (the gauge); dimming. */
+function ring(cv: Canvas, x: number, y: number, r: number, stop: number): void {
   const ink = RING_INK[Math.min(3, r >> 2)]!
   for (let j = 0; j < RING_LAG.length; j++) {
     const px = y - SAIL_Y + j
     const dx = RING_DX + r - RING_LAG[j]!
-    if (px >= 0 && dx >= RING_FROM && Math.abs(j - 3) <= r) plot(cv, x + dx, px, ink)
+    if (px >= 0 && dx >= RING_FROM && (px > 1 || x + dx < stop) && Math.abs(j - 3) <= r) plot(cv, x + dx, px, ink)
   }
 }
 
@@ -157,8 +161,8 @@ function escorts(cv: Canvas, t: number, s: Signals, subX: number): void {
   }
 }
 
-/** The depth gauge: `count` pips at the top right (floor-scaled), `done` of them lit, the newest
- * flashing, rolling the palette at 100%. */
+/** The depth gauge: `count` pips at the top right on a dark bar (floor-scaled), `done` of them lit, the
+ * newest flashing, rolling the palette at 100%. */
 function gauge(cv: Canvas, s: Signals, count: number): void {
   const lit = s.total > count ? Math.floor((s.done * count) / s.total) : Math.min(s.done, count)
   const roll = s.total > 0 && s.done >= s.total && s.doneAge < ROLL_FRAMES
@@ -167,6 +171,7 @@ function gauge(cv: Canvas, s: Signals, count: number): void {
     if (j === lit - 1 && s.doneAge < PIP_FLASH && mod(s.doneAge, 2) === 0) c = WHITE
     else if (j < lit && roll) c = frame(PALETTE, j + (s.doneAge >> 1))
     plot(cv, cv.w - 1 - 2 * (count - 1 - j), 0, c)
+    for (const dx of [0, 1]) plot(cv, cv.w - 1 + dx - 2 * (count - 1 - j), 1, GAUGE)
   }
 }
 
@@ -210,26 +215,29 @@ export function submarineScene(t: number, w: number, s: Signals): Grid {
   const age = Math.min(s.actAge, s.toolAge)
   const x = Math.floor(w / 3)
   // Its depth: a pixel deeper on bash (on `actAge`, so a bash after a bash does not dive again); a commit
-  // lifts the sail to the band's top a pixel a frame, holds it there FLAG_FRAMES, and lets it back down.
-  const top = SAIL_Y + (isBash && s.actAge >= DIVE_AT ? 1 : 0)
+  // lifts the sail to the band's top a pixel a frame, holds it there FLAG_FRAMES, and lets it back down. While
+  // the commit runs the dive is held off (the rest depth throughout), so an act change never adds to the rise.
+  const dived = isBash && s.actAge >= DIVE_AT
   const a = s.news === 'commit' ? s.newsAge : 999
-  const rise = Math.max(0, Math.min(top, a, 2 * top + FLAG_FRAMES - a))
-  const isCommit = a < 2 * top + FLAG_FRAMES
+  const isCommit = a <= 2 * SAIL_Y + FLAG_FRAMES
+  const top = SAIL_Y + (dived && !isCommit ? 1 : 0)
+  const rise = isCommit ? Math.max(0, Math.min(SAIL_Y, a, 2 * SAIL_Y + FLAG_FRAMES - a)) : 0
   const y = top - rise
   // The leak's tilt: the bow dips two frames, then the front half, and back the same way.
   const tiltAge = isFail ? Math.min(s.newsAge - TILT_FROM, TILT_TO - 1 - s.newsAge) : -1
   const hinge = tiltAge < 0 ? SUB_W : tiltAge < 2 ? BOW_DX : TILT_DX
 
-  // The gauge's pips, as many as fit past the sonar ring's reach.
-  const pips = Math.min(s.total, PIPS, Math.max(0, Math.floor((w - x - RING_DX - RING_FRAMES - 1) / 2)))
+  // The gauge's pips, as many as fit past the sign; the ring's top stops two columns short of them.
+  const pips = Math.min(s.total, PIPS, Math.max(0, Math.floor((w - x - SIGN_DX - 3) / 2)))
+  const gaugeL = pips > 0 ? w - 2 * pips + 1 : w
   // Layer 1: the light rays; layer 2: the seabed with its weeds and fish; layer 3: the escorts, the wake.
-  rays(cv, t, x + SUB_W + 1, pips > 0 ? w - 2 * pips + 1 : w)
+  rays(cv, t, x + SUB_W + 1, gaugeL)
   seabed(cv, t)
   escorts(cv, t, s, x)
-  wake(cv, t, x, y + 2, WAKE, top > SAIL_Y, isTool ? TOOL_INK[s.tool ?? 'other'] : undefined)
+  wake(cv, t, x, y + 2, WAKE, dived, isTool ? TOOL_INK[s.tool ?? 'other'] : undefined)
   // Layer 4: the sonar ring, the torpedo, the sub; the periscope, the lamp, the flag; the news over it.
-  if (s.act === 'think') ring(cv, x, y, mod(s.actAge, RING_FRAMES))
-  if (s.done > 0 && s.doneAge < TORPEDO_FRAMES) torpedo(cv, x + SUB_W + s.doneAge, y + 2, s.doneAge)
+  if (s.act === 'think') ring(cv, x, y, mod(s.actAge, RING_FRAMES), gaugeL - 2)
+  if (s.done > 0 && s.doneAge < TORPEDO_FRAMES) torpedo(cv, x + SUB_W + s.doneAge, SAIL_Y + 2, s.doneAge)
   // The propeller: a turn every four frames, every frame in a tool once it has spun up.
   const blades = isTool && s.actAge >= TURN_FRAMES ? mod(t, 2) === 1 : mod(t + 1, 4) >= 2
   let port = GLASS
