@@ -15,7 +15,7 @@
     {
       "name": "showtime",
       "source": "./showtime",
-      "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt, a finale and a pet that levels up, in fourteen themes (hoobnn spinner fork)."
+      "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt, a finale and a pet that levels up, and a token-free feed of tasks and subagents, in thirty-eight themes (hoobnn spinner fork)."
     },
     {
       "name": "peek",

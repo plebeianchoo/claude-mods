@@ -2,7 +2,7 @@
 
 [简体中文](README.md) · **English**
 
-While Claude works, a little show plays above the prompt: a pixel-art shoot-em-up, Claude's mascot Clawd, a dot-eater, a rainbow cat and more, with a pet that changes pose as Claude thinks, runs tools and replies. When the turn ends, a burst of confetti with the time it took. Fifteen themes, switched any time, one of them a visualizer of whatever your computer is playing.
+While Claude works, a little show plays above the prompt: a pixel-art shoot-em-up, Claude's mascot Clawd, a dot-eater, a rainbow cat and more, with a pet that changes pose as Claude thinks, runs tools and replies. When the turn ends, a burst of confetti with the time it took. Thirty-eight themes, switched any time.
 
 ![showtime: Clawd through a turn, the companion's bubble and the finale](assets/clawd.gif)
 
@@ -59,7 +59,7 @@ Character scenes, two rows: `cat`, `bunny`, `sakura`, `mecha`, `neon`, `dino`, `
 | `neon`<br>![neon](assets/neon.gif) | `dino`<br>![dino](assets/dino.gif) |
 | `ocean`<br>![ocean](assets/ocean.gif) | `matrix`<br>![matrix](assets/matrix.gif) |
 
-One labelled scene row per theme (the tool/bash frame at 80 cells) in one image: [assets/gallery.png](assets/gallery.png); a still per theme sits beside each GIF (`assets/<theme>.png`). `bun scripts/shots.ts --gallery` (from the mod folder) renders them again from `hooks/themes.ts`; `bun scripts/shots.ts --theme <name>` writes the still and a labelled review sheet under `assets/review/`.
+One labelled scene row per theme (the tool/bash frame at 80 cells) in one image: [assets/gallery.png](assets/gallery.png); every theme's still: `assets/<theme>.png`; review sheets: `assets/review/`. `bun scripts/shots.ts --gallery` (from the mod folder) renders them again from `hooks/themes.ts`; `bun scripts/shots.ts --theme <name>` writes the still and a labelled review sheet under `assets/review/`.
 
 `chomp`, `sparky`, `bluecat` and `nyan` are fan-made homages drawn from scratch, under names of their own; `clawd` is drawn as Claude Code draws him on its welcome screen.
 
@@ -100,7 +100,10 @@ The band takes the theme's rows plus one for the companion while a turn runs, an
 - `hooks/config.ts`: the options, read once into a typed `Config`.
 - `hooks/command.ts`: `/showtime`'s arguments to what they ask for.
 - `hooks/pet.ts`: the companion's level and bubble, tool labels, durations.
+- `hooks/feed.ts`: the feed model: tasks and subagents read from the task tools' results and the engine's events, the progress, task and agent rows.
+- `hooks/reactions.ts`: the reactions every theme shares (tool kind, test failed or passed, commit, permission waiting).
 - `hooks/themes.ts`: the theme type and the registry; `hooks/themes/<name>.ts`: one theme each (scene, words, pet); `hooks/draw.ts`: the shared scene layers; `hooks/pets.ts`: the pet's drawing; `hooks/cells.ts`: the cell grid they draw on; `hooks/stage.tsx`, `hooks/sprite.tsx`: the `Client` modules that animate them.
 - `hooks/i18n.ts`: the messages.
 - `hooks/kit/`: copies of `claude-code/kit`; edit the source and run `scripts/sync-kit.sh`.
+- `scripts/engine-types.sh`: lays the engine's types beside the mod (gitignored) so `pnpm exec tsc -p showtime` runs.
 - `bun scripts/shots.ts --theme <name>` (from the mod folder) renders a theme's still `assets/<name>.png` and its review sheet `assets/review/<name>.png`; `bun scripts/shots.ts --gallery` renders `assets/gallery.png`.
