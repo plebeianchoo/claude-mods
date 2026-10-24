@@ -100,7 +100,7 @@ function host(on: On, stored: Record<string, unknown> = {}) {
   return clock
 }
 
-test('every scene, finale and companion row fills exactly its width, every frame', async () => {
+test('every scene, finale and companion row fills exactly its width, every frame', { timeoutMs: 60_000 }, async () => {
   const acts: Act[] = ['think', 'tool', 'ask', 'say']
   for (const name of THEME_NAMES) {
     const theme = THEMES[name]

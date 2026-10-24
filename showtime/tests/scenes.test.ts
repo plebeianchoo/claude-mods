@@ -4,6 +4,8 @@ import { withReactions } from '../hooks/reactions'
 import { IDLE_SIGNALS, blank, put, THEMES, THEME_NAMES, segments, textWidth } from '../hooks/themes'
 import type { Act, NewsKind, Signals } from '../hooks/themes'
 
+/** The sweeps walk all 38 themes at many widths: ~4 s on a 16-core box, ~12 s on a 4-core NUC. */
+const SWEEP_MS = 60_000
 const ACTS: Act[] = ['think', 'tool', 'ask', 'say']
 const NEWS: NewsKind[] = ['testPass', 'testFail', 'commit']
 /** Themes that meet the motion rules already (each polish task adds its own). */
@@ -13,7 +15,7 @@ function sig(over: Partial<Signals>): Signals {
   return { ...IDLE_SIGNALS, ...over }
 }
 
-test('every scene fills its rows and width under every signal, and never throws', () => {
+test('every scene fills its rows and width under every signal, and never throws', { timeoutMs: SWEEP_MS }, () => {
   for (const name of THEME_NAMES) {
     const theme = THEMES[name]
     const cases: Signals[] = [
@@ -51,7 +53,7 @@ function edges(line: string): number[] {
 
 const W = 80
 
-test('polished scenes never hold a frame and never jump a shape more than a cell', () => {
+test('polished scenes never hold a frame and never jump a shape more than a cell', { timeoutMs: SWEEP_MS }, () => {
   for (const name of THEME_NAMES) {
     if (!POLISHED.has(name)) continue
     const theme = THEMES[name]
