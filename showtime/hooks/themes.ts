@@ -33,6 +33,7 @@ import { AQUARIUM } from './themes/aquarium'
 import { SUBMARINE } from './themes/submarine'
 import { ORCHESTRA } from './themes/orchestra'
 import { ROOMBA } from './themes/roomba'
+import { COFFEE } from './themes/coffee'
 import { UFO } from './themes/ufo'
 
 export * from './cells'
@@ -67,6 +68,7 @@ export const THEME_NAMES = [
   'submarine',
   'orchestra',
   'roomba',
+  'coffee',
   'ufo',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
@@ -160,6 +162,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   submarine: SUBMARINE,
   orchestra: ORCHESTRA,
   roomba: ROOMBA,
+  coffee: COFFEE,
   ufo: UFO,
 }
 
