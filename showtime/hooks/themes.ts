@@ -21,6 +21,7 @@ import { DINO } from './themes/dino'
 import { OCEAN } from './themes/ocean'
 import { MATRIX } from './themes/matrix'
 import { STACK } from './themes/stack'
+import { PLUMBER } from './themes/plumber'
 
 export * from './cells'
 export type { ToolKind } from './feed'
@@ -42,6 +43,7 @@ export const THEME_NAMES = [
   'ocean',
   'matrix',
   'stack',
+  'plumber',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
 
@@ -128,7 +130,7 @@ export function nextTheme(current: ThemeName): ThemeName {
 export const THEMES: Record<ThemeName, Theme> = {
   clawd: CLAWD, thunder: THUNDER, chomp: CHOMP, sparky: SPARKY, bluecat: BLUECAT, nyan: NYAN,
   cat: CAT, bunny: BUNNY, sakura: SAKURA, mecha: MECHA, neon: NEON, dino: DINO, ocean: OCEAN, matrix: MATRIX,
-  stack: STACK,
+  stack: STACK, plumber: PLUMBER,
 }
 
 export function themeOf(name: unknown): Theme {
