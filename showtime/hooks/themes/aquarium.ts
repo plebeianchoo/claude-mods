@@ -31,7 +31,7 @@ const [TURN_FRAMES, GREET_FRAMES, OPEN_FRAMES, CLOUD_FRAMES, SETTLE_FRAMES, PASS
 const [DIVER_TOP, DIVER_FLOOR, UP_AT] = [-4, 3, 20]
 /** A startled fish's offset from its path, a cell a frame: out ahead and back past. */
 const DART = [0, 1, 2, 3, 3, 2, 1, 0, -1, -1, 0]
-const [SURFACE, GLINT, MURK, BUBBLE] = ['#4895ef', '#9dcbff', '#7d8a6a', '#cfeaff']
+const [SURFACE, GLINT, MURK, BUBBLE, RIM] = ['#4895ef', '#9dcbff', '#7d8a6a', '#cfeaff', '#5a7fa8']
 const WATER = ['#2f6fa8', '#2a659a', '#255b8c', '#21527f', '#1e4a74']
 const SAND = ['#d4b483', '#c9a66b']
 const KELP = ['#2d9a5e', '#52b788']
@@ -45,8 +45,8 @@ const TOOL_SIGN: Record<ToolKind, string> = {
   bash: '$', edit: '✎', read: '¶', search: '⌕', agent: 'ᗣ', web: '◎', other: '✦' }
 
 /** The clownfish, facing right: a forked tail, orange with a white band, its eye and nose at the front. */
-const [HOST, HOST_FLICK] = [['T.OWOO.', '.TOWOEO', 'T.OWOO.'], ['.TOWOO.', 'T.OWOEO', '.TOWOO.']]
-const HOST_INK: Ink = { O: '#ff8c42', W: WHITE, T: '#ff6b1a', E: '#1d1d1d' }
+const [HOST, HOST_FLICK] = [['T.OWOO.', '.TOWOEM', 'T.OWOO.'], ['.TOWOO.', 'T.OWOEM', '.TOWOO.']]
+const HOST_INK: Ink = { O: '#ff8c42', W: WHITE, T: '#ff6b1a', E: '#1d1d1d', M: '#ff8c42' }
 /** The agents' fish, facing right, bottom-aligned on the floor row: a tetra, a puffer, an angelfish, a betta. */
 const FISH: readonly Fish[] = [
   { art: ['T.BBBE', 'TTRRRR'], ink: { B: '#4cc9f0', R: '#ef476f', T: '#a9def9', E: '#1d1d1d' } },
@@ -101,9 +101,10 @@ function swimmer(t: number, s: Signals, at: (tt: number) => number, right: (tt: 
 }
 
 /** The surface along px 1, glints drifting right; troughs a cell wide drifting left (each a cell every other
- * frame, neighbours on alternate frames), a crest over the cells behind each, none left of `zone`. */
+ * frame, neighbours on alternate frames), a crest over the cells behind each, gone under the rim left of `zone`. */
 function surface(cv: Canvas, t: number, zone: number): void {
   for (let x = 0; x < cv.w; x++) plot(cv, x, SURFACE_Y, mod(x - (t >> 2), 11) === 0 ? GLINT : SURFACE)
+  for (let x = 0; x < zone; x++) plot(cv, x, 0, RIM)
   const n = 2 * Math.ceil((Math.ceil(cv.w / TROUGH_PITCH) + 1) / 2)
   for (let k = 0; k < n; k++) {
     const x = mod(k * TROUGH_PITCH + Math.floor(noise(k + 5) * 3) - ((t + (k & 1)) >> 1), n * TROUGH_PITCH)
@@ -140,9 +141,9 @@ function column(cv: Canvas, t: number, x: number, y0: number, period: number, in
 /** The chest: shut, or open as a task lands (the lid lifts a pixel, gold glinting), four coins floating up a
  * pixel a frame and glinting on the surface; lit while the diver's torch is on it. */
 function chest(cv: Canvas, t: number, s: Signals, lit: boolean): void {
-  const ink = lit ? CHEST_LIT : CHEST_INK
   const age = s.doneAge
-  const isOpen = s.done > 0 && age < OPEN_FRAMES && age >= 1 && age < OPEN_FRAMES - 1
+  const isOpen = s.done > 0 && age < OPEN_FRAMES - 1   // from the frame it lands, so a second one keeps it open
+  const ink = lit ? CHEST_LIT : CHEST_INK
   if (!isOpen) return draw(cv, CHEST_X, FLOOR_Y - 2, CHEST_SHUT, ink)
   draw(cv, CHEST_X, FLOOR_Y - 3, CHEST_OPEN, mod(t, 2) ? ink : { ...ink, g: GOLD, G: '#fff3b0' })
   for (let k = 0; k < 4; k++) {
@@ -248,7 +249,11 @@ export function aquariumScene(t: number, w: number, s: Signals): Grid {
   const hy = SURFACE_Y + 1
   const flick = s.act !== 'wait' && mod(t, isTool ? 2 : 4) < (isTool ? 1 : 2)
   const art = flick ? HOST_FLICK : HOST
-  draw(cv, host.x, hy, host.right ? art : flip(art), dim(isPass ? goldOf(HOST_INK, t) : HOST_INK))
+  // Asking, its band glows gold half of each twelve frames; saying, its mouth opens every other two.
+  let ink = isPass ? goldOf(HOST_INK, t) : HOST_INK
+  if (s.act === 'ask' && s.actAge >= TURN_FRAMES && mod(t, 12) < 6) ink = { ...ink, W: GOLD }
+  if (s.act === 'say' && s.actAge >= TURN_FRAMES && mod(t, 4) < 2) ink = { ...ink, M: WATER[1]! }
+  draw(cv, host.x, hy, host.right ? art : flip(art), dim(ink))
   mouthBubbles(cv, t, s, tt => [hostRight(tt) ? hostAt(tt) + 7 : hostAt(tt) - 1, hy + 1])
 
   const g = cells(cv)
@@ -275,14 +280,15 @@ function sign(s: Signals, t: number, age: number): { text: string; c: string } {
   return { text: frame(['z', 'Z'], t >> 2) + dot, c: DIM }
 }
 
-/** A seahorse facing left: a pale coronet spike, a long tube snout, a back fin, its dark tail curled under. */
+/** A seahorse facing left, an S in 5 px: a long horse head, a pale coronet, a 2-px snout angled down, a pale belly
+ * bulging out the front, a back fin, and its dark tail hooking forward and up under it. */
 export const PET: PetArt = {
-  body: ['......c.....', '.....hhhc...', '..ssshhh....', '....t.bBf...', '....tttB....'],
-  step: ['......c.....', '.....hhhc...', '..ssshhh....', '....t.bB....', '....tttBf...'],
+  body: ['.....hhhhc..', '....shhhh...', '...s.bBBf...', '.....t.B....', '......tt....'],
+  step: ['.....hhhhc..', '....shhhh...', '...s.bBB....', '.....t.Bf...', '......tt....'],
   colors: { h: '#ffb703', s: '#ffb703', c: '#fff3b0', b: '#ffd166', B: '#ffb703', f: '#fff3b0', t: '#e85d04' },
   eyes: [6],
-  eyeRow: 1,
-  eye: '#1d1d1d',
+  eyeRow: 0,
+  eye: '#a34f00',
   lid: '#ffb703',
   blush: '#ff8fab',
   spark: GOLD,
