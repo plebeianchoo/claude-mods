@@ -2,7 +2,8 @@
 //
 // The scene: a chef in an amber apron (#ffb703) at a stove in the left of the band, a pot on the
 // burner with steam rising from it in every act, a tiled wall behind (tiles two cells wide and a
-// pixel tall, grout between and under them, a lit tile rolling across) and a counter along the bottom. He taps a
+// pixel tall, grout between and under them, lit tiles rolling across) and a counter along the bottom,
+// glints stepping along it (light catches the stove, the pot, his hat, jacket and apron too). He taps a
 // spoon on the pot's side on a twelve-frame cycle while thinking, holds it up and looks out while
 // asking, waves it while saying, lets it sink while waiting, and blinks; a sign right of his hat reads
 // the act (dots, a bobbing `?`, notes, the tool's mark). In a tool the pot boils: the soup takes the
@@ -39,7 +40,12 @@ type Pose = 'level' | 'up' | 'sunk'
 const TILE_PITCH = 4
 const TILE_W = 2
 const WALL_PX = 4
-const SHIMMER_PERIOD = 8
+const SHIMMER_PERIOD = 4
+/** The counter's glints: one every COUNTER_GLINT columns along its top, stepping right a column a frame. */
+const COUNTER_GLINT = 14
+const COUNTER_LIT = '#e6c98f'
+/** Glints on the stove, and the light catching the chef's hat, jacket and apron. */
+const [STOVE_LIT, HAT_SHADE, JACKET_SHADE, AMBER_LIT, SKIN_SHADE] = ['#9aa5b1', '#d8e2e8', '#c9d6df', '#ffd166', '#e0a84e']
 const STOVE_X = 1
 const POT_X = 2
 const STEAM_X = 3
@@ -139,7 +145,8 @@ const SPOON_ROWS: Record<Act, readonly number[]> = {
 }
 
 /** The wall: tiles two cells wide and a pixel tall in two rows, two columns of grout between and a
- * pixel row of grout under each, a lit tile rolling right one tile every four frames. */
+ * pixel row of grout under each, lit tiles every SHIMMER_PERIOD tiles rolling right one tile every four
+ * frames, so every tile lights once in sixteen frames. */
 function wall(cv: Canvas, t: number): void {
   for (let x = 0; x < cv.w; x++) {
     if (mod(x - 1, TILE_PITCH) >= TILE_W) continue
@@ -154,11 +161,15 @@ function wall(cv: Canvas, t: number): void {
  * while it boils, two tongues of flame over it in a fire. */
 function stove(cv: Canvas, t: number, boiling: boolean, flaming: boolean, soup: string, isFire: boolean): void {
   draw(cv, STOVE_X, COUNTER_Y, STOVE_ART, { G: STOVE, B: boiling || flaming ? RED : BURNER })
+  // A glint along the stove's front and the pot's base (colour only), a pixel a frame, then a rest: 14 frames.
+  const shine = mod(t, 14)
+  if (shine < 5) plot(cv, STOVE_X + shine, COUNTER_Y + 1, STOVE_LIT)
   if (flaming) {
     for (let i = 0; i < 3; i++) plot(cv, POT_X + i, COUNTER_Y, frame(FLAME, t + 2 * i + Math.floor(noise(t + i) * 2)))
     plot(cv, mod(t, 2) === 0 ? POT_X - 1 : POT_X + 3, PLATE_Y, frame(FLAME, t >> 1))
   }
   draw(cv, POT_X, POT_Y, POT, { S: STEEL, C: soup, B: STEEL_DARK })
+  if (shine >= 7 && shine < 10) plot(cv, POT_X + shine - 7, POT_Y + 1, STEEL)
   if (isFire) {
     plot(cv, POT_X, POT_Y - 1, frame(FLAME, t))
     plot(cv, POT_X + 2, POT_Y - 1, frame(FLAME, t + 2))
@@ -183,9 +194,15 @@ function steam(cv: Canvas, t: number, isSmoke: boolean): void {
 function chef(cv: Canvas, t: number, s: Signals, age: number, pose: Pose, blink: boolean): void {
   const colors = blink ? { ...CHEF_COLORS, E: SKIN } : CHEF_COLORS
   draw(cv, CHEF_X, 0, s.act === 'ask' ? CHEF_OUT : CHEF, colors)
+  // Light catching him (colour only): a crease along his hat, a fold down his jacket, a stripe along his apron,
+  // each a pixel stepping across on a sixteen-frame cycle.
+  const step = mod(t, 16) >> 1
+  if (step < 5) plot(cv, CHEF_X + step, 0, HAT_SHADE)
+  if (step < 4) plot(cv, CHEF_X + step, 3, step === 0 ? SKIN_SHADE : JACKET_SHADE)
+  if (step >= 4 && step < 7) plot(cv, CHEF_X + step - 3, 4, AMBER_LIT)
   if (pose === 'up') {
     plot(cv, HAND_X - 1, 3, SPOON)
-    plot(cv, HAND_X - 1, 2, SPOON)
+    plot(cv, HAND_X - 1, 2, mod(t, 16) < 2 ? WHITE : SPOON)   // the raised spoon's bowl catches the light
     return
   }
   const sy = pose === 'sunk' ? 4 : age < TURN_FRAMES ? 3 : frame(SPOON_ROWS[s.act], t)
@@ -281,10 +298,11 @@ export function kitchenScene(t: number, w: number, s: Signals): Grid {
   const soup = isFire ? RED : isPass ? GOLD : isTool ? TOOL_COLOR[s.tool ?? 'other'] : SOUP
   const pose: Pose = isFire || isPass || isBell || s.act === 'ask' ? 'up' : isSmoke ? 'sunk' : 'level'
 
-  // Layer 1: the wall with its rolling lit tile, and the counter along the bottom.
+  // Layer 1: the wall with its rolling lit tiles, and the counter along the bottom, glints stepping along its
+  // top (colour only: the counter fills its row).
   wall(cv, t)
   for (let x = 0; x < w; x++) {
-    plot(cv, x, COUNTER_Y, COUNTER_TOP)
+    plot(cv, x, COUNTER_Y, mod(x - t, COUNTER_GLINT) === 0 ? COUNTER_LIT : COUNTER_TOP)
     plot(cv, x, COUNTER_Y + 1, COUNTER_FRONT)
   }
   // Layer 2: the stove and the pot, the steam (smoke after a fire, none in it) rising from it.
@@ -298,7 +316,10 @@ export function kitchenScene(t: number, w: number, s: Signals): Grid {
   if (isCommit) goingOut(cv, s)
 
   const g = cells(cv)
-  const { text, c, row, dx } = sign(s, t, age, isFire || isSmoke, isPass, isCommit)
+  const sg = sign(s, t, age, isFire || isSmoke, isPass, isCommit)
+  const { text, row, dx } = sg
+  // The sign's mark glows white two frames in sixteen, so even its first glyph never holds still.
+  const c = mod(t, 16) < 2 ? WHITE : sg.c
   put(g, SIGN_X + dx, row, text, { c, b: s.act !== 'think' || isFire || isSmoke || isPass || isCommit })
   return g
 }
