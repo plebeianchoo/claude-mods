@@ -1,15 +1,15 @@
 // Theme: samurai. Its scene, its words and its pet.
 //
-// The scene: a duel on a wooden bridge under a red moon (#e5383b). The hero (white gi, red hakama) holds the
-// left third, a rival per agent (three at most, one always) the right, both breathing on a 16-frame cycle, the
-// rival mirroring him; blossom hangs from the top corners, a petal let go every other frame, falling a pixel a
-// frame onto the deck. A sign behind his head reads the act; a tool tints his steel, each call a slash arc of four
-// frames beside the blade (bash cuts twice); ask lifts the blade. A lantern per task on the bridge's beam (floor-
-// scaled), `done` lit, the newest brightening; a new rival bows in place. testFail: he staggers 2 px back over six
-// frames in a burst of petals and steps back in; testPass: a glint runs the blade; commit: he sheathes it over
-// eight frames, bows (the rivals bow back) and draws again within 30. Motion rules: the hero's blade tip never
-// leaves its cell row (arcs, not the blade, cut), so no run is born mid-air; petals leave from inside a clump's
-// cell; through a commit the sign stands where the tip was; the rail and the deck fill pixel rows 4, 6 and 7.
+// The scene: a duel on a wooden bridge under a red moon (#e5383b): the hero (white gi, red hakama) at the left
+// third, a rival per agent (three at most, one always) at the right, both breathing on 16 frames, the rival
+// mirroring him; corner blossom lets go a petal every other frame, falling a pixel a frame to the deck. A sign
+// behind his head reads the act; a tool blows a wind in its colour along rail and deck and tints his steel (both
+// grown in over 8 frames of actAge), each call a 4-frame slash arc by the blade (bash cuts twice); ask lifts the
+// blade. A lantern per task on the beam (floor-scaled), `done` lit, the newest brightening; a new rival bows in
+// place. testFail: a 2-px stagger back over six frames in a burst of petals; testPass: a glint runs the blade;
+// commit: he sheathes it over 8 frames, bows (the rivals bow back), draws again within 30. Motion rules: the
+// blade tip keeps its cell row but in a commit, where the sign stands in for it; petals leave from inside a
+// clump's cell; rail and deck fill pixel rows 4, 6 and 7, so the wind on them only changes colours.
 import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
@@ -28,6 +28,8 @@ const [CHANGE_FRAMES, LIGHT_FRAMES, GREET_FRAMES, FLARE_FRAMES, PASS_FRAMES] = [
 /** testFail: his offset back per newsAge (2 px over six frames, held, back in by 26); the burst's frames. */
 const STAGGER = [0, 0, 1, 1, 1, 2, ...Array(16).fill(2), 1, 1, 1, 1]
 const BURST_FRAMES = 14
+/** A tool's wind: the streaks' full length; frames of `actAge` it grows over (the steel's tint with it). */
+const [WIND_LEN, WIND_IN] = [5, 8]
 /** The burst's petals: heading (columns, rows a frame), first pixel row, frames shown. */
 const BURST = [[-1, 0, 3, 12], [-1, 0.25, 2, 10], [0, -1, 3, 4], [1, 0, 4, 14], [1, 0.2, 5, 12], [-1, 0.2, 4, 9],
   [1, 0, 5, 8]] as const
@@ -40,10 +42,11 @@ const BODY = {
   bow: ['..........', '....K.....', '..WWKK....', '.WWWWFH...', '.SRRRR....', 'S.RR..RR..'],
 } as const
 type BodyPose = keyof typeof BODY
-/** The blade from the hands (G the guard, B steel, T the tip): ready (raised toward the rival), lifted a pixel,
- * level, shortened as it slides home, sheathed (the hilt at the hip). */
+/** The blade from the hands (G the guard, B steel, T the tip): ready (raised toward the rival), mid (its tip a
+ * row lower), lifted a pixel, level, shortened as it slides home, sheathed (the hilt at the hip). */
 const BLADE: Record<string, readonly Px[]> = {
   ready: [[6, 3, 'G'], [7, 3, 'B'], [8, 2, 'B'], [9, 1, 'T']],
+  mid: [[6, 3, 'G'], [7, 3, 'B'], [8, 2, 'B'], [9, 2, 'T']],
   lift: [[6, 3, 'G'], [7, 2, 'B'], [8, 1, 'B'], [9, 0, 'T']],
   level: [[6, 3, 'G'], [7, 3, 'B'], [8, 3, 'B'], [9, 3, 'T']],
   two: [[6, 3, 'G'], [7, 3, 'B'], [8, 3, 'T']],
@@ -57,8 +60,8 @@ const BLADE: Record<string, readonly Px[]> = {
 const ARC: readonly Px[] = [[10, 0, ''], [11, 1, ''], [11, 2, ''], [10, 3, ''], [9, 4, ''], [8, 5, '']]
 const SWEEP = [[0, 0, 0], [0, 3, 3], [1, 5, 5], [2, 5, -1], [4, 5, 4], [3, 5, 3], [1, 4, 1], [0, 2, -1]] as const
 /** commit by newsAge: the blade home over eight frames, a bow (eased), held, risen, the blade drawn again. */
-const SHEATHE = ['level', 'level', 'two', 'two', 'one', 'one', 'hilt', 'hilt', ...Array(16).fill('sheathed'),
-  'hilt', 'hilt', 'one', 'two', 'level', 'ready']
+const SHEATHE = ['mid', 'level', 'two', 'two', 'one', 'one', 'hilt', 'hilt', ...Array(16).fill('sheathed'),
+  'hilt', 'one', 'two', 'level', 'mid', 'ready']
 const BOWING: (BodyPose | null)[] = [...Array(12).fill(null), 'half', 'half', ...Array(7).fill('bow'), 'half', 'half']
 
 const MOON = '#e5383b'
@@ -142,6 +145,22 @@ function bridge(cv: Canvas): void {
   }
 }
 
+/** The wind of a running tool: streaks in its colour blowing left along the rail and the deck (rows always
+ * full, so only colours change), a cell a frame by `t` alone, each `k` (0..1) of WIND_LEN long, fading back. */
+function wind(cv: Canvas, t: number, k: number, ink: string): void {
+  const len = Math.round(WIND_LEN * k)
+  const span = cv.w + 2 * WIND_LEN
+  const n = Math.max(3, Math.floor(cv.w / 9))
+  for (let i = 0; i < n; i++) {
+    const y = i % 2 ? RAIL_Y : DECK_Y
+    const head = mod(Math.floor(((i + noise(i + 41)) * span) / n) - t, span) - WIND_LEN
+    for (let j = 0; j < len; j++) {
+      const x = head + j
+      if (x >= 0 && x < cv.w) plot(cv, x, y, mix(cv.px[y * cv.w + x] ?? RAIL, ink, 0.9 * (1 - j / (len + 1))))
+    }
+  }
+}
+
 /** A lantern per task along the beam (floor-scaled), `done` lit and flickering, the newest brightening over
  * LIGHT_FRAMES, all flaring at 100%; a lit lantern warms the beam beside it. */
 function lanterns(cv: Canvas, t: number, s: Signals): void {
@@ -206,6 +225,9 @@ export function samuraiScene(t: number, w: number, s: Signals): Grid {
   // Layer 1: the moon between them (still), behind the rail; the blossom in both top corners.
   if (gap >= 8) draw(cv, hx + FIG_W + (gap >> 1) - 3, 0, MOON_ART, { M: MOON, L: MOON_LIT, S: MOON_SEA })
   bridge(cv)
+  // The tool act's own: its wind and the tint on his steel grow in over WIND_IN frames of actAge and hold.
+  const gust = s.act === 'tool' ? Math.min(1, s.actAge / WIND_IN) : 0
+  if (gust > 0) wind(cv, t, gust, TOOL_INK[s.tool ?? 'other'])
   blossom(cv, t, 0, hx - 3)
   if (fit > 0) blossom(cv, t, rx + PITCH * fit + 2, w - 1)
   lanterns(cv, t, s)
@@ -216,12 +238,12 @@ export function samuraiScene(t: number, w: number, s: Signals): Grid {
   const cuts = s.tool === 'bash' ? 8 : 4
   const breath: BodyPose = mod(t, 16) < 8 ? 'stand' : 'exhale'
   let [pose, blade, back] = [breath, 'ready', 0] as [BodyPose, string, number]
-  if (isFail) [pose, back] = ['exhale', STAGGER[s.newsAge]!]
+  if (isFail) back = STAGGER[s.newsAge]!
   else if (isCommit) [pose, blade] = [BOWING[s.newsAge] ?? breath, SHEATHE[s.newsAge]!]
   else if (s.act === 'ask' && s.actAge >= 2) blade = 'lift'
   const passGlint = isPass ? mod(s.newsAge, 6) : s.act === 'say' && mod(t, 12) < 4 ? mod(t, 12) : -1
-  // While a tool runs the steel takes the tool's colour (it names the tool, so it turns with it).
-  const steel = s.act === 'tool' && !isFail && !isCommit ? { ...HERO, B: TOOL_INK[s.tool ?? 'other'] } : HERO
+  const tint = isFail || isCommit ? 0 : gust
+  const steel = tint > 0 ? { ...HERO, B: mix(STEEL, TOOL_INK[s.tool ?? 'other'], tint) } : HERO
   fighter(cv, hx - back, 1, pose, blade, steel, passGlint)
   // No arc through a commit (the blade is away) nor for a call made in one or in a stagger, after it either.
   const since = s.newsAge - strike
@@ -251,8 +273,8 @@ export function samuraiScene(t: number, w: number, s: Signals): Grid {
 
 /** A tiny ronin: a wide straw hat (a crown over a brim), eyes under it, a plain robe, a hilt at the hip. */
 export const PET: PetArt = {
-  body: ['....hhhh....', '.yhhhhhhhhy.', '...FFFFFF.T.', '..IIFFFFIG..', '..III..III..'],
-  step: ['....hhhh....', '.yhhhhhhhhy.', '...FFFFFF.T.', '..IIFFFFIG..', '...II..II...'],
+  body: ['....hhhh....', '.yhhhhhhhhy.', '...FFFFFF...', '..IIFFFFII.T', '..III..IIIG.'],
+  step: ['....hhhh....', '.yhhhhhhhhy.', '...FFFFFF...', '..IIFFFFII.T', '...II...IIG.'],
   colors: { h: '#d4a373', y: '#a98467', F: SKIN, I: '#7b83c9', G: GOLD, T: '#8d99ae' },
   eyes: [4, 7],
   eyeRow: 2,
