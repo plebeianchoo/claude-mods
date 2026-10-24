@@ -173,7 +173,7 @@
     {
       "id": 20,
       "subject": "Task 20: ocean — reactions and polish",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [
         19
       ],
@@ -414,5 +414,5 @@
       "description": "**Goal:** Version 1.0.0 installed live, docs and backlog written, marketplace and upstream map updated, pushed, master bumped. Plan Task 46.\n\n**Files:**\n- Create: `showtime/THEMES-BACKLOG.md`\n- Modify: `showtime/.claude-plugin/plugin.json`, READMEs, `.claude-plugin/marketplace.json`, `upstream/maps/hoobnn-spinner.sed`, `README.md`\n\n**Acceptance Criteria:**\n- [ ] backlog written\n- [ ] check.sh clean\n- [ ] 1.0.0 installed\n- [ ] gallery shown; pushed and bumped\n\n**Verify:** `cd ~/code/claudebro/claude-mods && upstream/check.sh && claude plugin marketplace update claudebro-mods && claude plugin update showtime@claudebro-mods`\n\n```json:metadata\n{\"files\": [\"showtime/THEMES-BACKLOG.md\", \"showtime/.claude-plugin/plugin.json\", \".claude-plugin/marketplace.json\", \"upstream/maps/hoobnn-spinner.sed\"], \"verifyCommand\": \"cd ~/code/claudebro/claude-mods && upstream/check.sh && claude plugin marketplace update claudebro-mods && claude plugin update showtime@claudebro-mods\", \"acceptanceCriteria\": [\"backlog written\", \"check.sh clean\", \"1.0.0 installed\"], \"modelTier\": \"mechanical\"}\n```"
     }
   ],
-  "lastUpdated": "2026-10-24T03:10:27.909494+00:00"
+  "lastUpdated": "2026-10-24T03:25:11.386623+00:00"
 }
