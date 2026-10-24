@@ -161,6 +161,22 @@ let isStill = false
 const TONE: Partial<Record<PetState, DockPet['tone']>> = { ask: 'ask', error: 'error', aborted: 'aborted', sleep: 'sleep' }
 
 /** Publishes the pet as it is now (`showtime.dock`), or null while it is off. */
+/** The spinner mode last seen, so the band hears each change once. */
+let spinnerMode = ''
+
+/**
+ * The model's side of the act, from the engine's spinner mode: waiting for a reply, reasoning,
+ * writing. A tool or a question in hand outranks it, and between turns there is nothing to follow.
+ */
+async function followMode($: EngineInterface, mode: string): Promise<void> {
+  const act: Act | null = mode === 'requesting' ? 'wait' : mode === 'thinking' ? 'think' : mode === 'responding' ? 'say' : null
+  if (act === null || !(await read($, isTurn))) return
+  const now = await read($, activity)
+  if (now.act === act || now.act === 'tool' || now.act === 'ask') return
+  await update($, activity, () => ({ act }))
+  await publishPet($)
+}
+
 async function publishPet($: EngineInterface): Promise<void> {
   if ((await read($, isHidden)) || (await read($, isCompanionOff))) {
     if ((await read($, dock)) !== null) await update($, dock, () => null)
@@ -542,6 +558,12 @@ export const register: Register = (on, options) => {
   }
 
   on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
+    // The engine's line knows what the model is doing; the band follows it, one write per change.
+    if (e.props.mode !== spinnerMode) {
+      spinnerMode = e.props.mode
+      const mode = spinnerMode
+      $.clock.after(0, () => followMode($, mode))
+    }
     // One mascot at a time: with the companion's row showing, it stays there.
     if ((await read($, isHidden)) || !(await read($, isCompanionOff))) return next(e)
     const ui = $.ui.resolve(e)
