@@ -59,6 +59,9 @@ const MINI_STEP = ['K...K', 'Y...Y', 'YYYYY', 'RYKYR', 'Y...Y']
 const MINI_W = 5
 const MINI_PITCH = 6
 const MAX_AGENTS = 4
+/** Frames the newest mini mouse flashes as its agent joins, and its colours on those frames. */
+const GREET_FRAMES = 12
+const MINI_FLASH = { K: '#ffffff', Y: '#ffffff', R: '#ffffff', S: '#ffffff' }
 /** Clouds: 6×2 lumps along the top, drifting left. */
 const CLOUD = ['.CCC..', 'CCCCCC']
 const CLOUD_W = 6
@@ -128,15 +131,16 @@ function bolt(cv: Canvas, cx: number, f: number): void {
 }
 
 /** Subagents: a small mouse each trailing him, six pixels behind the last, bobbing out of phase on an
- * eight-frame cycle; the newest runs in from the left edge a pixel a frame. */
+ * eight-frame cycle, each in its slot from its first frame; the newest flashes white for GREET_FRAMES as it
+ * joins (an agent leaving moves no one). */
 function minis(cv: Canvas, t: number, x: number, s: Signals): void {
   const n = Math.min(s.agents, MAX_AGENTS)
   for (let i = 0; i < n; i++) {
-    let mx = x - TAIL_W - 1 - MINI_W - i * MINI_PITCH
-    if (i === s.agents - 1) mx = Math.min(mx, -MINI_W + s.agentsAge)
+    const mx = x - TAIL_W - 1 - MINI_W - i * MINI_PITCH
     if (mx <= -MINI_W) continue
     const up = mod(t + i * 4, 8) < 4 ? 1 : 0
-    draw(cv, mx, 3 - up, frame([MINI, MINI_STEP], t >> 1), MOUSE_COLORS)
+    const greet = i === n - 1 && s.agentsAge < GREET_FRAMES && mod(s.agentsAge, 2) === 0
+    draw(cv, mx, 3 - up, frame([MINI, MINI_STEP], t >> 1), greet ? MINI_FLASH : MOUSE_COLORS)
   }
 }
 

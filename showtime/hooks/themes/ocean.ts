@@ -12,8 +12,9 @@
 // at the top right, `done` of them lit, left of the agent figures (withReactions), a bubble greeting
 // the newest. A failed test greys the sea and crosses the fish's eye under `×` and the shake; a
 // passed test glows the fish and sends a bubble storm up through the sea under `★`; a commit turns
-// the crests and the plankton gold under `✓` and the spark burst; bash speeds the current and the
-// tail, doubles the bubbles and shows `$`.
+// the crests and the plankton gold under `✓` and the spark burst; bash streaks the plankton (one
+// drift speed in every act, so bash starting or ending never jumps it), speeds the tail, doubles the
+// bubbles and shows `$`.
 //
 // Motion rules (tests/scenes.test.ts): every frame differs somewhere, and no run of cells may start
 // more than one column from a run start in the frame before (same or adjacent row). Everything that
@@ -103,9 +104,9 @@ export function oceanScene(t: number, w: number, s: Signals): Grid {
     const x = mod(Math.floor(noise(i + 5) * w * 3) - Math.floor(t / 3), w + 6) - 3
     if (x >= SKY_X) put(g, x, 0, frame(GULL, (t >> 2) + i), { c: failing ? GREY : FOAM })
   }
-  // Layer 3: plankton drifting left along the bottom at half speed (full speed, streaked, while bash
-  // runs), clear of the lane under the fish.
-  const drift = bash ? t : t >> 1
+  // Layer 3: plankton drifting left along the bottom at half speed in every act (streaked while bash
+  // runs: the offset depends on `t` only), clear of the lane under the fish.
+  const drift = t >> 1
   for (let i = 0; i < Math.max(2, Math.floor(w / 8)); i++) {
     const x = mod(Math.floor(noise(i + 17) * w * 2) - drift, w)
     if (x < LANE_END) continue

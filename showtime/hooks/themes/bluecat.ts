@@ -9,7 +9,7 @@
 // all done he is at the top, one pixel row a frame; `total` marks sit on the street at the left,
 // `done` of them lit, the newest blinking, all waving when the last lands. Each subagent is a gadget
 // that tumbled out of his pocket, bouncing on the rooftops at his right (a squash every eight frames,
-// colors tumbling), the newest rolling in from the right edge. While a tool runs he holds a pocket
+// colors tumbling), each at its own slot from the first frame, the newest flashing white as it joins. While a tool runs he holds a pocket
 // item beside his face: a wrench for bash, a pencil for edit, a lamp for search, a spark for the rest.
 // A failed test stalls the copter: the blades stop and go grey, he sinks two pixels over six frames
 // and recovers over six, a drop of sweat falling. A passing test: he hops twice, the bell rings white
@@ -99,6 +99,8 @@ const MARK_DIM = '#6b7a8a'
 const GADGET_COLORS: [string, string][] = [[PINK, WHITE], ['#80ffdb', YELLOW], ['#c77dff', WHITE], ['#f4a261', YELLOW]]
 const GADGET_PITCH = 3
 const MAX_AGENTS = 4
+/** Frames the newest gadget flashes as its agent joins. */
+const GREET_FRAMES = 12
 /** Pocket items by tool kind, two frames each (a wobble every four frames), held beside his face.
  * Their first column is always inked, so they fuse to his right edge. */
 const WRENCH = [['M.M', '.MM'], ['M.M', 'MM.']]
@@ -177,13 +179,14 @@ function marks(cv: Canvas, x: number, s: Signals): void {
   }
 }
 
-/** Subagents: a gadget each bouncing on the roofs at his right, three columns apart; the newest rolls in from the right edge. */
+/** Subagents: a gadget each bouncing on the roofs at his right, three columns apart, each at its slot from
+ * its first frame; the newest flashes white for GREET_FRAMES as it joins (an agent leaving moves no one). */
 function gadgets(cv: Canvas, t: number, x: number, s: Signals): void {
   const n = Math.max(0, Math.min(s.agents, MAX_AGENTS, Math.floor((cv.w - 12 - x) / GADGET_PITCH) + 1))
   for (let i = 0; i < n; i++) {
-    let gx = x + CAT_W + 1 + i * GADGET_PITCH
-    if (i === s.agents - 1) gx = Math.max(gx, cv.w - 2 - s.agentsAge)
-    const [a, b] = GADGET_COLORS[i]!
+    const gx = x + CAT_W + 1 + i * GADGET_PITCH
+    const greet = i === n - 1 && s.agentsAge < GREET_FRAMES && mod(s.agentsAge, 2) === 0
+    const [a, b] = greet ? [WHITE, WHITE] : GADGET_COLORS[i]!
     const flip = mod(t >> 1, 2) === 0
     const tall = mod(t + 2 * i, 8) < 5
     plot(cv, gx, 7, flip ? a : b)

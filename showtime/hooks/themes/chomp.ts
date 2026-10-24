@@ -4,8 +4,8 @@
 // and holds the middle, chomping at the track that streams at him from the right: a dot every four
 // pixels, `total` dots to the loop with `done` of them already eaten (gaps); every dot he passes
 // scores ten, every task a hundred. Blinky chases a few pixels behind, creeping closer and back on a
-// twelve-frame cycle, and each subagent adds a ghost of its own colour (four at most), entering from
-// the left edge. While bash runs, every eighth dot is a power pellet pulsing and the ghosts turn blue.
+// twelve-frame cycle, and each subagent adds a ghost of its own colour (four at most), in its slot
+// behind the last from its first frame, the newest flashing white as it joins. While bash runs, every eighth dot is a power pellet pulsing and the ghosts turn blue.
 // A failed test: the lead ghost lunges and touches him, he spins (right, up, left, down) for eight
 // frames, shrinks to a pixel and grows back. A passing test: a cherry flies in from the right for
 // twenty frames (eaten if it reaches him). A commit: the walls flash gold and the dots spark white.
@@ -17,7 +17,7 @@
 // a run start in the frame before. So: the mouth is cut through his middle rows (his ink shrinks and
 // grows with it, a column a frame, on even frames) and the track steps a pixel on odd frames; the
 // ghosts creep a pixel at a time and only once he is home (a creep plus his walk would be two); new
-// ghosts enter from the left edge, the cherry from the right (its stem a single pixel, the only thing
+// ghosts appear in their slots (a flash, never a run-in: an agent leaving would send the rest back), the cherry from the right (its stem a single pixel, the only thing
 // that crosses the dot row); the pellet sits above the dots, in the row the cherry's body never uses;
 // his death keeps his ink's left edge within a column of where it was, and a ghost's lunge replaces
 // its creep (the fail lasts two creep cycles, so the creep is back where it was when the lunge ends).
@@ -71,8 +71,8 @@ const GHOST_PITCH = 9
 const CHASE = [0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0]
 /** How far the lead ghost lunges to touch him: the gap between them. */
 const LUNGE = GHOST_GAP - GHOST_W
-/** Frames between one new ghost's entry and the next's. */
-const ENTER_STAGGER = 5
+/** Frames the newest ghost flashes white as its agent joins (in place: no run-in). */
+const GREET_FRAMES = 12
 const WALL = '#2121de'
 const DOT = '#ffb8ae'
 const DOT_PITCH = 4
@@ -128,7 +128,7 @@ function track(cv: Canvas, t: number, off: number, mouthX: number, s: Signals, i
 }
 
 /** The ghosts: Blinky always, one more per subagent (four at most), each its own colour, trailing him by
- * GHOST_PITCH each and creeping; new ones enter from the left edge. Scared (blue) while bash runs. The
+ * GHOST_PITCH each and creeping; a new one is in its slot from its first frame, flashing white for GREET_FRAMES. Scared (blue) while bash runs. The
  * lead one lunges to touch him on a failed test, its lunge standing in for its creep. */
 function ghosts(cv: Canvas, t: number, x: number, s: Signals, failAge: number): void {
   const w = cv.w
@@ -141,11 +141,11 @@ function ghosts(cv: Canvas, t: number, x: number, s: Signals, failAge: number): 
       const c0 = creep(0, t - failAge, w)
       shift = Math.min(LUNGE, c0 + failAge, c0 + FAIL_FRAMES - failAge)
     }
-    let gx = x - GHOST_GAP - i * GHOST_PITCH + shift
-    if (i > 0) gx = Math.min(gx, -GHOST_W + s.agentsAge - (i - 1) * ENTER_STAGGER)
+    const gx = x - GHOST_GAP - i * GHOST_PITCH + shift
     if (gx <= -GHOST_W) continue
     const art = frame(scared ? SCARED : GHOST, (t >> 1) + i)
-    draw(cv, gx, 1, art, { G: GHOST_COLORS[i]!, W: dart ? WALL : '#ffffff', K: dart ? '#ffffff' : WALL, B: WALL, P: DOT })
+    const greet = i > 0 && i === n - 1 && s.agentsAge < GREET_FRAMES && mod(s.agentsAge, 2) === 0
+    draw(cv, gx, 1, art, { G: greet ? '#ffffff' : GHOST_COLORS[i]!, W: dart ? WALL : '#ffffff', K: dart ? '#ffffff' : WALL, B: greet ? '#ffffff' : WALL, P: DOT })
   }
 }
 

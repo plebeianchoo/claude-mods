@@ -3,7 +3,7 @@
 // The scene: an island volcano (#ff6d00) in a scrolling sea, its notched crater glowing and sending up a plume
 // (puffs rising a pixel a frame out of it, then drifting right), a glow stepping across the cone, a glint along the
 // sand. A tool sends lava down the right slope a cell every two frames (grown on actAge, held at the shore), pulsing
-// in the tool's colour; bash pulses faster and brighter and throws sparks. ask: the crater bubbles, the cone throbs;
+// in the tool's colour; bash pulses white-hot and throws sparks. ask: the crater bubbles, the cone throbs;
 // say: smoke signals; wait: the crater cools, the plume greys. A hut per task on the shore (floor-scaled), roofed
 // when done, the newest roof dropping on; a rowing boat per agent in a fixed slot, flashing as it joins. testFail:
 // rocks arc out for twelve frames as the whole sky reddens; commit: a rainbow fades in and out over the island. Motion
@@ -143,10 +143,10 @@ function plume(cv: Canvas, t: number, act: Signals['act'], tint: string, k: numb
   }
 }
 
-/** The lava down the right slope, `reach` cells of it, pulses running down it (a cell a frame on bash, else a cell
- * every two frames) in the tool's colour. */
+/** The lava down the right slope, `reach` cells of it, pulses running down it a cell every two frames in every act
+ * (keyed on `t` only, so bash starting or ending never jumps them) in the tool's colour; bash's are white-hot. */
 function lava(cv: Canvas, t: number, reach: number, bash: boolean, ink: string): void {
-  const run = bash ? t : t >> 1
+  const run = t >> 1
   for (let i = 0; i < reach; i++) {
     const p = mod(i - run, 4)
     const c = p === 0 ? (bash ? WHITE : ink) : p === 1 ? (bash ? CORE : LAVA_HI) : i === reach - 1 ? LAVA_DEEP : LAVA
