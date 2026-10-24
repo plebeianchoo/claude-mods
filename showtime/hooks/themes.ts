@@ -23,6 +23,7 @@ import { MATRIX } from './themes/matrix'
 import { STACK } from './themes/stack'
 import { PLUMBER } from './themes/plumber'
 import { SNAKE } from './themes/snake'
+import { FROGGER } from './themes/frogger'
 
 export * from './cells'
 export type { ToolKind } from './feed'
@@ -46,6 +47,7 @@ export const THEME_NAMES = [
   'stack',
   'plumber',
   'snake',
+  'frogger',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
 
@@ -132,7 +134,7 @@ export function nextTheme(current: ThemeName): ThemeName {
 export const THEMES: Record<ThemeName, Theme> = {
   clawd: CLAWD, thunder: THUNDER, chomp: CHOMP, sparky: SPARKY, bluecat: BLUECAT, nyan: NYAN,
   cat: CAT, bunny: BUNNY, sakura: SAKURA, mecha: MECHA, neon: NEON, dino: DINO, ocean: OCEAN, matrix: MATRIX,
-  stack: STACK, plumber: PLUMBER, snake: SNAKE,
+  stack: STACK, plumber: PLUMBER, snake: SNAKE, frogger: FROGGER,
 }
 
 export function themeOf(name: unknown): Theme {
