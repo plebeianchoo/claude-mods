@@ -1,7 +1,8 @@
 // Theme: ufo. Its scene, its words and its pet.
 //
-// The scene: a flying saucer over a farm at night (#b5e48c): a barn and a stretch of fence standing still,
-// stars twinkling, grass tufts swaying, cows grazing. The saucer hovers at a fixed column in the right half,
+// The scene: a flying saucer over a farm at night (#b5e48c): a barn (moonlight gliding along its roof, the
+// hayloft lamp flickering) and a stretch of fence (a glint running along its rail), stars twinkling, grass
+// tufts swaying, cows grazing. The saucer hovers at a fixed column in the right half,
 // bobbing a pixel on twelve frames by `t`, rim lights chasing; a sign left of it reads the act. A cow per task
 // (floor-scaled) at fixed spots, nearest the saucer first: a done one rises from its spot in a shaft of light
 // (a pixel every two frames), then fades. A tool beam grows down and sweeps on `t` over them as light, wide on
@@ -47,6 +48,8 @@ const SKY = '#1b1d2b'
 const [HULL, RIM, DOME, UNDER, PILOT] = ['#adb5bd', '#ced4da', '#a8dadc', '#6c757d', '#80ed99']
 const [WHITE, GOLD, RED, SMOKE, SMOKE_DIM] = ['#ffffff', '#ffd60a', '#ef476f', '#ced4da', '#8d99ae']
 const [GRASS, GRASS_2, TUFT, RAIL, POST] = ['#40916c', '#52b788', '#74c69d', '#9c6644', '#b08968']
+/** The barn's and the fence's glints: moonlight on the ridge, the hayloft lamp, the rail. */
+const [MOON_ROOF, LAMP, RAIL_GLINT] = ['#e5383b', '#fff3b0', '#ddb892']
 const BARN_INK = { r: '#9d0208', R: '#c1121f', T: '#f8f9fa', W: '#f8f9fa', D: '#780000', Y: '#ffd166' }
 const COW_INKS = [{ W: '#f8f9fa', H: '#f8f9fa', S: '#6c757d', P: '#ffadad', L: '#adb5bd', T: '#adb5bd' },
   { W: '#f8f9fa', H: '#bc6c25', S: '#bc6c25', P: '#ffadad', L: '#dda15e', T: '#bc6c25' }]
@@ -76,13 +79,20 @@ function ghost(cv: Canvas, x: number, y: number, art: readonly string[], ink: Re
   draw(cv, x, y, art, faded)
 }
 
-/** The barn at the left and a stretch of fence beside it, both still; the grass under them, its tufts swaying. */
+/** The barn at the left and a stretch of fence beside it, never moving but never still: moonlight glides
+ * along the roof's ridge (a pixel every two frames, then a rest: sixteen frames), the hayloft lamp flickers
+ * (two frames in fourteen) and a glint runs along the top rail (a pixel a frame, then a rest: twelve frames).
+ * Colour only, so no ink moves. The grass under them, its tufts swaying. */
 function farm(cv: Canvas, t: number, hasBarn: boolean): void {
   if (hasBarn) {
     draw(cv, 1, 1, BARN, BARN_INK)
+    const ridge = mod(t, 16) >> 1   // 0..7: the moonlit ridge pixel, x 3..8 (6 and 7 rest)
+    if (ridge < 6) plot(cv, 3 + ridge, 1, MOON_ROOF)
+    if (mod(t, 14) < 2) for (const x of [5, 6]) plot(cv, x, 3, LAMP)
+    const glint = mod(t, 12)        // 0..FENCE_W-1: the glinting rail pixel; the rest of the cycle, none
     for (let x = BARN_W + 1; x < BARN_W + 1 + FENCE_W; x++) {
-      for (const y of [RAIL_Y - 1, RAIL_Y]) plot(cv, x, y, RAIL)
-      if (mod(x - BARN_W - 1, 3) === 0) for (let y = RAIL_Y - 2; y < GRASS_Y; y++) plot(cv, x, y, POST)
+      for (const y of [RAIL_Y - 1, RAIL_Y]) plot(cv, x, y, y === RAIL_Y - 1 && x - BARN_W - 1 === glint ? RAIL_GLINT : RAIL)
+      if (mod(x - BARN_W - 1, 3) === 0) for (let y = RAIL_Y - 2; y < GRASS_Y; y++) plot(cv, x, y, y === RAIL_Y - 1 && x - BARN_W - 1 === glint ? RAIL_GLINT : POST)
     }
   }
   for (let x = 0; x < cv.w; x++) {
@@ -181,7 +191,7 @@ export function ufoScene(t: number, w: number, s: Signals): Grid {
   const busy = (c: number) => (hasBarn && c <= BARN_W + 1) || (c >= sx - 4 && c <= sx + SAUCER_W + 1) ||
     (c >= miniX(slots - 1) - 1 && c < sx - 4)
 
-  // Layer 1: the stars; layer 2: the barn and the fence, still; the grass, its tufts swaying.
+  // Layer 1: the stars; layer 2: the barn and the fence, glinting; the grass, its tufts swaying.
   stars(cv, t, busy)
   farm(cv, t, hasBarn)
   // Layer 3: the cows, at fixed spots; the done ones (nearest the saucer first) gone, the newest rising in a
