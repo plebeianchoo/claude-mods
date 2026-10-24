@@ -2,7 +2,7 @@
 
 **简体中文** · [English](README.en.md)
 
-Claude 干活时，输入框上方会演一段小动画：像素风的横版射击、Claude 的吉祥物 Clawd、吃豆人、彩虹猫……还有一只会跟着 Claude 的动作变换姿势的宠物。一轮结束时放一小段彩带，显示这轮用了多久。共 15 套主题，随时切换，其中一套把电脑正在播放的声音画成频谱。
+Claude 干活时，输入框上方会演一段小动画：像素风的横版射击、Claude 的吉祥物 Clawd、吃豆人、彩虹猫……还有一只会跟着 Claude 的动作变换姿势的宠物。一轮结束时放一小段彩带，显示这轮用了多久。共 38 套主题，随时切换。
 
 ![spinner：Clawd 主题跑完一轮，宠物气泡跟着工具变化，最后放庆祝动画](assets/clawd.gif)
 
@@ -63,7 +63,7 @@ Claude 干活时，输入框上方会演一段小动画：像素风的横版射�
 | `neon`<br>![neon](assets/neon.gif) | `dino`<br>![dino](assets/dino.gif) |
 | `ocean`<br>![ocean](assets/ocean.gif) | `matrix`<br>![matrix](assets/matrix.gif) |
 
-每套主题一行带标签的场景（工具/bash 画面）合在一张图里：[assets/gallery.png](assets/gallery.png)；每套主题的静态图在 `assets/<主题>.png`。
+每套主题一行带标签的场景（工具/bash 画面）合在一张图里：[assets/gallery.png](assets/gallery.png)；每套主题的静态图：`assets/<主题>.png`；审阅图：`assets/review/`。
 
 `chomp`、`sparky`、`bluecat`、`nyan` 是从零绘制、另起名字的同人致敬；`clawd` 照着 Claude Code 欢迎界面上的样子绘制。
 
@@ -116,7 +116,10 @@ Claude 工作时，横条占主题的行数再加宠物一行；两轮之间只�
 - `hooks/config.ts`：选项，一次性读成类型化的 `Config`。
 - `hooks/command.ts`：解析 `/showtime` 的参数。
 - `hooks/pet.ts`：宠物的等级和气泡、工具标签、时长。
-- `hooks/themes.ts`、`hooks/cells.ts`：主题和它们绘制用的字符网格；`hooks/stage.tsx`、`hooks/sprite.tsx`：负责播放动画的 `Client` 模块。
+- `hooks/feed.ts`：信息栏的数据模型：从任务工具的结果和引擎事件读出任务和子代理，以及进度、任务、子代理几行。
+- `hooks/reactions.ts`：所有主题共用的反应（工具类别、测试没过/通过、提交、等待权限）。
+- `hooks/themes.ts`：主题类型和注册表；`hooks/themes/<name>.ts`：每套主题一个文件（场景、文案、宠物）；`hooks/draw.ts`：共用的场景图层；`hooks/pets.ts`：宠物的绘制；`hooks/cells.ts`：它们绘制用的字符网格；`hooks/stage.tsx`、`hooks/sprite.tsx`：负责播放动画的 `Client` 模块。
 - `hooks/i18n.ts`：各语言文案。
 - `hooks/kit/`：`claude-code/kit` 的副本；改源文件后运行 `scripts/sync-kit.sh`。
+- `scripts/engine-types.sh`：把引擎的类型文件放到 mod 旁边（已 gitignore），让 `pnpm exec tsc -p showtime` 能运行。
 - 在 mod 目录下运行 `bun scripts/shots.ts --theme <name>` 渲染该主题的静态图 `assets/<name>.png` 和审阅图 `assets/review/<name>.png`;`bun scripts/shots.ts --gallery` 渲染 `assets/gallery.png`。
