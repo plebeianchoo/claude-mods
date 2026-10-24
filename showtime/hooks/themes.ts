@@ -38,6 +38,7 @@ import { PENGUINS } from './themes/penguins'
 import { UFO } from './themes/ufo'
 import { DRAGON } from './themes/dragon'
 import { SAMURAI } from './themes/samurai'
+import { VOLCANO } from './themes/volcano'
 
 export * from './cells'
 export type { ToolKind } from './feed'
@@ -76,6 +77,7 @@ export const THEME_NAMES = [
   'ufo',
   'dragon',
   'samurai',
+  'volcano',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
 
@@ -173,6 +175,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   ufo: UFO,
   dragon: DRAGON,
   samurai: SAMURAI,
+  volcano: VOLCANO,
 }
 
 export function themeOf(name: unknown): Theme {
