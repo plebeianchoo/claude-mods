@@ -14,7 +14,7 @@ While Claude works, a little show plays above the prompt: a pixel-art shoot-em-u
 
 ## Themes
 
-Pixel-art scenes, three rows of half-block pixels:
+Pixel-art scenes, four rows of half-block pixels:
 
 - `clawd`: Claude Code's own mascot strolls by, stops to work with the Claude spark spinning beside him, types on a laptop while a tool runs and raises a `?` when you're asked.
 - `thunder`: a side-scrolling shoot-em-up: a fighter auto-aims and fires at waves of invaders, explosions and a running score; the waves come faster while tools run.

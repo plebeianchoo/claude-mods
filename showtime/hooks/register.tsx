@@ -314,6 +314,8 @@ export const register: Register = (on, options) => {
   })
 
   on('turn.start', async ($, e, next) => {
+    // A subagent's start is not the main loop's turn: no theme draw, no reset of what is running.
+    if (e.agentId !== undefined) return next(e)
     // A session resumed or cleared: no session.start came to pick its theme or read its pet.
     if ((await read($, theme)) === '') await seed($, config)
     // `rotate`: each turn draws the next theme.
