@@ -30,6 +30,7 @@ Pixel-art scenes, three rows of half-block pixels:
 - `kitchen`: a chef at a stove under a tiled wall, steam rising from the pot; done tasks are served plates along the counter, the pot boils in the tool's colour while tools run (flames on bash), a sous-chef chops per subagent, a failed test sets the stove on fire, a commit rings the bell and sends a plate out.
 - `railway`: a steam train puffing in place while hills and the bridge scroll past, its wheels turning and smoke in the tool's colour while tools run; a carriage per task loads as it lands, a signal arm drops while a permission waits, a failed test screeches the brakes, a commit sends it through a tunnel.
 - `garden`: flower beds along a picket fence under drifting clouds, a butterfly fluttering by the big flower; a seed per task sprouts into a flower as it lands, it rains in the tool's colour while tools run, a bee buzzes per subagent, a failed test wilts the flowers, a commit bursts the big one into petals.
+- `roomba`: a robot vacuum cleaning a rug among furniture legs, bumping the wall and turning at each end, dust motes drifting above; a crumb per task is gone as it lands, a suction trail in the tool's colour while tools run, a mini roomba per subagent at its dock, a failed test wedges it under the sofa, a commit gives a cat a ride.
 
 Character scenes, two rows: `cat`, `bunny`, `sakura`, `mecha`, `neon`, `dino`, `ocean`, `matrix`. Or `random` for a new one each session.
 
