@@ -1,8 +1,8 @@
 // Theme: roomba. Its scene, its words and its pet.
 //
 // The scene, seen from the floor: a robot vacuum (#adb5bd) cleaning a rug in front of a wainscot, furniture
-// legs rising past it, dust motes drifting left in the dark above. It drives back and forth by `t` alone (a cell
-// every four frames, eased at the ends), bumps the wall and turns over four frames at each end; its light and a
+// legs rising past it (glints running down them and along the wainscot rail), dust motes drifting left in the
+// dark above. It drives back and forth by `t` alone (a cell every four frames, eased at the ends), bumps the wall and turns over four frames at each end; its light and a
 // sign on the left wall tell the act. A crumb per task (twelve at most, floor-scaled), gone as done, the newest
 // sparkling; a suction trail in the tool's colour in a tool, a spinning brush on bash; a mini per agent at its
 // dock right of the wall, beeping as it joins. testFail wedges it under a sofa where it stops (wheels spinning 16
@@ -38,6 +38,8 @@ const [SHELL, DOME, BUMPER_INK, BASE, WHEEL] = ['#adb5bd', '#dee2e6', '#6c757d',
 const [WHITE, GOLD, SPARK, CRUMB, DUST, GREY] = ['#ffffff', '#ffd60a', '#ffe066', '#fff3b0', '#c9b99a', '#8d99ae']
 const [WALL, LEG, LEG_LIGHT, TABLE_LEG] = ['#9a8c98', '#a47148', '#c8956b', '#cfc6b8']
 const [RUG_TOP, SHEEN, RAIL, PANEL, PANEL_LINE] = ['#8c3b3b', '#e8b08a', '#6b6480', '#3f3b52', '#4a4560']
+/** The rail's glints: one every RAIL_GLINT columns, stepping a column a frame; the legs' glint cycle. */
+const [RAIL_LIT, RAIL_GLINT, LEG_CYCLE] = ['#9d96b8', 14, 14]
 const [RUG, SOFA] = [['#6d2e46', '#d4a373', '#6d2e46', '#a5583a'], ['#6b8cae', '#4f6d8f', '#89a7c6']]
 const [SOFA_LEG, SOFA_ARM] = ['#7f5539', '#3f5a7a']
 const CAT_INK = { C: '#f4a261', A: '#f4a261', T: '#e76f51', E: '#3d405b' }
@@ -112,21 +114,25 @@ function motes(cv: Canvas, t: number): void {
   }
 }
 
-/** The wainscot (a rail over a panel) and the rug under it, a sheen sliding along it a cell every other frame. */
+/** The wainscot (a rail over a panel) and the rug under it, a sheen sliding along the rug a cell every other
+ * frame and glints stepping along the rail a column a frame (one every RAIL_GLINT columns, so each spot
+ * lights once in a 14-frame cycle). Colour only: the rail and the rug fill their rows. */
 function rug(cv: Canvas, t: number): void {
   const sheen = mod(t >> 1, cv.w + 24) - 12
   for (let x = 0; x < cv.w; x++) {
-    plot(cv, x, RAIL_Y, RAIL)
+    plot(cv, x, RAIL_Y, mod(x + t, RAIL_GLINT) === 0 ? RAIL_LIT : RAIL)
     for (let y = RAIL_Y + 1; y < FLOOR_Y; y++) plot(cv, x, y, mod(x, 6) === 0 ? PANEL_LINE : PANEL)
     plot(cv, x, FLOOR_Y, RUG_TOP)
     plot(cv, x, 7, Math.abs(x - sheen) <= 1 && mod(x, 2) === 1 ? SHEEN : RUG[mod(x, 4)]!)
   }
 }
 
-/** The room: the left wall, the wall the pass ends at, chair and table legs from above, a dock per slot. */
-function room(cv: Canvas, wallX: number, slots: number, agents: number): void {
+/** The room: the left wall, the wall the pass ends at, chair and table legs from above, a dock per slot. A
+ * glint of light runs down each wall and leg (a pixel a frame, each on its own phase of a 14-frame cycle). */
+function room(cv: Canvas, t: number, wallX: number, slots: number, agents: number): void {
   const column = (x: number, top: number, ink: string, cap = ink) => {
-    for (let y = top; y <= FLOOR_Y; y++) plot(cv, x, y, y === FLOOR_Y ? cap : ink)
+    const lit = mod(t + 5 * x, LEG_CYCLE)
+    for (let y = top; y <= FLOOR_Y; y++) plot(cv, x, y, y === lit && y < FLOOR_Y ? mix(ink, '#ffffff', 0.35) : y === FLOOR_Y ? cap : ink)
   }
   column(0, 0, WALL)
   column(wallX, 0, WALL)
@@ -218,7 +224,7 @@ export function roombaScene(t: number, w: number, s: Signals): Grid {
   // Layer 1: the motes; layer 2: the wainscot, the rug and its sheen; the walls, the legs and the docks.
   motes(cv, t)
   rug(cv, t)
-  room(cv, wallX, slots, s.agents)
+  room(cv, t, wallX, slots, s.agents)
   for (let k = 0; k < count; k++) {
     const x = 2 + Math.floor(((k + 0.5) * (wallX - 3)) / count)
     if (k >= lit) plot(cv, x, FLOOR_Y, CRUMB)
