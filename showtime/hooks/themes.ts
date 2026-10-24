@@ -36,6 +36,7 @@ import { ROOMBA } from './themes/roomba'
 import { COFFEE } from './themes/coffee'
 import { PENGUINS } from './themes/penguins'
 import { UFO } from './themes/ufo'
+import { DRAGON } from './themes/dragon'
 import { SAMURAI } from './themes/samurai'
 
 export * from './cells'
@@ -73,6 +74,7 @@ export const THEME_NAMES = [
   'coffee',
   'penguins',
   'ufo',
+  'dragon',
   'samurai',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
@@ -169,6 +171,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   coffee: COFFEE,
   penguins: PENGUINS,
   ufo: UFO,
+  dragon: DRAGON,
   samurai: SAMURAI,
 }
 
