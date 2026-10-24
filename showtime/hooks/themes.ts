@@ -24,6 +24,7 @@ import { STACK } from './themes/stack'
 import { PLUMBER } from './themes/plumber'
 import { SNAKE } from './themes/snake'
 import { LAUNCH } from './themes/launch'
+import { FROGGER } from './themes/frogger'
 import { KITCHEN } from './themes/kitchen'
 import { RAILWAY } from './themes/railway'
 import { GARDEN } from './themes/garden'
@@ -51,6 +52,7 @@ export const THEME_NAMES = [
   'plumber',
   'snake',
   'launch',
+  'frogger',
   'kitchen',
   'railway',
   'garden',
@@ -140,7 +142,7 @@ export function nextTheme(current: ThemeName): ThemeName {
 export const THEMES: Record<ThemeName, Theme> = {
   clawd: CLAWD, thunder: THUNDER, chomp: CHOMP, sparky: SPARKY, bluecat: BLUECAT, nyan: NYAN,
   cat: CAT, bunny: BUNNY, sakura: SAKURA, mecha: MECHA, neon: NEON, dino: DINO, ocean: OCEAN, matrix: MATRIX,
-  stack: STACK, plumber: PLUMBER, snake: SNAKE, launch: LAUNCH, kitchen: KITCHEN, railway: RAILWAY, garden: GARDEN,
+  stack: STACK, plumber: PLUMBER, snake: SNAKE, launch: LAUNCH, frogger: FROGGER, kitchen: KITCHEN, railway: RAILWAY, garden: GARDEN,
 }
 
 export function themeOf(name: unknown): Theme {
