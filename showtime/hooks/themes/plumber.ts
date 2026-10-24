@@ -1,28 +1,27 @@
 // Theme: plumber. Its scene, its words and its pet.
 //
-// The scene: a platformer runner (#e63946) in the left third, the world scrolling past him in three
-// layers: dim hills far (pixel rows 4–5, slowest), single-cell bricks mid along the top row (half the
-// near speed), pipes and the brick ground near (a cell a frame while a tool runs, else every other).
-// Idle, he bounces in place on a twelve-frame cycle while the pipes pass behind him, a sign ahead of
-// his head reading the act (dots, `?`, a note); in a tool he runs, a four-frame step with a hop, the
-// tool's mark for a sign, and jumps each pipe in a six-frame arc (bash: legs every frame, dust). Tasks:
-// `total` ? blocks along the top right (floor-scaled), `done` of them coins spinning on four frames,
-// the newest flashing; at 100% the coins roll colours and a flagpole slides in from the right edge,
-// its flag running down. Each subagent (four at most) is a smaller runner trailing him out of step,
-// running in from the left edge and hopping as it joins. A failed test greys the world: a ? block
-// appears over his head, he bonks it and sits twelve frames under a circling star. A passed test
-// flashes him white under a ★. A commit: three bursts of fireworks over the flag, sixteen frames.
+// The scene: a platformer runner (#e63946) in the left third, the world scrolling past him a cell a
+// frame in three layers: dim hills far (pixel rows 4–5, a quarter of the speed), single-cell bricks
+// mid along the top row (half), pipes and the brick ground near. He walks in from the left edge, then
+// bounces in place on a twelve-frame cycle while idle, a sign ahead of his head reading the act (dots,
+// a bobbing `?`, notes); in a tool he runs, a four-frame step with a hop, the tool's mark for a sign
+// (bash: legs every frame, dust). He jumps each pipe in a six-frame arc. Tasks: `total` ? blocks along
+// the top right (floor-scaled), `done` of them coins spinning on four frames, the newest flashing; at
+// 100% the coins roll colours and a flagpole slides in from the right edge, its flag running down.
+// Each subagent (four at most) is a smaller runner trailing him out of step, hopping in place as it
+// joins. A failed test greys the world: a ? block appears over his head, he bonks it and sits twelve
+// frames under a circling star. A passed test flashes him white under a ★. A commit: three bursts of
+// fireworks over the flag (the right edge without one), sixteen frames.
 //
 // Motion rules (tests/scenes.test.ts): the hills fill pixel row 5 and the ground rows 6–7 across the
-// width, so the test sees cell rows 0–1 only. Every pixel row of a runner starts within a column of its
-// left edge, so his own rows anchor him as he hops; the bounce is a closed walk of single steps two
-// cells high (an idle frame always changes), in a tool the hop and the bricks step on alternate frames
-// and the sign's dot tail every frame, and nothing hops, bonks or sits while walking in. Bricks are
-// single cells four or more apart (a mover in a one-column gap merges two still cells, then exposes one
-// two off; the ? blocks are three apart for that) and skip the zone from the last parked runner to past
+// width, so the test sees cell rows 0–1 only. The bricks step on odd frames and every sign changes its
+// ink on even frames, so a frame never holds. Every pixel row of a runner starts within a column of
+// its left edge, so his own rows anchor him as he hops; the bounce is a walk of single steps two cells
+// high, the arc starts and ends a cell up, and nothing hops, bonks or sits while walking in. Bricks are
+// single cells four or more apart (a mover in a one-column gap merges two still cells, then exposes
+// one two off; the ? blocks are three apart for that) and skip the zone from the last runner to past
 // the sign, coming out a column from a cap. The bonk block and the star start beside his cap, the flag
-// beside a pole that has stood a frame, the fireworks around the pole or at the exempt right edge; a
-// new agent enters at the exempt left edge.
+// beside a pole that has stood a frame, the fireworks around the pole or at the exempt right edge.
 import { canvas, cells, draw, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { SCENE_ROWS } from '../draw'
@@ -46,7 +45,6 @@ const HUD_FROM_RIGHT = 8
 const PIPE_GAP = 20
 const PIPE_JITTER = 8
 const MAX_AGENTS = 4
-const AGENT_W = 3
 const AGENT_PITCH = 4
 /** Columns between one mid brick and the next, before a jitter of up to two. */
 const BRICK_PITCH = 6
@@ -138,16 +136,56 @@ function pipes(near: number, w: number): number[] {
 }
 
 /** His height over the ground: none while he is still walking in; the bonk and the sit on a failed
- * test, the jump over a pipe near him while a tool runs, the run's hop, the idle bounce. */
-function heroY(t: number, s: Signals, hx: number, w: number, near: number, isFail: boolean): number {
+ * test, the jump over a pipe near him, the run's hop in a tool, else the idle bounce. */
+function heroY(t: number, s: Signals, hx: number, w: number, isFail: boolean): number {
   if (hx < homeX(w)) return 0
   if (isFail) return s.newsAge < BONK_FRAMES ? BONK[s.newsAge]! : 0
-  if (s.act !== 'tool') return frame(BOUNCE, t)
-  for (const px of pipes(near, w)) {
+  for (const px of pipes(t, w)) {
     const d = ARC_AHEAD - (px - hx)
     if (d >= 0 && d < ARC.length) return ARC[d]!
   }
-  return mod(near, 4) < 2 ? 1 : 0
+  return s.act === 'tool' ? (mod(t, 4) < 2 ? 1 : 0) : frame(BOUNCE, t)
+}
+
+/** The agents trailing him at AGENT_PITCH, each jogging in place out of step; the newest hops a greeting
+ * where it stands as it joins (and again, harmlessly, when one leaves). None moves while he walks in. */
+function agents(cv: Canvas, t: number, s: Signals, hx: number, isHome: boolean, isFail: boolean): void {
+  const n = Math.min(s.agents, MAX_AGENTS)
+  for (let i = 0; i < n; i++) {
+    let ay = 0
+    if (isHome) ay = i === n - 1 && s.agentsAge < GREET.length ? GREET[s.agentsAge]! : mod(t + 2 * i + 2, 4) < 2 ? 1 : 0
+    const colors = isFail ? { ...HERO_GREY, C: GREY } : { ...HERO_COLORS, C: AGENT_CAPS[i]! }
+    draw(cv, hx - AGENT_PITCH * (i + 1), STAND_Y - ay, [...AGENT, frame(AGENT_LEGS, (t >> 1) + i)], colors)
+  }
+}
+
+/** The tasks along the top right: `count` cells three apart, the `lit` leftmost coins spinning (the
+ * newest flashing, all rolling colours at 100%), the rest ? blocks (returned, drawn as glyphs). At 100%
+ * a pole slides in from the right edge a cell a frame, then its flag appears and runs down. */
+function hud(cv: Canvas, t: number, s: Signals, hudL: number, poleX: number): number[] {
+  const hudR = cv.w - HUD_FROM_RIGHT
+  const count = Math.min(s.total, Math.max(0, Math.floor((hudR - hudL) / HUD_PITCH) + 1))
+  const lit = s.total > count ? Math.floor(s.done * count / s.total) : Math.min(s.done, count)
+  const blocks: number[] = []
+  for (let j = 0; j < count; j++) {
+    const x = hudR - (count - 1 - j) * HUD_PITCH
+    if (j >= lit) { blocks.push(x); continue }
+    let [top, bottom] = frame(COIN, t + j)
+    if (j === lit - 1 && s.doneAge < DONE_FLASH_FRAMES && mod(s.doneAge, 2) === 0) [top, bottom] = [WHITE, WHITE]
+    else if (poleX >= 0 && s.doneAge < DONE_ROLL_FRAMES) top = bottom = frame(PALETTE, j + (s.doneAge >> 1))
+    plot(cv, x, 0, top)
+    plot(cv, x, 1, bottom)
+  }
+  if (poleX >= 0) {
+    for (let py = 0; py <= GROUND_Y; py++) plot(cv, poleX, py, POLE)
+    plot(cv, poleX, 0, GOLD)
+    if (s.doneAge >= FLAG_AT) {
+      const fy = Math.min(2, s.doneAge - FLAG_AT)
+      plot(cv, poleX - 1, fy, FLAG)
+      plot(cv, poleX - 1, fy + 1, FLAG)
+    }
+  }
+  return blocks
 }
 
 /** The far hills: a dim silhouette on pixel rows 4–5, row 5 always filled, drifting at `far`. */
@@ -181,19 +219,21 @@ function fireworks(cv: Canvas, age: number, cx: number, cy: number): void {
   })
 }
 
-/** The sign ahead of his head: the news first, else the act, a dot while the act turns. */
+/** The sign ahead of his head: the news first, else the act, dots while the act turns. Each changes its
+ * ink every other frame at least (a length, or the `?` bobbing a row), so no frame can hold. */
 function sign(
   s: Signals, t: number, age: number, isFail: boolean, isPass: boolean, isCommit: boolean,
-): { text: string; c: string } {
-  if (isFail) return { text: '×', c: GREY }
-  if (isPass) return { text: mod(t, 4) < 2 ? '★' : '☆', c: GOLD }
-  if (isCommit) return { text: '✓', c: GOLD }
-  if (age < TURN_FRAMES) return { text: '·', c: PALE }
-  if (s.act === 'tool') return { text: TOOL_SIGN[s.tool ?? 'other'] + frame(['', '·', '··', '·'], t), c: GOLD }
-  if (s.act === 'ask') return { text: '?', c: GOLD }
-  if (s.act === 'say') return { text: mod(t, 8) < 4 ? '♪' : '♫', c: PIPE_RIM }
-  if (s.act === 'think') return { text: frame(['·', '··', '···', '··'], t >> 1), c: POLE }
-  return { text: frame(['.', '..', '...'], t >> 2), c: POLE }
+): { text: string; c: string; row: number } {
+  const row = age === 0 ? 1 : 0
+  if (isFail) return { text: frame(['×', '×·'], t >> 1), c: GREY, row }
+  if (isPass) return { text: frame(['★', '★·', '☆', '☆·'], t >> 1), c: GOLD, row }
+  if (isCommit) return { text: frame(['✓', '✓·'], t >> 1), c: GOLD, row }
+  if (age < TURN_FRAMES) return { text: frame(['·', '··'], t), c: PALE, row }
+  if (s.act === 'tool') return { text: TOOL_SIGN[s.tool ?? 'other'] + frame(['', '·', '··', '·'], t), c: GOLD, row }
+  if (s.act === 'ask') return { text: '?', c: GOLD, row: mod(t, 4) < 2 ? 0 : 1 }
+  if (s.act === 'say') return { text: frame(['♪', '♪♫', '♫', '♫♪'], t >> 1), c: PIPE_RIM, row }
+  if (s.act === 'think') return { text: frame(['·', '··', '···', '··'], t >> 1), c: POLE, row }
+  return { text: frame(['.', '..', '...', '..'], t >> 1), c: POLE, row }
 }
 
 export function plumberScene(t: number, w: number, s: Signals): Grid {
@@ -204,82 +244,39 @@ export function plumberScene(t: number, w: number, s: Signals): Grid {
   const isPass = s.news === 'testPass' && s.newsAge < PASS_FRAMES
   const isCommit = s.news === 'commit' && s.newsAge < COMMIT_FRAMES
   const age = Math.min(s.actAge, s.toolAge)
-  /** The near layer's offset: a cell a frame while a tool runs, picking up where the slow scroll was. */
-  const since = Math.min(s.actAge, t)
-  const near = isTool ? ((t - since) >> 1) + since : t >> 1
   const rx = homeX(w)
   const hx = heroX(t, w)
-  const hy = STAND_Y - heroY(t, s, hx, w, near, isFail)
+  const hy = STAND_Y - heroY(t, s, hx, w, isFail)
   const sx = hx + SIGN_GAP
   const isHome = hx === rx
   const sitting = isFail && isHome && s.newsAge >= BONK_FRAMES
-  const agents = Math.min(s.agents, MAX_AGENTS)
   const allDone = s.total > 0 && s.done >= s.total
   const poleX = allDone ? Math.max(w - POLE_FROM_RIGHT, w - 1 - s.doneAge) : -1
 
   // Layer 1: the hills, far and slow; layer 2: the ground, bricks and mortar scrolling with the pipes.
-  hills(cv, near / 4, isFail ? GREY_DARK : HILL)
+  hills(cv, t / 4, isFail ? GREY_DARK : HILL)
   for (let x = 0; x < w; x++) {
-    plot(cv, x, GROUND_Y, isFail ? GREY_DIM : mod(x + near, 4) === 3 ? MORTAR : GROUND)
+    plot(cv, x, GROUND_Y, isFail ? GREY_DIM : mod(x + t, 4) === 3 ? MORTAR : GROUND)
     plot(cv, x, GROUND_Y + 1, isFail ? GREY_DARK : GROUND_DARK)
   }
-  for (const px of pipes(near, w)) draw(cv, px, HILL_Y, PIPE_ART, isFail ? PIPE_GREY : PIPE_COLORS)
-  // The agents trailing him: the newest runs in from the left edge to the end of the line.
-  const agentX = (i: number) => {
-    const home = hx - AGENT_PITCH * (i + 1)
-    return i === agents - 1 ? Math.min(home, s.agentsAge - AGENT_W) : home
-  }
-  const parked = agents > 0 && agentX(agents - 1) === hx - AGENT_PITCH * agents ? agents : Math.max(0, agents - 1)
-  // Layer 3: the bricks, mid, behind everything that stands: none from the last parked runner's left
-  // edge to past the sign.
-  const skipL = hx - AGENT_PITCH * parked + 1
-  bricks(cv, (near + 1) >> 1, skipL, sx + SIGN_W + 1, isFail ? GREY : BRICK_LIT, isFail ? GREY_DIM : BRICK_DARK)
-  // Layer 4: the agents, each jogging in place out of step, the newest hopping a greeting as it arrives.
-  for (let i = 0; i < agents; i++) {
-    const ax = agentX(i)
-    const arrived = s.agentsAge - (rx - AGENT_PITCH * (i + 1) + AGENT_W)
-    let ay = 0
-    if (isHome && i < parked) {
-      const greeting = i === agents - 1 && arrived >= 0 && arrived < GREET.length
-      ay = greeting ? GREET[arrived]! : mod(t + 2 * i + 2, 4) < 2 ? 1 : 0
-    }
-    const colors = isFail ? { ...HERO_GREY, C: GREY } : { ...HERO_COLORS, C: AGENT_CAPS[i]! }
-    draw(cv, ax, STAND_Y - ay, [...AGENT, frame(AGENT_LEGS, (t >> 1) + i)], colors)
-  }
-  // Layer 5: the hero: sitting after the bonk, else standing or running, a flash of white on a pass.
+  for (const px of pipes(t, w)) draw(cv, px, HILL_Y, PIPE_ART, isFail ? PIPE_GREY : PIPE_COLORS)
+  // Layer 3: the bricks, mid, behind everything that stands: none from the last runner's left edge to
+  // past the sign.
+  const skipL = hx - AGENT_PITCH * Math.min(s.agents, MAX_AGENTS) + 1
+  bricks(cv, (t + 1) >> 1, skipL, sx + SIGN_W + 1, isFail ? GREY : BRICK_LIT, isFail ? GREY_DIM : BRICK_DARK)
+  // Layer 4: the agents; layer 5: the hero, sitting after the bonk, else standing or running, a flash
+  // of white on a pass.
+  agents(cv, t, s, hx, isHome, isFail)
   let heroColors: Record<string, string> = isFail ? HERO_GREY : HERO_COLORS
   if (isPass && mod(t, 2) === 0) heroColors = { ...HERO_COLORS, R: WHITE, B: WHITE }
   if (sitting) draw(cv, hx, GROUND_Y - 2, SIT, heroColors)
   else {
     const running = isTool || !isHome
-    const legs = running ? frame(LEGS_RUN, bash ? near : near >> 1) : LEGS_STAND
+    const legs = running ? frame(LEGS_RUN, bash ? t : t >> 1) : LEGS_STAND
     draw(cv, hx, hy, [...HERO, legs], heroColors)
     if (bash && hy === STAND_Y) plot(cv, hx - 1 - mod(t, 2), HILL_Y + 1 + mod(t, 2), DUST)
   }
-  // Tasks: ? blocks (glyphs, below) and coins along the top right, the newest flashing, all rolling at 100%.
-  const hudR = w - HUD_FROM_RIGHT
-  const count = Math.min(s.total, Math.max(0, Math.floor((hudR - (rx + SIGN_GAP + HUD_GAP)) / HUD_PITCH) + 1))
-  const lit = s.total > count ? Math.floor(s.done * count / s.total) : Math.min(s.done, count)
-  const blocks: number[] = []
-  for (let j = 0; j < count; j++) {
-    const x = hudR - (count - 1 - j) * HUD_PITCH
-    if (j >= lit) { blocks.push(x); continue }
-    let [top, bottom] = frame(COIN, t + j)
-    if (j === lit - 1 && s.doneAge < DONE_FLASH_FRAMES && mod(s.doneAge, 2) === 0) [top, bottom] = [WHITE, WHITE]
-    else if (allDone && s.doneAge < DONE_ROLL_FRAMES) top = bottom = frame(PALETTE, j + (s.doneAge >> 1))
-    plot(cv, x, 0, top)
-    plot(cv, x, 1, bottom)
-  }
-  // The flagpole at 100%: in from the right edge a cell a frame, then the flag runs down it.
-  if (poleX >= 0) {
-    for (let py = 0; py <= GROUND_Y; py++) plot(cv, poleX, py, POLE)
-    plot(cv, poleX, 0, GOLD)
-    if (s.doneAge >= FLAG_AT) {
-      const fy = Math.min(2, s.doneAge - FLAG_AT)
-      plot(cv, poleX - 1, fy, FLAG)
-      plot(cv, poleX - 1, fy + 1, FLAG)
-    }
-  }
+  const blocks = hud(cv, t, s, rx + SIGN_GAP + HUD_GAP, poleX)
   if (isCommit) fireworks(cv, s.newsAge, poleX >= 0 ? poleX : w - 1, 1)
 
   const g = cells(cv)
@@ -291,9 +288,9 @@ export function plumberScene(t: number, w: number, s: Signals): Grid {
     const star = frame(['✦', '✧'], s.newsAge >> 1)
     if (sitting) put(g, hx + 1 + frame([0, 1, 2, 1], s.newsAge), 1, star, { c: GOLD, b: true })
   }
-  // The sign ahead of his head: a dot beside it the frame the act turns, rising into place next frame.
-  const { text, c } = sign(s, t, age, isFail, isPass, isCommit)
-  put(g, sx, age === 0 ? 1 : 0, text, { c, b: s.act !== 'think' || isFail || isPass || isCommit })
+  // The sign ahead of his head, a row down the frame the act turns.
+  const { text, c, row } = sign(s, t, age, isFail, isPass, isCommit)
+  put(g, sx, row, text, { c, b: s.act !== 'think' || isFail || isPass || isCommit })
   return g
 }
 
