@@ -23,6 +23,7 @@ Pixel-art scenes, three rows of half-block pixels:
 - `bluecat`: a blue robot cat on a bamboo-copter, gadgets tumbling out of its pocket while tools run.
 - `nyan`: a pop-tart cat on a rainbow trail across the stars.
 - `stack`: a falling-block well: pieces hover over it and drop in while tools run, done tasks settle as rows, a failed test topples the stack.
+- `plumber`: a platformer runner bouncing in place while hills, bricks and pipes scroll by, running and jumping the pipes while tools run; done tasks turn ? blocks into spinning coins, all done slides in the flagpole.
 
 Character scenes, two rows: `cat`, `bunny`, `sakura`, `mecha`, `neon`, `dino`, `ocean`, `matrix`. Or `random` for a new one each session.
 

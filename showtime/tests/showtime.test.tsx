@@ -368,20 +368,22 @@ test('/showtime theme asks which: an offered option, one typed under Other, or d
   expect(asked?.options).toHaveLength(4)
   expect(asked?.options[0]).toBe('random')
 
-  answer = ' Ocean '
-  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'theme' })).text).toBe('已切换到 ocean')
-  expect(asked?.options).not.toContain('ocean')
+  // A theme the dialog did not offer, typed under Other with stray case and spaces.
+  const typed = THEME_NAMES.find(n => !asked!.options.includes(n))!
+  answer = ` ${typed[0]!.toUpperCase()}${typed.slice(1)} `
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'theme' })).text).toBe(`已切换到 ${typed}`)
+  expect(asked?.options).not.toContain(typed)
   expect(rows).toEqual([
     ['showtime.theme', 'cat'],
     ['showtime.theme', 'random'],
-    ['showtime.theme', 'ocean'],
+    ['showtime.theme', typed],
   ])
 
   answer = 'nyancat'
   expect((await $.command.run({ ...RUN, command: 'showtime', args: 'theme' })).text).toContain('没有叫 nyancat 的主题')
 
   answer = null
-  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'theme' })).text).toContain('当前主题：ocean')
+  expect((await $.command.run({ ...RUN, command: 'showtime', args: 'theme' })).text).toContain(`当前主题：${typed}`)
   expect(rows).toHaveLength(3)
 })
 
