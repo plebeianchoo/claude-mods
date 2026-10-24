@@ -28,6 +28,7 @@ import { FROGGER } from './themes/frogger'
 import { KITCHEN } from './themes/kitchen'
 import { RAILWAY } from './themes/railway'
 import { GARDEN } from './themes/garden'
+import { AQUARIUM } from './themes/aquarium'
 
 export * from './cells'
 export type { ToolKind } from './feed'
@@ -56,6 +57,7 @@ export const THEME_NAMES = [
   'kitchen',
   'railway',
   'garden',
+  'aquarium',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
 
@@ -143,6 +145,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   clawd: CLAWD, thunder: THUNDER, chomp: CHOMP, sparky: SPARKY, bluecat: BLUECAT, nyan: NYAN,
   cat: CAT, bunny: BUNNY, sakura: SAKURA, mecha: MECHA, neon: NEON, dino: DINO, ocean: OCEAN, matrix: MATRIX,
   stack: STACK, plumber: PLUMBER, snake: SNAKE, launch: LAUNCH, frogger: FROGGER, kitchen: KITCHEN, railway: RAILWAY, garden: GARDEN,
+  aquarium: AQUARIUM,
 }
 
 export function themeOf(name: unknown): Theme {
