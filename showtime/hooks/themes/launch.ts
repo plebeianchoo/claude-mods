@@ -4,11 +4,12 @@
 // (floor-scaled to six, `done` green, the newest flashing, rolling colours at 100%) under a beacon, a
 // `done/total` readout, the sea at the right under low clouds, drifting stars. Its altitude tracks
 // `done/total`, climbing a pixel a frame as a task lands. A sign over its shoulder reads the act: the
-// countdown (3, 2, 1, ✦, twelve frames each), `?`, notes, the tool's mark. In a tool it hovers a pixel
-// up on a flame in the tool's colour flickering on two frames; bash is a full burn with smoke rolling
-// off left. Subagents are boosters by the fins (three at most), the newest separating in place with a
-// flash and a jolt. testFail: the hull greys and drops into water under the pad, ten frames of spray,
-// back by frame 22; testPass: the hull flashes white; commit: a satellite rings it for twenty frames.
+// countdown (3, 2, 1, twelve frames each, then ✦ held), `?`, notes, the tool's mark. In a tool the
+// engines catch on the pad and it lifts a pixel on a flame in the tool's colour flickering on two
+// frames; bash is a full burn with smoke rolling off left. Subagents are boosters by the fins (three at
+// most), the newest separating in place with a flash and a jolt. testFail: the hull greys and drops
+// into water under the pad, ten frames of spray, back by frame 22; testPass: the hull flashes white;
+// commit: a satellite rings it for twenty frames.
 //
 // Motion rules: stars, clouds and smoke are lone cells going left, off the rocket's columns and the
 // sign; still things touch or stand two apart; the flame and spray only recolour or hug the hull.
@@ -108,11 +109,11 @@ const ROCKET_GREY = { N: PAD, H: STEEL, W: GREY_DARK, E: GREY_DARK }
 /** The nose's lift for `done` of `total`: none at 0, the top at 100%. */
 const markOf = (done: number, total: number) => (total > 0 ? Math.round(LIFT_MAX * Math.min(done, total) / total) : 0)
 
-/** The nose's lift: a pixel a frame from the last mark to this one, a pixel up in a tool; on testFail
+/** The nose's lift: a pixel a frame from the last mark to this one, a pixel up in a tool once lit; on testFail
  * a pixel a frame down to SINK under the pad, held through the splash, then back up a pixel a frame. */
 function altitudeOf(s: Signals): number {
   let a = Math.min(markOf(s.done, s.total), markOf(Math.max(0, s.done - 1), s.total) + s.doneAge)
-  if (s.act === 'tool') a = Math.min(LIFT_MAX, a + 1)
+  if (s.act === 'tool' && s.actAge >= IGNITE_FRAMES) a = Math.min(LIFT_MAX, a + 1)
   if (s.news !== 'testFail' || s.newsAge >= FAIL_FRAMES) return a
   const rise = s.newsAge - DROP_FRAMES - SPLASH_FRAMES
   return rise < 0 ? Math.max(-SINK, a - s.newsAge) : Math.min(a, rise - SINK)
@@ -170,10 +171,10 @@ function smoke(cv: Canvas, t: number, rl: number, burnAge: number): void {
   }
 }
 
-/** The engines: in a tool a row of flame in the tool's colour (a grey sputter first), core and edges
- * swapping every frame, boosters lit too; bash adds a row and lights the pad. Aloft idle: embers. */
+/** The engines: in a tool a row of flame in the tool's colour (a grey sputter on the pad first), core and
+ * edges swapping every frame, boosters lit too; bash adds a row and lights the pad. Aloft idle: embers. */
 function flame(cv: Canvas, t: number, s: Signals, rl: number, fy: number, age: number, n: number): void {
-  if (fy >= PAD_Y) return
+  if (fy > PAD_Y || (fy === PAD_Y && s.act !== 'tool')) return
   if (s.act !== 'tool') {
     for (let dx = 0; dx < ROCKET_W; dx++) plot(cv, rl + dx, fy, dx === 2 && mod(t, 4) < 2 ? TRIM : EMBER)
     return
@@ -232,7 +233,8 @@ function sign(s: Signals, t: number, age: number, isFail: boolean, isPass: boole
   if (s.act === 'tool') return { text: TOOL_SIGN[s.tool ?? 'other'] + tail, c: GOLD }
   if (s.act === 'ask') return { text: frame(['?·', '?', '·?', '?'], t), c: GOLD }
   if (s.act === 'say') return { text: frame(['♪♫', '♫', '♫♪', '♪'], t), c: WINDOW }
-  if (s.act === 'think') return { text: frame(COUNTDOWN, Math.floor(s.actAge / COUNT_FRAMES)) + tail, c: SIGN }
+  const count = COUNTDOWN[Math.min(COUNTDOWN.length - 1, Math.floor(s.actAge / COUNT_FRAMES))]!
+  if (s.act === 'think') return { text: count + tail, c: SIGN }
   return { text: frame(['..', '.', '...', '.'], t), c: SIGN }
 }
 
@@ -275,16 +277,16 @@ export function launchScene(t: number, w: number, s: Signals): Grid {
   return g
 }
 
-/** An astronaut: a white helmet with a blue visor and a pack, a suit with a red badge and orange gloves. */
+/** An astronaut: a big round helmet, eyes on a blue visor with a glint, a pack on one side, a much narrower
+ * grey suit with an orange glove, two thin legs close together. No mouth: the visor hides it. */
 export const PET: PetArt = {
-  body: ['....WWWW....', '..PWVVVVW...', '..PWVVVVW...', '..OWWRWWWO..', '...WW..WW...'],
-  step: ['....WWWW....', '..PWVVVVW...', '..PWVVVVW...', '..OWWRWWWO..', '..WW....WW..'],
-  colors: { W: '#e8ecf1', V: '#3a86ff', P: STEEL, R: RED, O: HULL },
-  eyes: [4, 7],
+  body: ['.....WWWWW..', '...PWGVVVVW.', '...PWVVVVVW.', '...P..SSSO..', '......S.S...'],
+  step: ['.....WWWWW..', '...PWGVVVVW.', '...PWVVVVVW.', '...P..SSSO..', '.....S...S..'],
+  colors: { W: '#f4f6f8', V: '#3a86ff', G: '#bde0ff', P: STEEL, S: '#b8c2d0', O: HULL },
+  eyes: [6, 8],
   eyeRow: 1,
   eye: '#1d1d1d',
   lid: '#3a86ff',
-  mouth: [5, 2],
   blush: '#ff8fab',
   spark: GOLD,
 }
