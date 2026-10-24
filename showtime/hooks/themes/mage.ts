@@ -24,8 +24,9 @@ const SWAY = [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, -1, -1, -1, -1, 0]
 /** A familiar, 4×3: an owl (eyes E) or a wisp (core E), by slot. */
 const FAMILIAR = [['bbbb', 'bEEb', '.bb.'], ['.bb.', 'bEEb', '.b..']]
 const FAMILIAR_INK = [['#a47148', '#ffd60a'], ['#80ffdb', '#ffffff'], ['#ced4da', '#ffb703'], ['#ff8fab', '#fff3b0']]
-/** The summoned dragon's silhouette, 9×6, front on: wing tips and a horn, its head between them, eyes (G). */
-const DRAGON = ['D...D...D', 'DD.DDD.DD', 'DDDGDGDDD', '.DDDDDDD.', '..DDDDD..', '.DD...DD.']
+/** The summoned dragon's silhouette, 9×6, front on: wing tips and a horn, its head between them, eyes (G), its
+ * tail swept up at the right. */
+const DRAGON = ['D...D...D', 'DD.DDD.DD', 'DDDGDGDDD', '.DDDDDDD.', '..DDDDD.D', '.DD...DDD']
 /** A scroll, 2×3, by burn stage: whole, flame at its foot, flame higher, an ember under the rod, the rod. */
 const SCROLL = [['oo', 'pr', 'pp'], ['oo', 'pp', 'fy'], ['oo', 'yf', '..'], ['oo', 'e.', '..'], ['cc', '..', '..']]
 
@@ -34,10 +35,11 @@ const [MAGE_W, CIRCLE_GAP, PITCH, MAX_SCROLLS, MAX_FAMILIARS] = [10, 11, 3, 12, 
 const RADII = [10, 7, 4]
 /** Pixel rows: the bolt's lane, the orbit's back arc (its front three lower), familiars' top, the dragon's top. */
 const [LANE_Y, BACK_Y, FAMILIAR_Y, DRAGON_TOP] = [3, 4, 4, 2]
-/** Frames: an act's change; a burn; a greeting; between bash's bolts; a bolt's fade at the lane's end. */
-const [CHANGE, BURN, GREET, BOLT_GAP, BOLT_FADE] = [4, 8, 8, 4, 3]
-/** testFail: sparks leave the orb every other frame until SPARKS; the hat's scorch eases in, holds, eases out. */
-const [SPARKS, SCORCH_IN, SCORCH_HOLD, SCORCH_END] = [14, 4, 20, 28]
+/** Frames: an act's change; a burn; a greeting; between bash's bolts; a bolt's fade at the lane's end; its wake. */
+const [CHANGE, BURN, GREET, BOLT_GAP, BOLT_FADE, WAKE] = [4, 8, 8, 4, 3, 4]
+/** testFail: sparks leave the orb every other frame until SPARKS; the hat's scorch eases in, holds, eases out; the
+ * orb's smoke eases in and out by SMOKE_END. */
+const [SPARKS, SCORCH_IN, SCORCH_HOLD, SCORCH_END, SMOKE_EASE, SMOKE_END] = [14, 4, 20, 28, 3, 12]
 /** testPass's flash; commit: the dragon rises a pixel a frame to DRAGON_TOP, hovers, sinks from SINK, gone. */
 const [PASS, SINK, SUMMON_END] = [12, 21, 28]
 
@@ -117,21 +119,21 @@ function mage(cv: Canvas, x: number, lean: number, scorch: number, orb: string, 
 }
 
 /** The bolts of one call `a` frames old (bash: three, BOLT_GAP apart), along the lane from `from` to `to`: a white
- * head and a coloured one behind it, a wake back to the orb dimming with distance, fading at the lane's end. */
+ * head, the tool's colour behind it and a short wake dimming over WAKE columns, each fading out over BOLT_FADE
+ * frames at the lane's end, the last of them all the way. Where two overlap, the nearer head's pixel shows. */
 function bolts(cv: Canvas, from: number, to: number, a: number, n: number, ink: string): void {
   const reach = to - from + 1
-  const heads: [number, number][] = []
+  const live: [number, number][] = []
   for (let j = 0; j < n; j++) {
     const b = a - j * BOLT_GAP
-    if (b >= 0 && b < reach + BOLT_FADE) heads.push([from + Math.min(b, reach - 1), Math.max(0, b - reach + 1)])
+    if (b >= 0 && b <= reach - 1 + BOLT_FADE) live.push([from + Math.min(b, reach - 1), Math.max(0, b - reach + 1)])
   }
-  if (heads.length === 0) return
-  const far = Math.max(...heads.map(([x]) => x))
-  for (let x = from; x <= far; x++) {
-    const d = Math.min(...heads.map(([h]) => (x <= h ? h - x : 99)))
-    const fade = Math.min(...heads.filter(([h]) => x <= h).map(([, f]) => f)) / BOLT_FADE
-    const c = d === 0 ? WHITE : d === 1 ? ink : mix(ink, '#4a4e69', Math.min(1, (d - 1) / 5))
-    plot(cv, x, LANE_Y, mix(c, '#4a4e69', fade))
+  for (let x = from; x <= to; x++) {
+    const near = live.filter(([h]) => h >= x && h - x <= WAKE).sort((p, q) => p[0] - q[0] || p[1] - q[1])[0]
+    if (!near) continue
+    const d = near[0] - x
+    const c = d === 0 ? WHITE : d === 1 ? ink : mix(ink, DIM, (d - 1) / WAKE)
+    plot(cv, x, LANE_Y, mix(c, DIM, near[1] / BOLT_FADE))
   }
 }
 
@@ -190,9 +192,12 @@ export function mageScene(t: number, w: number, s: Signals): Grid {
   if (pass) ink = mod(s.newsAge, 4) < 2 ? WHITE : STAR
   const trail = isTool && s.actAge >= 2 ? mix(TOOL_INK[kind], DIM, 0.45) : null
 
-  // Layer 1: the scrolls; the circle's back runes, the dragon rising between them and the front ones.
+  // Layer 1: the scrolls; the circle's back runes, a bolt per call over them (keyed on the call, min'd with
+  // actAge so the first call fires even with the kind unchanged), the dragon rising over both, the front runes.
   scrolls(cv, t, scrollX, fit, s)
   if (rx > 0) circle(cv, t, cx, rx, ink, trail, false)
+  const call = isTool ? Math.min(s.actAge, s.toolAge) : 999
+  if (rx > 0) bolts(cv, staff + 2, end, call, kind === 'bash' ? 3 : 1, TOOL_INK[kind])
   if (commit) {
     const a = s.newsAge
     const top = a < SINK ? Math.max(DRAGON_TOP, 8 - a) : DRAGON_TOP + a - SINK
@@ -205,15 +210,13 @@ export function mageScene(t: number, w: number, s: Signals): Grid {
   const a = s.newsAge
   const scorch = !fail ? 0 : a < SCORCH_IN ? (a + 1) / SCORCH_IN : a < SCORCH_HOLD ? 1
     : (SCORCH_END - a) / (SCORCH_END - SCORCH_HOLD)
-  // The fizzle smokes the orb for ten frames over whatever charge it holds, so a tool's tint stays on it.
-  const smoke = fail && a < 10 ? 0.6 : 0
+  // The fizzle smokes the orb (eased over three frames each way) over whatever charge it holds, so a tool's tint
+  // stays on it.
+  const smoke = fail ? 0.6 * Math.max(0, Math.min(1, (a + 1) / SMOKE_EASE, (SMOKE_END - a) / SMOKE_EASE)) : 0
   const orb = mix(isTool ? mix(ORB, TOOL_INK[kind], blend) : ink, SMOKE, smoke)
   const core = mix(isTool && mod(t, 4) < 2 ? WHITE : CORE, SMOKE, smoke)
   mage(cv, x0, SWAY[mod(t, 16)]!, scorch, orb, core, s, t)
   if (fail) fizzle(cv, staff, a)
-  // A bolt per call, keyed on the call (min'd with actAge, so the first call fires even with the kind unchanged).
-  const call = isTool ? Math.min(s.actAge, s.toolAge) : 999
-  if (rx > 0) bolts(cv, staff + 2, end, call, kind === 'bash' ? 3 : 1, TOOL_INK[kind])
 
   // Layer 3: the familiars in their slots from the right, bobbing; the newest flashes as it comes.
   const count = Math.min(s.agents, MAX_FAMILIARS, slots.length)
