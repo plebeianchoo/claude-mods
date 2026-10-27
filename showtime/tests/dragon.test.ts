@@ -1,10 +1,10 @@
 import { expect, test } from 'claude-code/testing'
 
-import { IDLE_SIGNALS, THEMES } from '../hooks/themes'
+import { IDLE_SIGNALS, THEME_NAMES, THEMES } from '../hooks/themes'
 import type { Signals } from '../hooks/themes'
 import { DRAGON_SEED, dragonScene, EGG_CHANCE, EGG_KINDS, EVENT_KINDS, EVENT_LEN, posesAt } from '../hooks/themes/dragon'
 import { changed, jump, sigs } from './motion'
-import { eggSlot } from '../hooks/events'
+import { eggSlot, slotAt } from '../hooks/events'
 import type { Slot } from '../hooks/events'
 
 const sig = (over: Partial<Signals>): Signals => ({ ...IDLE_SIGNALS, ...over })
@@ -95,6 +95,23 @@ test('nothing moves more than a pixel a frame on the real schedule, at any width
     }
   }
   expect(Object.fromEntries(bad)).toEqual({})
+})
+
+test('the epoch moves the dragon schedule on by whole slots and changes no other theme', () => {
+  for (const epoch of [1, 7, 4095]) {
+    for (const t of [0, 100, 777]) {
+      const on = THEMES.dragon.scene(t, 80, sig({ epoch }))
+      expect(changed(on, dragonScene(t + EVENT_LEN * epoch, 80, sig({}))), `epoch ${epoch} t=${t}`).toBe(0)
+    }
+  }
+  // So a turn doesn't always open on the same set piece.
+  const first = (epoch: number) => slotAt(EVENT_LEN * epoch, EVENT_LEN, EVENT_KINDS, DRAGON_SEED, EGG_KINDS, EGG_CHANCE).kind
+  expect(new Set(Array.from({ length: 12 }, (_, e) => first(e))).size).toBe(EVENT_KINDS)
+  for (const name of THEME_NAMES.filter(n => n !== 'dragon')) {
+    for (const t of [0, 333]) {
+      expect(changed(THEMES[name].scene(t, 80, sig({ epoch: 9 })), THEMES[name].scene(t, 80, sig({}))), `${name} t=${t}`).toBe(0)
+    }
+  }
 })
 
 test('the sheet showcases every set piece and egg', () => {

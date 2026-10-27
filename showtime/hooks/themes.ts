@@ -109,8 +109,12 @@ export type Signals = {
   agentsAge: number
   /** Frames since `tool` last changed; 999 when none. */
   toolAge: number
+  /** A whole number the stage draws once each time it mounts (every turn), so a scene with a long schedule (the
+   * dragon's set pieces) starts somewhere new each turn rather than replaying it from `t = 0`. 0 when idle, so tests
+   * and sheets stay the same; scenes without a schedule ignore it. */
+  epoch: number
 }
-export const IDLE_SIGNALS: Signals = { act: 'think', agents: 0, done: 0, total: 0, newsAge: 999, actAge: 999, doneAge: 999, agentsAge: 999, toolAge: 999 }
+export const IDLE_SIGNALS: Signals = { act: 'think', agents: 0, done: 0, total: 0, newsAge: 999, actAge: 999, doneAge: 999, agentsAge: 999, toolAge: 999, epoch: 0 }
 export type Finale = 'answer' | 'aborted' | 'error'
 /** The companion's mood between turns. */
 export type Mood = 'hello' | 'ready' | 'aborted' | 'error' | 'sleep'
