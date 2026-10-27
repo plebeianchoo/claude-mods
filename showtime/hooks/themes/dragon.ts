@@ -12,13 +12,18 @@
 // colour, its wings tinting toward it. ask: the princess leans out waving, a `?` beside her window. say: its jaws
 // work and sound rings leave them. A wyvern per agent trails it on its path, the newest flashing as it joins. A
 // banner per task hangs from the battlements, furled grey while open, unrolling gold once done. Each actor has a
-// home pose for `t` (`patrol`, `knightHome`, `princessHome`) that set pieces leave from and return to. News
-// (testPass, testFail, commit) shows only on the sign for now; the scene's reactions come with the set pieces.
+// home pose for `t` (`patrol`, `knightHome`, `princessHome`). Every 160 frames a set piece plays (strafe, charge,
+// tower, catapult, landing, sheep), now and then an easter egg instead (frying pan, Clawd, hatchling): one function
+// each, giving who is where at the slot's age, leaving home and back by its end. News (testPass, testFail, commit)
+// shows only on the sign for now.
 import { canvas, cells, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
+import { eggSlot, firstSlot, slotAt } from '../events'
 import type { Slot } from '../events'
+import { CLAWD_SHAPE } from '../pets'
 import type { PetArt } from '../pets'
-import { mix, paint, sprite } from '../pixel'
+import { along, mix, paint, sprite } from '../pixel'
+import type { Waypoint } from '../pixel'
 import type { Signals, Theme, ToolKind } from '../themes'
 
 /** The band's height in cells (12 pixel rows). */
@@ -32,9 +37,8 @@ const [FULL, WIDE, TINY, CROP] = [72, 44, 24, 11]
 /** The dragon's box, the wyvern's, how far into the dragon's box a wyvern flies, the most wyverns. */
 const [DW, DH, VW, VX, VY, MAX_WYVERNS] = [16, 7, 8, 4, 2, 4]
 /** The patrol: its left bound past the knight's column (over his head on the full stage, clear of him when
- * cropped), its margin from the right (clear of the sun on the full stage, across it when narrower), its most
- * swing. */
-const [ZONE_DX, ZONE_DX_CROP, ZONE_R, ZONE_R_NARROW, MAX_A] = [4, 7, 10, 4, 32]
+ * cropped), its margin from the right (clear of the sun on the full stage, across it when narrower). */
+const [ZONE_DX, ZONE_DX_CROP, ZONE_R, ZONE_R_NARROW] = [4, 7, 10, 4]
 /** The knight's home column and top row; the tower's left column (wide). */
 const [KNIGHT_X, KNIGHT_Y, TOWER_X] = [26, 3, 14]
 /** Frames: an act's change; the fire cone's most length; the sparks'; a wyvern's greeting. */
@@ -110,8 +114,10 @@ const WINGS = [
   ['..QQRrrR........', '...VWWwwq.......', '....VvwvV.......'],
   ['', '.QQRrrrR........', '..VWWwwvq.......', '...VvVvv........'],
   ['', '', '', '......QRq.......', '....VWwwv.......', '...VWwvv........', '...VV.v.........'],
+  // Folded along the back, landed.
+  ['', '....QRRrq.......', '...VWWwwvV......'],
 ]
-const WING_CYCLE = [0, 1, 2, 1]
+const [WING_CYCLE, FOLDED] = [[0, 1, 2, 1], 3]
 /** A wyvern, 8×4: tail, body and a horned head, its wing up or down. */
 const WYVERN = [
   ['..Aa....', 'o.aaAAaE', '.ooaaaO.', '........'],
@@ -127,9 +133,25 @@ const KNIGHT = [
 const PLUME_UP = ['...p...']
 /** Shield up: the shield raised in front of his face toward the dragon, the sword held back. */
 const KNIGHT_SHIELD = ['..PpZS.', '.JKkSCs', '.JkFss.', 'BJJTtJ.', 'GGTTtJ.', '.JJTtJ.', '..j.j..', '.MM.Mm.']
+/** The knight's legs running, on four frames; with his sword raised overhead, leaping. */
+const RUN_LEGS = [['..j.j..', '.MM.Mm.'], ['.j...j.', 'MM...Mm'], ['..j.j..', '.MM.Mm.'], ['...jj..', '..MMm..']]
+const KNIGHT_SLASH = ['..Pp..B', '.JKkJB.', '.JkFG..', 'ZSJTtJ.', 'SCSTtJ.', 'ssJTtJ.', '.j...j.', 'MM...Mm']
+/** The slash's white arc ahead of his sword, three frames (offsets from his top left, facing right). */
+const SLASH = [[[6, -1], [7, 0], [7, 1]], [[7, 0], [8, 1], [8, 2], [8, 3]], [[8, 2], [8, 3], [7, 4], [6, 5]]]
 /** The princess in her window (3×2: crown, hair, face) and leaning out (her arm up or down, the dress on the sill). */
 const PRINCESS_IN = ['AcA', 'aFa']
 const PRINCESS_OUT = [['.cA.K', 'AFaK.', 'LDd..'], ['.cA..', 'AFaKK', 'LDd..']]
+/** The princess out of her window, 3×6: crown, hair and face, arms, a pink gown. Her frying pan (offsets from her
+ * top left, facing right) hangs down, comes up, swings over. */
+const PRINCESS_FULL = ['.c.', 'AFa', 'KDK', 'LDd', 'DDd', 'Ldd']
+const PAN: Record<string, [number, number, string][]> = {
+  down: [[3, 2, 'h'], [3, 3, 'P'], [4, 3, 'P']],
+  mid: [[3, 2, 'h'], [4, 1, 'P'], [4, 2, 'P']],
+  up: [[3, 1, 'h'], [3, 0, 'P'], [3, -1, 'P']],
+  hit: [[3, 1, 'h'], [4, 0, 'P'], [5, 0, 'P']],
+}
+const PAN_KEYS: Record<string, string> = { P: '#4a4e69', h: '#6b4226' }
+const ROPE = '#c9a66b'
 /** An archer, 3×3: hood, face and bow, tunic. */
 const ARCHER = ['.Gb', 'eFb', 'Egb']
 /** Clouds: small, middle and big puffs. */
@@ -146,6 +168,46 @@ const PENNANT: [number, number, string][][] = [
   [[0, 0, 'Z'], [1, 1, 'Y'], [2, 1, 'X']],
   [[0, 0, 'Y'], [1, 0, 'Z'], [2, 1, 'X']],
 ]
+
+/** A sheep, 4×3 facing right: wool shaded grey, a dark face, legs stepping; grazing, its head down. */
+const SHEEP = [['WWW.', 'wWWF', 'L.L.'], ['WWW.', 'wWWF', '.L.L']]
+const SHEEP_GRAZE = ['WWW.', 'wWW.', 'L.LF']
+const SHEEP_KEYS: Record<string, string> = { W: '#ffffff', w: '#c9ccd6', F: '#3d405b', L: '#3d405b' }
+/** A hay bale, 4×3, its straw turning as it rolls; straw tones. */
+const BALE = [['yYYy', 'YyYY', 'oyyo'], ['YyYy', 'yYYy', 'oyyo']]
+const BALE_KEYS: Record<string, string> = { Y: '#e9c46a', y: '#c9a227', o: '#8a6d1c' }
+const STRAW = ['#e9c46a', '#ffd166']
+/** The catapult's arm (wood, a dark cup) and its boulder, 3×3 in a grey ramp; the dust where it lands. */
+const BOULDER = ['ABC', 'BBC', 'CCD']
+const ROCK = paint('ABCD', '#8d8f9e')
+const DUST = '#e6d5b8'
+const [ARROW_HEAD, ARROW_SHAFT, STAR] = ['#e9ecef', '#a47148', '#ffd60a']
+/** A small horse, 9×4 facing right (tail, back, a head with its mane), its legs galloping on four frames. */
+const HORSE = ['......mH.', 'tHHHHHHHH', '.hHHHHh..']
+const HOOVES = ['.h.h..h.h', '..hh..hh.', 'h...hh..h', '..hh..hh.']
+const HORSE_KEYS: Record<string, string> = { H: '#8d5a3b', h: '#6b4226', m: '#3d2817', t: '#3d2817' }
+/** Clawd at 6×3, shrunk from the shared shape (every pair of columns, its top and middle rows), eyes on. */
+const CLAWD_MINI = (() => {
+  const half = (row: string) => Array.from({ length: row.length >> 1 }, (_, i) => (row[2 * i] !== '.' ? row[2 * i]! : row[2 * i + 1]!)).join('')
+  const rows = [0, 2, 3].map(r => half(CLAWD_SHAPE.body[r]!))
+  const eyes = CLAWD_SHAPE.eyes.map(x => x >> 1)
+  rows[1] = [...rows[1]!].map((c, i) => (eyes.includes(i) ? 'E' : c)).join('')
+  return rows
+})()
+const CLAWD_KEYS: Record<string, string> = { O: '#d77757', L: '#e8957a', D: '#a9553b', E: CLAWD_SHAPE.eye }
+/** Clawd's lance (offsets from the rig's left, his arm's row): level, half up, tipped. */
+const LANCE = [
+  [[7, 0], [8, 0], [9, 0], [10, 0], [11, 0]],
+  [[7, 0], [8, 0], [9, -1], [10, -1], [11, -1]],
+  [[7, 0], [8, -1], [9, -1], [10, -2], [11, -2]],
+]
+/** The hatchling, 6×4 facing right: horns, a big red head with a pale eye and pink snout, a gold belly and wing
+ * nub (up or down), a dark tail. */
+const HATCH = [
+  ['..N.K.', 'T.BHHE', '.BGBHS', '..B.B.'],
+  ['....K.', 'T.BHHE', '.BNBHS', '..B.B.'],
+]
+const HATCH_KEYS: Record<string, string> = { K: '#ffd166', N: GOLD, B: '#e63946', H: '#e63946', G: GOLD, S: '#ff758f', T: '#c1121f', E: PALE }
 
 // ---- poses ------------------------------------------------------------------------------------------------------
 
@@ -167,16 +229,19 @@ function stageOf(w: number): Stage {
 
 const GEOS = new Map<number, Geo>()
 /** The patrol for width `w`: between ZONE_X (over the knight; right of the tower when narrow) and ZONE_R short of
- * the right edge (across the sun), anchored left so its near end comes over the knight; a period long enough that
- * it never moves more than 0.8 of a pixel a frame (a multiple of 8, so the turns fall on whole, even frames). */
+ * the right edge (across the sun), anchored left so its near end comes over the knight. Its period is 80 frames
+ * (a swing of 10 at most) or 160 (a swing of 20 at most): never more than 0.8 of a pixel a frame, a multiple of 8
+ * (so the turns fall on whole, even frames), and dividing a set piece's slot, so every slot starts and ends with
+ * the dragon in the middle of its patrol, heading right. */
 function geoOf(w: number): Geo {
   let g = GEOS.get(w)
   if (!g) {
     const right = w >= FULL ? w - ZONE_R : w >= TINY ? w - ZONE_R_NARROW : w
     const left = Math.max(0, Math.min(w >= WIDE ? stageOf(w).knightX + (w >= FULL ? ZONE_DX : ZONE_DX_CROP) : w >= TINY ? 7 : 0, right - DW))
-    const room = Math.max(0, right - left - DW)
-    const a = Math.min(MAX_A, room >> 1)
-    g = { cx: left + a + (w < TINY ? (room >> 1) - a : 0), a, p: 8 * Math.round(Math.max(64, 8 * a) / 8) }
+    const reach = Math.max(0, right - left - DW) >> 1
+    const p = reach >= 20 ? 160 : 80
+    const a = Math.min(reach, p / 8)
+    g = { cx: left + a + (w < TINY ? reach - a : 0), a, p }
     GEOS.set(w, g)
   }
   return g
@@ -214,14 +279,6 @@ export function princessHome(t: number, s: Signals): PrincessPose {
   return mod(t, 60) >= 21 && mod(t, 60) < 24 ? 'window' : 'hidden'
 }
 
-/** How far a breath (fire or sparks) has grown over the last `window` frames: a pixel on each frame the dragon held
- * its column, so its tip never moves two in a frame (`most` at most). */
-function grown(t: number, w: number, window: number, most: number): number {
-  let n = 0
-  for (let j = 0; j < window && n < most; j++) if (patrol(t - j, w).x === patrol(t - j - 1, w).x) n++
-  return n
-}
-
 // ---- small drawers ----------------------------------------------------------------------------------------------
 
 /** The sky through y 9, then the sun at the right: a disc with a pale core shimmering on 10 frames, its eight
@@ -255,6 +312,13 @@ function clouds(cv: Canvas, t: number, w: number, count: number): void {
 /** The near ridge's top row at column `x` (7..9). */
 const nearTop = (x: number) => Math.min(9, Math.round(8.4 - 1.1 * Math.sin(x * 0.21 + 0.5) - 0.6 * Math.sin(x * 0.09)))
 
+/** The round trees' columns on the near ridge, from column `from`. */
+function trees(w: number, from: number): number[] {
+  const out: number[] = []
+  for (let x = from + 6; x < w - 2; x += 17) out.push(x + Math.floor(noise(x) * 6))
+  return out
+}
+
 /** The hills: a far ridge paled by the air (y 5..9) and a nearer green one (y 7..9), each a lit crest over a body
  * shading toward the foot, a few round trees on the near one. A flock of three birds crosses right to left a pixel
  * a frame, flapping, every w + 30 frames. */
@@ -265,10 +329,7 @@ function hills(cv: Canvas, t: number, w: number, from: number): void {
     for (let y = far; y < 10; y++) plot(cv, x, y, FAR_HILL[y === far ? 0 : y >= far + 2 ? 2 : 1]!)
     for (let y = near; y < 10; y++) plot(cv, x, y, HILL[y === near ? 0 : y >= near + 2 ? 2 : 1]!)
   }
-  for (let x = from + 6; x < w - 2; x += 17) {
-    const at = x + Math.floor(noise(x) * 6)
-    sprite(cv, at - 1, nearTop(at) - 3, TREE_ART, TREE)
-  }
+  for (const at of trees(w, from)) sprite(cv, at - 1, nearTop(at) - 3, TREE_ART, TREE)
   const at = mod(t, w + 30)
   for (let i = 0; i < 3; i++) {
     const x = w + 2 - at + i * 5
@@ -387,10 +448,14 @@ function princess(cv: Canvas, pose: PrincessPose, x0: number): void {
 }
 
 /** The dragon at its pose: the body (jaws open if asked), then the near wing in its pose, in `keys` (a tool's
- * colour tints the membrane). */
-function dragon(cv: Canvas, f: Fly, open: boolean, keys: Record<string, string>): void {
-  sprite(cv, f.x, f.y, open ? DRAGON_OPEN : DRAGON_BODY, keys, f.face)
-  sprite(cv, f.x, f.y, WINGS[f.wing]!, keys, f.face)
+ * colour tints the membrane), each colour through `ink` (a flash keeps its shading, so its edges stay), upside down
+ * if `over`. */
+function dragon(cv: Canvas, f: Fly, open: boolean, keys: Record<string, string>, ink?: (c: string) => string,
+  over = false): void {
+  // Upside down (mid-roll): its box's rows the other way up.
+  const turn = (art: readonly string[]) => (over ? [...art, ...Array(DH - art.length).fill('')].reverse() : art)
+  sprite(cv, f.x, f.y, turn(open ? DRAGON_OPEN : DRAGON_BODY), keys, f.face, ink)
+  sprite(cv, f.x, f.y, turn(WINGS[f.wing]!), keys, f.face, ink)
 }
 
 /** A wyvern on its own pose, its wings on four frames, white while it greets. */
@@ -436,10 +501,11 @@ function sparks(cv: Canvas, f: Fly, len: number, t: number, hue: string): void {
 
 /** Sound rings out of the jaws: a 3-pixel arc born over the jaw's tip (so it leaves from the head even as the
  * dragon flies), moving on from where the jaws were when it set off a pixel a frame, a new one every 6, two in
- * flight, the outer one paler. `at(te)` is the dragon's pose at frame `te`. */
-function rings(cv: Canvas, t: number, at: (te: number) => Fly): void {
+ * flight, the outer one paler. `at(te)` is the dragon's pose at frame `te`, `born(te)` whether a ring set off then. */
+function rings(cv: Canvas, t: number, at: (te: number) => Fly, born: (te: number) => boolean = () => true): void {
   for (let k = 0; k < 2; k++) {
     const d = mod(t, 6) + 6 * k
+    if (!born(t - d)) continue
     const f = at(t - d)
     const [jx, jy] = jaws(f)
     const x = jx + f.face * (d - 1)
@@ -475,51 +541,523 @@ function glyph(g: Grid, cv: Canvas, x: number, row: number, text: string, c: str
   put(g, x, row, text, { c, b: true, bg: cv.px[2 * row * cv.w + x] ?? SKY[2 * row]! })
 }
 
+// ---- set pieces -------------------------------------------------------------------------------------------------
+
+/** The schedule: slots of EVENT_LEN frames, each one of EVENT_KINDS set pieces, now and then (EGG_CHANCE) one of
+ * EGG_KINDS easter eggs instead. */
+export const EVENT_LEN = 160
+export const EVENT_KINDS = 6
+export const EGG_KINDS = 3
+export const DRAGON_SEED = 7
+export const EGG_CHANCE = 1 / 40
+/** The age a trip is back on its patrol by (early enough that sound rings, which look 11 frames back, are home by
+ * the slot's end); how far behind its patrol pose it comes up when it has to turn first; the dragon's top row with
+ * its feet on the grass. */
+const [BACK, APPROACH, GROUND] = [146, 8, 4]
+
+type Draw = (cv: Canvas) => void
+/** Where a piece starts from: the slot's first frame, the width and stage, the turn's signals, the patrol by the
+ * slot's age, and the knight and princess at home now. */
+type Home = { t0: number; w: number; st: Stage; s: Signals; at: (age: number) => Fly; kn: KnightPose; pr: PrincessPose }
+/** Who is where on a frame: the dragon (behind the castle or not, jaws open, flashing white, upside down, its
+ * fire's length, roaring rings), the knight (in front of the dragon or not), the princess at her window; and what
+ * else is drawn: under the hills, behind the castle (`mid`), in front of it but behind the knight and dragon
+ * (`low`), in front of the dragon but behind the castle (`fore`, shown only where the castle isn't) and the knight
+ * (if `knightFront`), and over all. */
+type Cast = {
+  f: Fly; behind: boolean; open: boolean; flash: boolean; over: boolean; len: number; roar: boolean
+  kn: KnightPose; knightFront: boolean; pr: PrincessPose
+  under?: Draw; mid?: Draw; low?: Draw; fore?: Draw; top?: Draw
+}
+/** A set piece: what changes at `age` of its slot, everyone home at 0 and from BACK on. */
+type Piece = (age: number, h: Home) => Partial<Cast>
+
+/** A stop on a trip: where, the age to be there by (later if it can't), how long to stay, which way to face. */
+type Way = { x: number; y: number; at: number; hold?: number; face?: 1 | -1 }
+/** A trip planned: its path (turn holds put in), the ages it turns at and its facing after each, the ages it leaves
+ * and rejoins the patrol, when it reaches and leaves each stop, and whether it makes it home by BACK (else it stays
+ * home). */
+type Plan = {
+  pts: Waypoint[]; turns: number[]; faces: (1 | -1)[]; from: number; to: number; arr: number[]; dep: number[]; ok: boolean
+}
+
+const evenUp = (n: number) => n + mod(n, 2)
+/** Frames a leg takes at the most a pixel a frame across and half a pixel down, two more for a turn first. */
+const span = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  evenUp(Math.max(Math.abs(a.x - b.x), 2 * Math.abs(a.y - b.y))) + 2
+
+/** Plans a trip through `ways`: it leaves the patrol as late as still reaches the first stop by its age, goes stop to
+ * stop as fast as it may, and rejoins its patrol at the latest age by BACK it can reach where the patrol already
+ * flies the way it would arrive (else at BACK, coming up from behind, APPROACH back), leaving the last stop as late
+ * as that allows. Every age on the path is even; a turn holds the dragon still for two frames and falls on the
+ * second, an even frame. */
+function plan(h: Home, ways: Way[]): Plan {
+  const first = ways[0]!
+  let from = evenUp(first.at) - 2
+  while (from > 2 && span(h.at(from), first) > first.at - from) from -= 2
+  const arr: number[] = []
+  const dep: number[] = []
+  let [prev, time]: [{ x: number; y: number }, number] = [h.at(from), from]
+  for (const way of ways) {
+    const a = Math.max(evenUp(way.at), time + span(prev, way))
+    arr.push(a)
+    dep.push(a + evenUp(way.hold ?? 0))
+    ;[prev, time] = [way, dep[dep.length - 1]!]
+  }
+  const n = ways.length - 1
+  const last = ways[n]!
+  const into = (e: Fly) => Math.sign(e.x - last.x) === e.face
+  let to = BACK
+  while (to > arr[n]! && !(into(h.at(to)) && span(last, h.at(to)) <= to - arr[n]!)) to -= 2
+  if (to <= arr[n]!) to = BACK
+  const end = h.at(to)
+  const near: Way = { x: end.x - end.face * APPROACH, y: end.y, at: to - APPROACH - 2 }
+  const latest = into(end) ? to - span(last, end) : near.at - span(last, near)
+  dep[n] = Math.max(arr[n]!, Math.min(dep[n]!, latest))
+  const raw: Way[] = [{ x: h.at(from).x, y: h.at(from).y, at: from }]
+  ways.forEach((way, i) => {
+    raw.push({ x: way.x, y: way.y, at: arr[i]!, face: way.face })
+    if (dep[i]! > arr[i]!) raw.push({ x: way.x, y: way.y, at: dep[i]! })
+  })
+  if (!into(end)) raw.push(near)
+  raw.push({ x: end.x, y: end.y, at: to })
+  const pts: Waypoint[] = []
+  const turns: number[] = []
+  const faces: (1 | -1)[] = [h.at(from).face]
+  raw.forEach((p, i) => {
+    pts.push(p)
+    const q = raw[i + 1]
+    if (!q) return
+    const face = faces[faces.length - 1]!
+    const want = p.face ?? (q.x > p.x ? 1 : q.x < p.x ? -1 : face)
+    if (want !== face) {
+      pts.push({ x: p.x, y: p.y, at: p.at + 2 })
+      turns.push(p.at + 2)
+      faces.push(want)
+    }
+  })
+  return { pts, turns, faces, from, to, arr, dep, ok: arr[n]! <= latest }
+}
+
+/** The dragon on a planned trip at `age`: its column by the path on any frame, its row on even frames, its facing
+ * by the turns, its wings on the patrol's beat; home before and after (and throughout, if the trip can't be made),
+ * though before it leaves its next turn is the trip's, so a breath draws back for that one. */
+function fly(p: Plan, age: number, h: Home): Fly {
+  const home = h.at(age)
+  if (!p.ok || age >= p.to) return home
+  if (age <= p.from) {
+    // Home, but its next turn is the trip's (the patrol's own, if that comes first).
+    return age + home.until <= p.from ? home : { ...home, until: (p.turns[0] ?? p.to + h.at(p.to).until) - age }
+  }
+  let n = 0
+  while (n < p.turns.length && p.turns[n]! <= age) n++
+  const [prev, next] = [p.turns[n - 1], p.turns[n]]
+  return {
+    x: along(p.pts, age).x,
+    y: along(p.pts, age - mod(h.t0 + age, 2)).y,
+    face: p.faces[n]!,
+    wing: home.wing,
+    since: prev === undefined ? h.at(p.from).since + age - p.from : age - prev,
+    until: next === undefined ? p.to - age + h.at(p.to).until : next - age,
+  }
+}
+
+const beat = (t: number) => (t + 1) >> 1
+/** The wing pose at `t` in a barrel roll begun at `r` (even): the beat run backwards for eight frames, which brings
+ * it back in step. */
+const rolled = (t: number, r: number) => WING_CYCLE[mod(t >= r && t < r + 8 ? 2 * beat(r) - beat(t) : beat(t), 4)]!
+
+/** The knight at `x` (his feet `lift` above the grass) in `art`, facing `face`. */
+const knightAt = (x: number, lift: number, face: 1 | -1, art: readonly string[]): KnightPose =>
+  ({ x, y: KNIGHT_Y - lift, face, art, plume: false })
+const runArt = (i: number) => [...KNIGHT[0]!.slice(0, 6), ...RUN_LEGS[mod(i, 4)]!]
+/** A white flash that keeps the shading (and so the edges). */
+const blanch = (c: string) => mix(c, WHITE, 0.7)
+
+/** 0 strafe: it dives to the knight's height a fire's length off him, breathes on his shield (which he raises,
+ * sparks flying off it), climbs and flies home. */
+const strafe: Piece = (age, h) => {
+  const x = Math.min(h.kn.x + 16, h.w - DW)
+  const p = plan(h, [{ x, y: 3, at: 58, hold: 40, face: -1 }, { x: x + 6, y: 0, at: 0 }])
+  const [a, d] = [p.arr[0]! + 4, p.dep[0]!]
+  const len = p.ok && age >= a && age < d ? Math.min(CONE, age - a + 1, d - 1 - age) : 0
+  return { f: fly(p, age, h), len }
+}
+
+/** 1 charge: the knight runs out under the dragon hovering low, leaps and slashes (a white arc); it flinches, white
+ * for two frames, knocked up two pixels and settling back over six, then backs off up and away; he walks back to
+ * his post. */
+const charge: Piece = (age, h) => {
+  const k = h.kn
+  const run = Math.max(6, Math.min(20, h.w - DW - 10 - k.x))
+  const kx = k.x + run
+  const p = plan(h, [{ x: kx + 8, y: 3, at: 50, hold: 30, face: -1 }, { x: kx + 14, y: 0, at: 0 }])
+  if (!p.ok) return {}
+  const [a, d] = [p.arr[0]!, p.dep[0]!]
+  const leap = a + 6
+  const [hit, start, back] = [leap + 4, leap - 2 - 2 * run, d + 2]
+  const knock = age >= hit && age < hit + 10 ? [1, 1, 2, 2, 2, 2, 1, 1, 1, 1][age - hit]! : 0
+  const f = fly(p, age, h)
+  let kn = k
+  if (age >= start && age < leap - 2) kn = knightAt(k.x + ((age - start) >> 1), 0, 1, runArt(age))
+  else if (age >= leap - 2 && age < leap) kn = knightAt(kx, 0, 1, runArt(0))
+  else if (age >= leap && age < leap + 10) {
+    const lift = [1, 2, 3, 3, 3, 3, 3, 2, 1, 0][age - leap]!
+    kn = knightAt(kx, lift, 1, age >= leap + 2 && age < leap + 7 ? KNIGHT_SLASH : runArt(age))
+  } else if (age >= leap + 10 && age < back) kn = { ...k, x: kx }
+  else if (age >= back && age < back + 3 * run + 2) {
+    const x = kx - Math.min(run, Math.floor((age - back) / 3))
+    kn = knightAt(x, 0, -1, x === kx || x === k.x ? runArt(0) : runArt(age >> 1))
+  }
+  const arc = age - leap - 2
+  const top: Draw | undefined = arc >= 0 && arc < 3
+    ? cv => { for (const [dx, dy] of SLASH[arc]!) plot(cv, kn.x + dx!, kn.y + dy!, WHITE) }
+    : undefined
+  return { f: { ...f, y: f.y - knock }, flash: age >= hit && age < hit + 2, kn, top }
+}
+
+/** The archers' three arrows, loosed `from` on (each from a bow on screen), arcing up over the field and falling
+ * into the grass. */
+function arrows(cv: Canvas, age: number, from: number, st: Stage, w: number): void {
+  for (const [ax, delay] of [[21, 0], [8, 8], [21, 16]] as const) {
+    const [x0, i] = [ax + st.dx + 3, age - from - delay]
+    if (x0 < 1 || i < 0) continue
+    const y = (j: number) => 3 - Math.round(j / 2 - (j * j) / 48)
+    if (y(i) >= 10 || x0 + i >= w) continue
+    plot(cv, x0 + i - 2, y(Math.max(0, i - 2)), ARROW_SHAFT)
+    plot(cv, x0 + i - 1, y(Math.max(0, i - 1)), ARROW_SHAFT)
+    plot(cv, x0 + i, y(i), ARROW_HEAD)
+  }
+}
+
+/** 2 tower run: it sweeps low past the princess's tower (in front of the castle, behind the knight) and off the left
+ * edge, comes back high behind the castle and out over the field; she watches it come, ducks while it is near and
+ * looks out again after; the archers loose three arrows that arc over it and miss. */
+const towerRun: Piece = (age, h) => {
+  const { st } = h
+  const tx = st.towerX
+  const out = -DW - 1
+  const p = plan(h, [
+    { x: tx + 10, y: 3, at: 24, face: -1 },
+    { x: out, y: 3, at: 0, face: 1 },
+    { x: out, y: 0, at: 0 },
+    { x: st.wide ? st.knightX + 7 : tx + 6, y: 0, at: 0 },
+  ])
+  if (!p.ok) return {}
+  const [a0, a1, , a2] = p.arr as [number, number, number, number]
+  const past = a1 + 2 + tx + 6 - out
+  const pr: PrincessPose = !st.tower ? h.pr
+    : age >= a0 - 10 && age < a0 + 2 ? 'window'
+    : age >= a0 + 2 && age < past ? 'hidden'
+    : age >= past && age < past + 16 ? 'window'
+    : h.pr
+  return {
+    f: fly(p, age, h), behind: age >= a1 && age < a2, pr, knightFront: true,
+    top: st.wide ? cv => arrows(cv, age, a1 + 4, st, h.w) : undefined,
+  }
+}
+
+/** 3 catapult: behind the keep a catapult's arm rises over the merlons with a boulder, flings it in an arc at the
+ * dragon hovering over the field, which barrel-rolls as it passes behind; the boulder lands in the grass right of the
+ * knight in a puff of dust and settles in; the arm lowers. */
+const catapult: Piece = (age, h) => {
+  const { st, kn, w } = h
+  const px = st.dx === 0 ? 6 : 1
+  const deg = (a: number) => (a < 40 ? 170 - (35 * Math.max(0, a - 10)) / 30
+    : a < 48 ? 135 - (60 * (a - 40)) / 8 : a < 90 ? 75 : 75 + (95 * Math.min(40, a - 90)) / 40)
+  const tip = (a: number): [number, number] => {
+    const r = (deg(a) * Math.PI) / 180
+    return [px + Math.round(5 * Math.cos(r)), 6 - Math.round(5 * Math.sin(r))]
+  }
+  const [bx, by] = tip(48).map(v => v - 1) as [number, number]
+  const lx = Math.min(w - 4, kn.x + 30)
+  const n = lx - bx
+  const land = 48 + n
+  const boulder = (a: number): [number, number] => {
+    if (a < 48) return tip(a).map(v => v - 1) as [number, number]
+    const u = Math.min(1, (a - 48) / n)
+    return [bx + Math.min(n, a - 48), Math.round(by + (8 - by) * u * u - 6 * u * (1 - u))]
+  }
+  const dx = kn.x + 10
+  const p = plan(h, [{ x: dx, y: 1, at: 40, hold: land - 36, face: -1 }])
+  const f = fly(p, age, h)
+  const roll = 48 + dx - bx - 6 - mod(dx - bx, 2)
+  const sink = Math.max(0, (age - land - 12) >> 2)
+  const [ox, oy] = boulder(age)
+  const rock = (cv: Canvas) => { if (sink < 3) sprite(cv, ox, oy + sink, BOULDER.slice(0, 3 - sink), ROCK) }
+  return {
+    f: p.ok ? { ...f, wing: rolled(h.t0 + age, h.t0 + roll) } : f, over: p.ok && age >= roll + 2 && age < roll + 6,
+    mid: age >= 10 && age < 130 ? cv => {
+      // A beam two pixels thick (lit on top), a dark cup at its end.
+      const rad = (deg(age) * Math.PI) / 180
+      for (let r = 1; r <= 5; r++) {
+        const [ax, ay] = [px + Math.round(r * Math.cos(rad)), 6 - Math.round(r * Math.sin(rad))]
+        plot(cv, ax + 1, ay, WOOD.O!)
+        plot(cv, ax, ay, r === 5 ? WOOD.o! : WOOD.I!)
+      }
+      if (age < 48) rock(cv)
+    } : undefined,
+    low: age >= 48 && age < land + 24 ? cv => {
+      rock(cv)
+      const k = age - land
+      if (k >= 0 && k < 12) {
+        for (const [ex, ey] of [[-2, 2], [-1, 1], [0, 0], [3, 0], [4, 1], [5, 2]] as const) {
+          plot(cv, lx + ex, 8 + ey - (k >> 2), mix(DUST, SKY[8]!, k / 12))
+        }
+      }
+    } : undefined,
+  }
+}
+
+/** 4 landing: it comes down on the far grass, folds its wings and roars: rings run out of its jaws, the grass
+ * flattens in a wave either side, two birds burst out of the trees either side; then it takes off for home. */
+const landing: Piece = (age, h) => {
+  const g = geoOf(h.w)
+  const lx = Math.min(h.w - DW - 8, g.cx + g.a + 6)
+  const p = plan(h, [{ x: lx, y: GROUND, at: 52, hold: 50, face: -1 }])
+  if (!p.ok) return {}
+  const [a, d] = [p.arr[0]!, p.dep[0]!]
+  const f = fly(p, age, h)
+  const roar = age >= a + 10 && age < a + 40
+  const [wave, flight] = [age - a - 10, age - a - 12]
+  return {
+    f: age >= a + 3 && age < d - 3 ? { ...f, wing: FOLDED } : f, open: roar, roar,
+    mid: wave >= 0 && wave < 30 ? cv => {
+      for (const x of [lx - 1 - wave, lx - 2 - wave, lx + DW + wave, lx + DW + 1 + wave]) plot(cv, x, 10, GRASS.deep)
+    } : undefined,
+    top: h.st.wide && flight >= 0 && flight < 12 ? cv => {
+      const near = trees(h.w, Math.max(0, h.st.dx + 25))
+      const perches = [[near.filter(x => x < lx - 1).pop(), -1], [near.find(x => x > lx + DW), 1]] as const
+      for (const [x0, dir] of perches) {
+        if (x0 === undefined) continue
+        sprite(cv, x0 - 1 + dir * flight, nearTop(x0) - 5 - flight, BIRDS[mod(age, 4) < 2 ? 0 : 1]!, { B: BIRD })
+      }
+    } : undefined,
+  }
+}
+
+/** 5 sheep: a hay bale rolls in from the right with three sheep behind it; they graze; the dragon swoops at them and
+ * they scatter (two off to the right, one bolting left behind the knight and the castle, if it can get there); it
+ * snaps at the bale instead, which bursts into straw that falls into the grass; it flies home. */
+const sheep: Piece = (age, h) => {
+  const { w, kn, st } = h
+  const g = geoOf(w)
+  const s0 = Math.min(Math.max(w - 36, kn.x + 10), g.cx + g.a + 10)
+  const come = w - s0
+  const p = plan(h, [{ x: s0 + 12, y: 2, at: come + 16, face: -1 }, { x: s0 + 5, y: GROUND, at: come + 34, hold: 22 }])
+  const scatter = p.ok ? p.arr[0]! : come + 16
+  const burst = p.ok ? p.arr[1]! + 8 : scatter + 24
+  const wall = st.dx + 24
+  const bolt = s0 + 6 - (wall - 3) <= BACK - scatter - 4
+  const herd = (cv: Canvas) => {
+    for (let i = 0; i < 3; i++) {
+      const home = s0 + 6 + 6 * i
+      const left = i === 0 && bolt
+      let [x, face, art] = [Math.max(home, w + 6 + 6 * i - age), -1 as 1 | -1, SHEEP[mod(age >> 1, 2)]!]
+      if (age >= come && age < scatter) art = mod(age + 4 * i, 16) < 8 ? SHEEP_GRAZE : SHEEP[0]!
+      if (age >= scatter && left) [x, art] = [home - (age - scatter), SHEEP[mod(age, 2)]!]
+      if (age >= scatter + 2 && !left) [x, face, art] = [home + age - scatter - 2, 1, SHEEP[mod(age, 2)]!]
+      else if (age >= scatter && !left) [face, art] = [-1, SHEEP[0]!]
+      if (x < w && x > -4) sprite(cv, x, 8, art, SHEEP_KEYS, face)
+    }
+    if (age < burst) sprite(cv, Math.max(s0, w - age), 8, BALE[age < come ? mod(age >> 1, 2) : 0]!, BALE_KEYS)
+  }
+  const straw = (cv: Canvas) => {
+    const i = age - burst
+    if (i < 0) return
+    for (let k = 0; k < 8; k++) {
+      const y = 8 + (k >> 2) - Math.min(i, 3) + Math.max(0, i - 3)
+      if (y < 10) plot(cv, s0 + (k & 3) + (((k & 3) - 1.5) > 0 ? 1 : -1) * (i >> 1), y, STRAW[k & 1]!)
+    }
+  }
+  return {
+    f: fly(p, age, h), open: p.ok && age >= burst - 2 && age < burst + 1,
+    mid: age < BACK ? herd : undefined, top: age >= burst && age < burst + 12 ? straw : undefined,
+  }
+}
+
+/** Egg 0, frying pan: a rope uncoils from the princess's window, she climbs out and down it; the dragon passes low
+ * and she bonks it with a frying pan (it flashes white, three stars circle its head while it hovers, dazed); she
+ * climbs back up and draws the rope in. */
+const pan: Piece = (age, h) => {
+  const tx = h.st.towerX
+  const p = plan(h, [{ x: tx + 12, y: 0, at: 40, face: -1 }, { x: tx - 2, y: 0, at: 0, hold: 34 }])
+  const bonk = p.ok ? p.arr[1]! : 70
+  const back = p.ok ? p.dep[1]! + 2 : 104
+  const rope = age < 4 ? 0 : age < back + 16 ? Math.min(5, (age - 4) >> 1) : Math.max(0, 5 - ((age - back - 16) >> 1))
+  const rows = age < 14 ? 0
+    : age < back + 2 ? Math.min(6, 2 + ((age - 14) >> 1))
+    : Math.max(0, 6 - ((age - back - 2) >> 1))
+  const y = age >= 24 && age < back ? 5 : 4
+  const pose = age >= bonk - 4 && age < bonk - 2 ? 'mid' : age >= bonk - 2 && age < bonk ? 'up'
+    : age >= bonk && age < bonk + 3 ? 'hit' : age >= bonk + 3 && age < bonk + 6 ? 'mid' : 'down'
+  const pr: PrincessPose = (age >= 10 && age < 14) || (age >= back + 10 && age < back + 16) ? 'window'
+    : age >= 10 && age < back + 16 ? 'hidden' : h.pr
+  const f = fly(p, age, h)
+  const dazed = p.ok && age >= bonk && age < bonk + 32
+  const wobble = dazed && mod(age - bonk, 8) >= 4 ? 1 : 0
+  const fd = { ...f, y: f.y + wobble }
+  return {
+    f: fd, flash: p.ok && age >= bonk && age < bonk + 2, pr,
+    low: rope > 0 ? cv => { for (let j = 0; j < rope; j++) plot(cv, tx + 4, 6 + j, ROPE) } : undefined,
+    top: rows > 0 || (dazed && age > bonk) ? cv => {
+      if (rows > 0) {
+        // Facing left, toward the dragon's head.
+        sprite(cv, tx + 1, y, PRINCESS_FULL.slice(0, rows), PRINCESS_KEYS, -1)
+        if (rows >= 5) for (const [dx, dy, k] of PAN[pose]!) plot(cv, tx + 3 - dx, y + dy, PAN_KEYS[k]!)
+      }
+      if (dazed && age > bonk) {
+        for (let k = 0; k < 3; k++) {
+          const a = (age - bonk) * 0.3 + (k * 2 * Math.PI) / 3
+          plot(cv, fd.x + 3 + Math.round(3 * Math.cos(a)), fd.y + Math.round(1.5 * Math.sin(a)), STAR)
+        }
+      }
+    } : undefined,
+  }
+}
+
+/** Egg 1, Clawd: Clawd rides out from behind the castle on a small horse and across the grass to the right edge
+ * (behind the knight, in front of the dragon), tipping his lance at the dragon as he passes under it. */
+const clawd: Piece = (age, h) => {
+  const { st, w } = h
+  const x0 = st.dx + 24 - 13
+  const xAt = (a: number) => x0 + Math.floor(((w + 1 - x0) * a) / 152)
+  let pass = -99
+  for (let a = 0; a < EVENT_LEN; a++) {
+    const g = h.at(a)
+    if (Math.abs(xAt(a) + 6 - (g.x + 8)) <= 2) { pass = a; break }
+  }
+  const x = xAt(age)
+  const k = age - pass
+  const lance = k >= -4 && k < -2 ? 1 : k >= -2 && k < 6 ? 2 : k >= 6 && k < 8 ? 1 : 0
+  const draw = (cv: Canvas) => {
+    if (x >= w) return
+    const bob = mod(age, 4) < 2 ? 0 : 1
+    sprite(cv, x, 7, [...HORSE, HOOVES[mod(age, 4)]!], HORSE_KEYS)
+    sprite(cv, x + 1, 5 + bob, CLAWD_MINI, CLAWD_KEYS)
+    LANCE[lance]!.forEach(([dx, dy], i) => plot(cv, x + dx!, 6 + bob + dy!, i === 4 ? ARROW_HEAD : ROPE))
+  }
+  return { fore: draw, knightFront: true }
+}
+
+/** Egg 2, hatchling: the pet's hatchling comes out from behind the princess's tower and the castle wall, chases after
+ * the dragon's tail (where it was eight frames ago, two pixels behind), both barrel-roll together (they turn over),
+ * and it flies off up and to the right. */
+const [ROLL, LEAVE] = [76, 92]
+const FLIGHTS = new Map<string, [number, number, 1 | -1][]>()
+/** The hatchling's whole flight for a slot (its column, row and facing by age), worked out once: a pixel a frame
+ * across toward its target, a row every two frames. */
+function hatchFlight(h: Home) {
+  const key = `${h.t0}:${h.w}`
+  let fl = FLIGHTS.get(key)
+  if (fl) return fl
+  let [x, y, face] = [h.st.towerX, 4, 1 as 1 | -1]
+  const path: [number, number, 1 | -1][] = []
+  for (let a = 0; a < EVENT_LEN; a++) {
+    if (a > 10) {
+      let [tx, ty] = [x + 1, -9]
+      if (a < LEAVE) {
+        const d = h.at(a - 8)
+        ;[tx, ty] = [d.face > 0 ? d.x - 8 : d.x + DW + 2, d.y + 2]
+      }
+      const step = Math.sign(tx - x)
+      if (step !== 0) [x, face] = [x + step, step as 1 | -1]
+      if (mod(a, 2) === 0) y += Math.sign(ty - y)
+    }
+    path.push([x, y, face])
+  }
+  if (FLIGHTS.size > 32) FLIGHTS.clear()
+  FLIGHTS.set(key, path)
+  return path
+}
+
+const hatchling: Piece = (age, h) => {
+  const [x, y, face] = hatchFlight(h)[age]!
+  const art = HATCH[mod(age, 4) < 2 ? 0 : 1]!
+  const turned = age >= ROLL + 2 && age < ROLL + 6
+  const draw = (cv: Canvas) => {
+    if (y > -4 && x < h.w) sprite(cv, x, y, turned ? [...art].reverse() : art, HATCH_KEYS, face)
+  }
+  return { f: { ...h.at(age), wing: rolled(h.t0 + age, h.t0 + ROLL) }, over: turned, fore: draw, knightFront: true }
+}
+
+const PIECES: Piece[] = [strafe, charge, towerRun, catapult, landing, sheep]
+const EGGS: Piece[] = [pan, clawd, hatchling]
+/** Pieces that play on the narrow stage (the rest fall back to the tower's flight there). */
+const NARROW = new Set<Piece>([strafe, towerRun, landing, hatchling])
+/** For the review sheet: names, and each one's busiest age. */
+const PIECE_SHOW: [string, number][] = [
+  ['strafe', 80], ['charge', 60], ['tower', 44], ['catapult', 76], ['landing', 72], ['sheep', 70],
+]
+const EGG_SHOW: [string, number][] = [['frying pan', 58], ['clawd', 70], ['hatchling', 80]]
+
+/** Who is where at frame `t` in `slot` (none: everyone home). Below TINY nothing plays. */
+function cast(t: number, w: number, s: Signals, st: Stage, slot: Slot | null): Cast {
+  const kn = knightHome(t, w)
+  const pr = princessHome(t, s)
+  const base: Cast = {
+    f: patrol(t, w), behind: false, open: false, flash: false, over: false, len: 0, roar: false,
+    kn, knightFront: false, pr,
+  }
+  if (!slot || w < TINY) return base
+  let piece = slot.egg >= 0 ? EGGS[slot.egg]! : PIECES[slot.kind]!
+  if (!st.wide && !NARROW.has(piece)) piece = towerRun
+  const t0 = t - slot.age
+  return { ...base, ...piece(slot.age, { t0, w, st, s, at: a => patrol(t0 + a, w), kn, pr }) }
+}
+
 // ---- the scene --------------------------------------------------------------------------------------------------
 
-/** The scene at frame `t`, `w` cells wide. `opts.slot` will force a set piece (or none) for tests; set pieces
- * come in a later step, so for now every frame is the plain patrol. */
+/** The scene at frame `t`, `w` cells wide. `opts.slot` forces a set piece (or, null, none) for tests; otherwise the
+ * schedule picks it by `t`. */
 export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slot | null } = {}): Grid {
-  void opts
   const cv = canvas(w, DRAGON_ROWS)
   const st = stageOf(w)
-  const f = patrol(t, w)
-  const kn = knightHome(t, w)
+  const slotOf = (te: number): Slot | null => {
+    const forced = opts.slot
+    if (forced === undefined) return slotAt(te, EVENT_LEN, EVENT_KINDS, DRAGON_SEED, EGG_KINDS, EGG_CHANCE)
+    if (forced === null) return null
+    const age = forced.age + te - t
+    return age >= 0 && age < forced.len ? { ...forced, age } : null
+  }
+  const casts = new Map<number, Cast>()
+  const castAt = (te: number): Cast => {
+    let c = casts.get(te)
+    if (!c) casts.set(te, (c = cast(te, w, s, st, slotOf(te))))
+    return c
+  }
+  const at = (te: number) => castAt(te).f
+  const c = castAt(t)
+  const f = c.f
   const tool = s.act === 'tool' ? s.tool ?? 'other' : undefined
   const hue = tool && tool !== 'bash' ? TOOL_INK[tool] : undefined
 
-  // Back to front: sky and sun, clouds, hills and birds, the archers behind the merlons, the castle, the grass.
-  skyAndSun(cv, t, w)
-  clouds(cv, t, w, w < TINY ? 1 : Math.min(4, 2 + Math.floor(w / 60)))
-  if (st.wide) {
-    hills(cv, t, w, Math.max(0, st.dx + 25))
-    archers(cv, t, st.dx)
+  // The breath: grown a pixel on each frame the head held still since the act began and since it last turned
+  // (looking back along whatever path it flew), and drawn back before the next turn, so it never swaps sides; a set
+  // piece's own fire on top.
+  const grown = (te: number, window: number, most: number) => {
+    let n = 0
+    for (let j = 0; j < window && n < most; j++) {
+      const [now, before] = [at(te - j), at(te - j - 1)]
+      if (now.face !== before.face) break
+      if (now.x === before.x) n++
+    }
+    return n
   }
-  grass(cv, t, w)
-  castle(cv, t, st)
-  banners(cv, s, t, st)
-  if (st.tower) princess(cv, princessHome(t, s), st.towerX)
-
-  // The wyverns a fifth of a loop apart behind it, the newest greeting as it joins.
-  const n = Math.min(s.agents, MAX_WYVERNS)
-  for (let i = n - 1; i >= 0; i--) {
-    const v = patrol(t - Math.round(((i + 1) * geoOf(w).p) / 5), w)
-    wyvern(cv, v, t, i, i === n - 1 && s.agentsAge < GREET && mod(s.agentsAge, 2) === 0)
-  }
-
-  // The breath: grown a pixel on each frame the head held still since the act began and since the last turn, and
-  // drawn back before the next turn, so it never swaps sides.
-  const breath = (te: number, most: number, from: number) => {
-    const p = te === t ? f : patrol(te, w)
-    return Math.max(0, Math.min(grown(te, w, Math.min(s.actAge - (t - te) + 1 - from, p.since - 1), most), p.until - 2))
-  }
-  const len = tool === 'bash' ? breath(t, CONE, 0) : 0
+  const breath = (te: number, most: number, from: number) =>
+    Math.max(0, Math.min(grown(te, s.actAge - (t - te) + 1 - from, most), at(te).until - 2))
+  const fireAt = (te: number) => Math.max(castAt(te).len, tool === 'bash' ? breath(te, CONE, 0) : 0)
+  const len = fireAt(t)
   const spark = hue ? breath(t, SPARKS, 2) : 0
-  // The knight raises his shield while the cone's tip is over him.
-  const [jx, jy] = jaws(f)
-  const tipX = jx + f.face * (len - 1)
-  const shield = st.wide && len > 0 && tipX >= kn.x - 1 && tipX <= kn.x + 7 && jy + ((len - 1) >> 1) >= kn.y - 2
-  if (st.wide) knight(cv, kn, shield)
+  // The knight raises his shield while the cone's tip is over him (facing it); sparks fly off it once it is up.
+  const kn = c.kn
+  const shieldAt = (te: number) => {
+    const [fe, k, l] = [at(te), castAt(te).kn, fireAt(te)]
+    const [jx, jy] = jaws(fe)
+    const tipX = jx + fe.face * (l - 1)
+    return st.wide && k.face > 0 && l > 0 && tipX >= k.x - 1 && tipX <= k.x + 7 && jy + ((l - 1) >> 1) >= k.y - 2
+  }
+  const shield = shieldAt(t)
 
   // The dragon: a tool's colour tints its wings over four frames; saying, its jaws work on 3 frames in 6.
   let keys = DRAGON_KEYS
@@ -528,16 +1066,53 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
     keys = { ...DRAGON_KEYS, W: mix(DRAGON_KEYS.W!, hue, k), w: mix(DRAGON_KEYS.w!, hue, k), v: mix(DRAGON_KEYS.v!, hue, k) }
   }
   const say = s.act === 'say' && s.actAge >= 2
-  const open = (say && mod(t, 6) < 3) || len > 0
-  dragon(cv, f, open, keys)
-  if (len > 0) fire(cv, f, len, t, a => breath(t - a, CONE, 0) >= CONE)
-  if (shield) shieldSparks(cv, kn.x + 6, kn.y, t)
+  const open = (say && mod(t, 6) < 3) || len > 0 || c.open
+  const drawDragon = () => dragon(cv, f, open, keys, c.flash ? blanch : undefined, c.over)
+  const drawKnight = () => { if (st.wide) knight(cv, kn, shield) }
+
+  // Back to front: sky and sun, clouds, hills and birds, the archers behind the merlons, the grass, the castle.
+  skyAndSun(cv, t, w)
+  clouds(cv, t, w, w < TINY ? 1 : Math.min(4, 2 + Math.floor(w / 60)))
+  c.under?.(cv)
+  if (st.wide) hills(cv, t, w, Math.max(0, st.dx + 25))
+  if (c.behind) drawDragon()
+  if (st.wide) archers(cv, t, st.dx)
+  grass(cv, t, w)
+  c.mid?.(cv)
+  castle(cv, t, st)
+  banners(cv, s, t, st)
+  if (st.tower) princess(cv, c.pr, st.towerX)
+  c.low?.(cv)
+
+  // The wyverns a fifth of a loop apart behind it on its patrol, the newest greeting as it joins.
+  const n = Math.min(s.agents, MAX_WYVERNS)
+  for (let i = n - 1; i >= 0; i--) {
+    const v = patrol(t - Math.round(((i + 1) * geoOf(w).p) / 5), w)
+    wyvern(cv, v, t, i, i === n - 1 && s.agentsAge < GREET && mod(s.agentsAge, 2) === 0)
+  }
+
+  if (!c.knightFront) drawKnight()
+  if (!c.behind) drawDragon()
+  if (c.fore) {
+    // In front of the dragon, but behind the castle: only where the castle (with its banners and princess) isn't.
+    const [layer, wall] = [canvas(w, DRAGON_ROWS), canvas(w, DRAGON_ROWS)]
+    c.fore(layer)
+    castle(wall, t, st)
+    banners(wall, s, t, st)
+    if (st.tower) princess(wall, c.pr, st.towerX)
+    layer.px.forEach((p, i) => { if (p && !wall.px[i]) cv.px[i] = p })
+  }
+  if (c.knightFront) drawKnight()
+  if (len > 0) fire(cv, f, len, t, a => fireAt(t - a) >= CONE)
+  if (shield && shieldAt(t - 1)) shieldSparks(cv, kn.x + 6, kn.y, t)
   if (hue && spark > 0) sparks(cv, f, spark, t, hue)
-  if (say) rings(cv, t, te => patrol(te, w))
+  if (say) rings(cv, t, at)
+  if (c.roar || castAt(t - 11).roar || castAt(t - 6).roar) rings(cv, t, at, te => castAt(te).roar)
+  c.top?.(cv)
 
   const g = cells(cv)
-  const [text, c] = sign(s, t)
-  glyph(g, cv, 0, 0, text, c)
+  const [text, ink] = sign(s, t)
+  glyph(g, cv, 0, 0, text, ink)
   if (s.act === 'ask' && st.tower && mod(t, 8) < 6) glyph(g, cv, st.towerX + 7, 1, '?', '#ffd166')
   return g
 }
@@ -566,5 +1141,13 @@ export const DRAGON: Theme = {
   confetti: ['✦', '*', '·', '˚'],
   palette: ['#e63946', GOLD, EMBER, '#ffd166'],
   scene: (t, w, s) => dragonScene(t, w, s),
+  showcase: () => [
+    ...PIECE_SHOW.map(([name, busy], k) => ({
+      name: `piece ${name}`, t: firstSlot(k, EVENT_LEN, EVENT_KINDS, DRAGON_SEED, EGG_KINDS, EGG_CHANCE) + busy - 12,
+    })),
+    ...EGG_SHOW.map(([name, busy], e) => ({
+      name: `egg ${name}`, t: eggSlot(e, EVENT_LEN, EVENT_KINDS, DRAGON_SEED, EGG_KINDS, EGG_CHANCE) + busy - 12,
+    })),
+  ],
   pet: PET,
 }
