@@ -2,10 +2,8 @@ import { expect, test } from 'claude-code/testing'
 
 import { IDLE_SIGNALS, THEMES } from '../hooks/themes'
 import type { Signals } from '../hooks/themes'
-import { dragonScene } from '../hooks/themes/dragon'
-import { changed } from './motion'
-import { jump, sigs } from './motion'
-import { EVENT_LEN, EVENT_KINDS, EGG_KINDS } from '../hooks/themes/dragon'
+import { dragonScene, EGG_KINDS, EVENT_KINDS, EVENT_LEN } from '../hooks/themes/dragon'
+import { changed, jump, sigs } from './motion'
 import type { Slot } from '../hooks/events'
 
 const sig = (over: Partial<Signals>): Signals => ({ ...IDLE_SIGNALS, ...over })
@@ -72,4 +70,31 @@ test('set pieces never jump, frame by frame', { timeoutMs: 60_000 }, () => {
 test('the sheet showcases every set piece and egg', () => {
   const show = THEMES.dragon.showcase?.(80) ?? []
   expect(show).toHaveLength(EVENT_KINDS + EGG_KINDS)
+})
+
+const MIN = { testPass: 40, testFail: 15, commit: 25 } as const
+
+test('reactions are clearly visible', () => {
+  for (const news of ['testPass', 'testFail', 'commit'] as const) {
+    for (const t of [40, 200, 777]) {
+      for (const newsAge of [4, 8, 12, 16, 20]) {
+        const on = THEMES.dragon.scene(t, 80, sig({ news, newsAge }))
+        const off = THEMES.dragon.scene(t, 80, sig({}))
+        expect(changed(on, off), `${news} t=${t} age=${newsAge}`).toBeGreaterThanOrEqual(MIN[news])
+      }
+    }
+  }
+  const on = THEMES.dragon.scene(200, 40, sig({ news: 'testFail', newsAge: 8 }))
+  expect(changed(on, THEMES.dragon.scene(200, 40, sig({})))).toBeGreaterThanOrEqual(6)
+})
+
+test('reactions are over by newsAge 30, so clearing the news never snaps', () => {
+  for (const news of ['testPass', 'testFail', 'commit'] as const) {
+    for (const t of [40, 200, 777]) {
+      for (const newsAge of [30, 35, 39]) {
+        const on = THEMES.dragon.scene(t, 80, sig({ news, newsAge }))
+        expect(changed(on, THEMES.dragon.scene(t, 80, sig({}))), `${news} t=${t} age=${newsAge}`).toBe(0)
+      }
+    }
+  }
 })

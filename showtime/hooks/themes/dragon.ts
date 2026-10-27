@@ -16,7 +16,9 @@
 // tower, catapult, landing, sheep), now and then an easter egg instead (frying pan, Clawd, hatchling): one function
 // each, giving who is where at the slot's age, leaving home and back by its end. On a wide band the patrol roams:
 // slots whose pieces allow it start or end at the far end, so the dragon crosses the whole field. News (testPass,
-// testFail, commit) shows only on the sign for now.
+// testFail, commit) plays on top of all that for 28 frames: fireworks over the castle, the banners hung out and the
+// knight's sword salute; a fire blast knocking the knight down, dazed under circling stars (on a narrow band, an
+// arrow in the dragon); a roar, the royal banner under the princess's window, confetti off the battlements.
 import { canvas, cells, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { eggSlot, firstSlot, slotAt } from '../events'
@@ -155,6 +157,8 @@ const PAN_KEYS: Record<string, string> = { P: '#4a4e69', h: '#6b4226' }
 const ROPE = '#c9a66b'
 /** An archer, 3×3: hood, face and bow, tunic. */
 const ARCHER = ['.Gb', 'eFb', 'Egb']
+/** Cheering: the bow raised over the hood, an arm up. */
+const ARCHER_CHEER = ['.bb', '.Gb', 'eFe', 'Eg.']
 /** Clouds: small, middle and big puffs. */
 const CLOUDS = [
   ['..WWw..', 'SwwwwwS'],
@@ -495,9 +499,11 @@ function banners(cv: Canvas, s: Signals, t: number, st: Stage): void {
 
 /** Two archers on the wall-walk behind the merlons (one each side of the tower), each bobbing a pixel on 12
  * frames, offset. */
-function archers(cv: Canvas, t: number, dx: number): void {
+function archers(cv: Canvas, t: number, dx: number, cheer: boolean): void {
   for (const [x, off] of [[8, 0], [21, 5]] as const) {
-    sprite(cv, x + dx, 2 + (mod(t + off, 12) < 6 ? 0 : 1), ARCHER, ARCHER_KEYS)
+    // Cheering, they hop a pixel on four frames, bows held up.
+    if (cheer) sprite(cv, x + dx, 1 + (mod(t + off, 4) < 2 ? 0 : 1), ARCHER_CHEER, ARCHER_KEYS)
+    else sprite(cv, x + dx, 2 + (mod(t + off, 12) < 6 ? 0 : 1), ARCHER, ARCHER_KEYS)
   }
 }
 
@@ -1115,6 +1121,208 @@ function cast(t: number, w: number, s: Signals, st: Stage, slot: Slot | null): C
   return { ...base, ...piece(slot.age, { t0, w, st, s, at: a => patrol(t0 + a, w), kn, pr }) }
 }
 
+// ---- reactions --------------------------------------------------------------------------------------------------
+
+/** News plays this many frames and leaves nothing behind (the stage clears news at about 40). */
+const REACT = 28
+const FIREWORK = ['#ffd166', '#80ed99', '#ff8fab']
+const [ROAR_END, SOOT, ROYAL] = ['#bc6c25', '#3d2817', '#d62839']
+const CONFETTI = ['#ffd166', '#ff8fab', '#80ed99', '#ffffff', '#c77dff', '#4cc9f0']
+/** The knight's sword salute (from three rows above his helm): the sword lifted to his shoulder, then held
+ * overhead straight up or leaning forward. */
+const SALUTE = [
+  ['', '', '......B', '..Pp..B', '.JKkJGG', '.JkFJk.', 'ZSJTtJ.', 'SCSTtJ.', 'ssJTtJ.', '..j.j..', '.MM.Mm.'],
+  ['.....B.', '.....B.', '.....B.', '..PpGGG', '.JKkJk.', '.JkFJk.', 'ZSJTtJ.', 'SCSTtJ.', 'ssJTtJ.', '..j.j..', '.MM.Mm.'],
+  ['.......B', '......B.', '......B.', '..PpGG..', '.JKkJk..', '.JkFJk..', 'ZSJTtJ..', 'SCSTtJ..', 'ssJTtJ..', '..j.j...', '.MM.Mm..'],
+]
+/** Knocked down: crouching (a row lower, no sword), then sitting with his legs out and his sword in the grass. */
+const KNIGHT_CROUCH = ['..Pp...', '.JKkJ..', '.JkFJ..', 'ZSJTtJ.', 'SCSTtJ.', 'ssJTtJ.', '.MMjMm.']
+const KNIGHT_SIT = ['..Pp.....', '.JKkJ....', '.JkFJ....', 'ZSJTtJ...', 'SCSTtJ...', 'ssJTtjjMm', '.....GBBB']
+/** The royal banner under the princess's window: gold, a crimson crown, a swallowtail. */
+const ROYAL_BANNER = ['XXZ', 'YRZ', 'YYZ', 'Y.z']
+/** Dazed stars circling a head: sixteen steps round a 9×3 ring, never more than a pixel a step. */
+const ORBIT: [number, number][] = [
+  [0, -1], [1, -1], [2, -1], [3, -1], [4, 0], [3, 1], [2, 1], [1, 1],
+  [0, 1], [-1, 1], [-2, 1], [-3, 1], [-4, 0], [-3, -1], [-2, -1], [-1, -1],
+]
+
+/** The colour under (x, y) so far, else the sky's. */
+const under = (cv: Canvas, x: number, y: number) => cv.px[y * cv.w + x] ?? SKY[Math.min(9, Math.max(0, y))]!
+/** `c` faded by `k` toward whatever is under (x, y). */
+const fadeAt = (cv: Canvas, x: number, y: number, c: string, k: number) => {
+  if (x < 0 || x >= cv.w || y < 0 || y >= cv.h) return
+  plot(cv, x, y, k > 0 ? mix(c, under(cv, x, y), k) : c)
+}
+
+/** Three stars circling (cx, cy), a step a frame, each a small plus (its arms out from `age` 2), twinkling. */
+function dizzy(cv: Canvas, cx: number, cy: number, age: number): void {
+  for (let k = 0; k < 3; k++) {
+    const [dx, dy] = ORBIT[mod(age + 5 * k, ORBIT.length)]!
+    const [x, y] = [cx + dx, cy + dy]
+    const arm = mod(age + k, 4) < 2 ? PALE : WHITE
+    if (age >= 2) for (const [ax, ay] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) plot(cv, x + ax, y + ay, arm)
+    plot(cv, x, y, STAR)
+  }
+}
+
+/** A puff of smoke at (x, y), `a` frames old (of 10): rising a pixel every two frames, spreading, fading. */
+function puff(cv: Canvas, x: number, y: number, a: number): void {
+  if (a < 0 || a >= 10) return
+  const py = y - (a >> 1)
+  const k = a < 6 ? 0 : (a - 5) / 5
+  const pts = a < 3 ? [[0, 0], [1, 0]] : [[0, 0], [1, 0], [0, -1], [-1, 0], [2, -1]]
+  for (const [dx, dy] of pts) fadeAt(cv, x + dx!, py + dy!, SMOKE[(dx! + dy! + a) & 1]!, k)
+}
+
+/** testPass: three rockets go up from the castle a pixel a frame (one every two frames), each bursting at the top
+ * into an eight-rayed star (gold, green, pink) that grows a pixel a frame, thins to its tips, droops and fades by
+ * REACT. */
+function fireworks(cv: Canvas, age: number, t: number, w: number, st: Stage): void {
+  const xs = w >= FULL ? [4, 10, 22] : st.wide ? [3, 11, 27] : w >= TINY ? [3, 12, 21] : [2, w >> 1, w - 3]
+  for (let k = 0; k < 3; k++) {
+    const [x, top, born] = [xs[k]!, k === 1 ? 3 : 2, 2 * k]
+    const bang = born + 6
+    if (age < born) continue
+    if (age < bang) {
+      // The rocket: a white head, a trail in its burst's colour flickering, a spark spitting off on alternate sides.
+      const y = top + bang - age
+      const ink = FIREWORK[k]!
+      plot(cv, x, y, WHITE)
+      plot(cv, x, y + 1, mod(t, 2) === 0 ? ink : PALE)
+      plot(cv, x, y + 2, mix(ink, INK, 0.3))
+      plot(cv, x + (mod(age, 2) === 0 ? 1 : -1), y + 2, ink)
+      continue
+    }
+    const [a, life] = [age - bang, REACT - 2 - bang]
+    if (a >= life) continue
+    const r = Math.min(3, a + 1)
+    const sag = a >= life - 4 ? 2 : a >= life - 8 ? 1 : 0
+    const fade = Math.max(0, (a - (life - 6)) / 6)
+    const ink = FIREWORK[k]!
+    if (a < 2) plot(cv, x, top, WHITE)
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+      for (let j = Math.max(1, a >= 10 ? r : a >= 6 ? r - 1 : 1); j <= r; j++) {
+        const tip = j === r
+        if (top + dy * j < 0) continue
+        const c = tip ? (mod(t + k + dx + dy, 3) === 0 ? WHITE : PALE) : ink
+        fadeAt(cv, x + dx * j, top + dy * j + (tip ? sag : sag >> 1), tip && a >= 6 ? (mod(t + dx, 2) === 0 ? ink : PALE) : c, fade)
+      }
+    }
+  }
+}
+
+/** testPass: every banner slot hangs out gold (unrolling a row a frame, rolling up again at the end), flashing
+ * bright on even frames. */
+function festive(cv: Canvas, age: number, t: number, st: Stage): void {
+  const rows = age < 24 ? Math.min(3, age + 1) : REACT - 1 - age
+  const ink = mod(t, 2) === 0 ? (c: string) => mix(c, WHITE, 0.45) : (c: string) => c
+  for (const [x, y] of bannerSlots(st)) {
+    for (let j = 0; j < rows; j++) {
+      plot(cv, x, y + j, ink(j === 0 ? BANNER.X! : BANNER.Y!))
+      plot(cv, x + 1, y + j, ink(j === 2 ? BANNER.z! : BANNER.Z!))
+    }
+  }
+}
+
+/** commit: the royal banner unrolls under the princess's window a row a frame and rolls up again at the end. */
+function royalBanner(cv: Canvas, age: number, x0: number): void {
+  const rows = age < 24 ? Math.min(4, age + 1) : REACT - 1 - age
+  sprite(cv, x0 + 1, 7, ROYAL_BANNER.slice(0, Math.max(0, rows)), { ...BANNER, R: ROYAL })
+}
+
+/** commit: confetti tossed up off the battlements (or the tower's top), each piece rising two pixels, then
+ * fluttering down a pixel every two frames, tumbling, and lying in the grass until REACT. */
+function confetti(cv: Canvas, age: number, st: Stage): void {
+  const [xs, y0] = st.wide
+    ? [Array.from({ length: 12 }, (_, k) => 1 + 2 * k + st.dx).filter(x => x >= 0), 4]
+    : st.tower ? [[0, 1, 2, 3, 4, 5], 3] : [[], 0]
+  xs.forEach((x, k) => {
+    const a = age - mod(5 * k, 7)
+    if (a < 0) return
+    const y = a < 2 ? y0 - a - 1 : Math.min(11, y0 - 2 + ((a - 2) >> 1))
+    const sway = y < 11 && mod((a >> 2) + k, 2) === 1 ? 1 : 0
+    const ink = CONFETTI[k % CONFETTI.length]!
+    plot(cv, x + sway, y, ink)
+    // Tumbling: a strip on edge, then flat (two pixels), a darker back on the turn; flat once it lies in the grass.
+    if (y === 11 || mod(a + k, 4) < 2) plot(cv, x + sway + 1, y, y === 11 ? ink : mix(ink, INK, 0.25))
+  })
+}
+
+/** commit: the roar's rings, one every four frames, born over the jaw's tip where it was when it set off, running out a
+ * pixel a frame for ten frames, a 5-pixel arc (its ends a pixel behind) fading from pale to bronze, a darker bronze
+ * rim behind it once it has left (so it shows on the sky and on the sun). */
+function roar(cv: Canvas, age: number, t: number, at: (te: number) => Fly): void {
+  for (let born = 0; born <= 16; born += 4) {
+    const d = age - born
+    if (d < 0 || d >= 10) continue
+    const f = at(t - d)
+    const [jx, jy] = jaws(f)
+    const x = jx + f.face * (d - 1)
+    const [c, rim] = [mix(PALE, ROAR_END, d / 9), mix(ROAR_END, INK, 0.25 + d / 30)]
+    for (const dy of [-2, -1, 0, 1, 2]) {
+      const bx = x - (Math.abs(dy) === 2 ? f.face : 0)
+      if (d > 0) plot(cv, bx - f.face, jy + dy, rim)
+      plot(cv, bx, jy + dy, c)
+    }
+  }
+}
+
+/** The knight caught by a fire blast at `age`, from `k` (where he would be): flames on his front for five frames,
+ * knocked back three pixels (a pixel a frame), crouching, sitting with his sword dropped from 5 to 23, up again
+ * and back at his place by REACT (his shield up on the way if fire is on him); soot on him fading over 16 frames.
+ * Returns how to draw him and where his helm is. */
+function knockedDown(k: KnightPose, age: number): { draw: (cv: Canvas, t: number, shield: boolean) => void; helm: [number, number] } {
+  const back = -k.face
+  const off = age <= 3 ? age : age <= 24 ? 3 : REACT - age
+  const x = k.x + back * off
+  const soot = Math.max(0, 0.55 * (1 - age / 16))
+  const ink = soot > 0 ? (c: string) => mix(c, SOOT, soot) : undefined
+  const sit = age >= 5 && age <= 23
+  const crouch = age === 4 || age === 24
+  // A wider sprite mirrored about its own width: keep his body where the standing one's would be.
+  const draw = (cv: Canvas, t: number, shield: boolean) => {
+    if (sit) sprite(cv, k.face > 0 ? x : x - 2, KNIGHT_Y + 2, KNIGHT_SIT, KNIGHT_KEYS, k.face, ink)
+    else if (crouch) sprite(cv, x, KNIGHT_Y + 1, KNIGHT_CROUCH, KNIGHT_KEYS, k.face, ink)
+    else if (age >= 25) sprite(cv, x, KNIGHT_Y, shield ? KNIGHT_SHIELD : runArt(age), KNIGHT_KEYS, k.face, ink)
+    else sprite(cv, x, k.y, KNIGHT[0]!, KNIGHT_KEYS, k.face, ink)
+    if (age < 5) {
+      // The blast: flames over the side he faced, shrinking, flickering.
+      const front = k.face > 0 ? k.x + 7 : k.x - 1
+      for (let i = 0; i < 3 - (age >> 1); i++) {
+        for (let y = k.y + 1 + i; y <= KNIGHT_Y + 7; y++) {
+          const n = noise(i * 5.3 + y * 1.7 + t * 0.77)
+          plot(cv, front + k.face * i - k.face * (age > 1 ? 1 : 0), y, n < 0.3 ? PALE : n < 0.7 ? FLAME : EMBER)
+        }
+      }
+    }
+  }
+  return { draw, helm: sit ? [x + 3, KNIGHT_Y + 2] : crouch ? [x + 3, KNIGHT_Y + 1] : [x + 3, KNIGHT_Y] }
+}
+
+/** testFail on the narrow stage (no knight): an arrow from the tower's side flies the last four pixels up into the
+ * dragon's flank and sticks there until 22; the dragon flashes white for three frames and, from the next, is knocked
+ * up a pixel for nine; a puff rises from the hit. */
+const HIT = 4
+function arrowHit(f0: Fly, age: number): { f: Fly; flash: boolean; draw: (cv: Canvas) => void } {
+  const f = age > HIT && age < HIT + 10 ? { ...f0, y: f0.y - 1 } : f0
+  const [hx, hy] = [f.x + (f.face > 0 ? 6 : 9), f.y + 4]
+  const draw = (cv: Canvas) => {
+    if (age < HIT) {
+      const [x, y] = [hx - (HIT - age), hy + ((HIT - age + 1) >> 1)]
+      plot(cv, x, y, ARROW_HEAD)
+      plot(cv, x - 1, y, ARROW_SHAFT)
+      plot(cv, x - 2, y + 1, ARROW_SHAFT)
+      plot(cv, x - 3, y + 1, WHITE)
+    } else if (age < 22) {
+      plot(cv, hx - 1, hy, ARROW_SHAFT)
+      plot(cv, hx - 2, hy + 1, ARROW_SHAFT)
+      plot(cv, hx - 3, hy + 1, WHITE)
+      puff(cv, hx, hy - 1, age - HIT)
+    }
+  }
+  return { f, flash: age >= HIT && age < HIT + 3, draw }
+}
+
 // ---- the scene --------------------------------------------------------------------------------------------------
 
 /** The scene at frame `t`, `w` cells wide. `opts.slot` forces a set piece (or, null, none) for tests; otherwise the
@@ -1137,7 +1345,16 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
   }
   const at = (te: number) => castAt(te).f
   const c = castAt(t)
-  const f = c.f
+  // News plays on top of whatever else does, for REACT frames: testPass fireworks, banners and a salute; testFail
+  // the knight knocked down (an arrow in the dragon when there is no knight); commit a roar, the royal banner and
+  // confetti.
+  const age = s.news && s.newsAge < REACT ? s.newsAge : -1
+  const [pass, fail, commit] = [age >= 0 && s.news === 'testPass', age >= 0 && s.news === 'testFail', age >= 0 && s.news === 'commit']
+  const hit = fail && !st.wide ? arrowHit(c.f, age) : undefined
+  const down = fail && st.wide ? knockedDown(c.kn, age) : undefined
+  // Roaring it rears, wings raised (dipping to mid on the down beat), jaws open; it keeps to its path.
+  const roaring = commit && age < 20
+  const f = hit ? hit.f : roaring && c.f.wing !== FOLDED ? { ...c.f, wing: c.f.wing === 2 ? 1 : 0 } : c.f
   const tool = s.act === 'tool' ? s.tool ?? 'other' : undefined
   const hue = tool && tool !== 'bash' ? TOOL_INK[tool] : undefined
 
@@ -1166,7 +1383,10 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
     const tipX = jx + fe.face * (l - 1)
     return st.wide && k.face > 0 && l > 0 && tipX >= k.x - 1 && tipX <= k.x + 7 && jy + ((l - 1) >> 1) >= k.y - 2
   }
-  const shield = shieldAt(t)
+  const shield = !down && shieldAt(t)
+  // testPass: at his post, he lifts his sword and holds it overhead, waving it forward and back on 8 frames.
+  const salute = pass && st.wide && !shield && kn.face > 0 && kn.y === KNIGHT_Y && KNIGHT.some(a => a === kn.art) &&
+    age >= 3 && age < 26 ? SALUTE[age === 3 || age >= 24 ? 0 : mod(age - 4, 8) < 4 ? 1 : 2]! : undefined
 
   // The dragon: a tool's colour tints its wings over four frames; saying, its jaws work on 3 frames in 6.
   let keys = DRAGON_KEYS
@@ -1175,9 +1395,14 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
     keys = { ...DRAGON_KEYS, W: mix(DRAGON_KEYS.W!, hue, k), w: mix(DRAGON_KEYS.w!, hue, k), v: mix(DRAGON_KEYS.v!, hue, k) }
   }
   const say = s.act === 'say' && s.actAge >= 2
-  const open = (say && mod(t, 6) < 3) || len > 0 || c.open
-  const drawDragon = () => dragon(cv, f, open, keys, c.flash ? blanch : undefined, c.over)
-  const drawKnight = () => { if (st.wide) knight(cv, kn, shield) }
+  const open = (say && mod(t, 6) < 3) || len > 0 || c.open || roaring || (!!down && age < 4)
+  const drawDragon = () => dragon(cv, f, open, keys, c.flash || hit?.flash ? blanch : undefined, c.over)
+  const drawKnight = () => {
+    if (!st.wide) return
+    if (down) down.draw(cv, t, age >= 25 && shieldAt(t))
+    else if (salute) sprite(cv, kn.x, kn.y - 3, salute, KNIGHT_KEYS)
+    else knight(cv, kn, shield)
+  }
 
   // Back to front: sky and sun, clouds, hills and birds, the archers behind the merlons, the grass, the castle.
   skyAndSun(cv, t, w)
@@ -1185,12 +1410,16 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
   c.under?.(cv)
   if (st.wide) hills(cv, t, w, Math.max(0, st.dx + 25))
   if (c.behind) drawDragon()
-  if (st.wide) archers(cv, t, st.dx)
+  if (st.wide) archers(cv, t, st.dx, pass && age < 26)
   grass(cv, t, w)
   c.mid?.(cv)
   castle(cv, t, st)
   banners(cv, s, t, st)
-  if (st.tower) princess(cv, c.pr, st.towerX)
+  if (pass) festive(cv, age, t, st)
+  if (commit && st.tower) royalBanner(cv, age, st.towerX)
+  // commit: the princess leans out of her window, waving.
+  const pr = commit && age >= 2 && age < 24 ? (mod(t, 6) < 3 ? 'wave0' : 'wave1') : c.pr
+  if (st.tower) princess(cv, pr, st.towerX)
   c.low?.(cv)
 
   // The wyverns a fifth of a loop apart behind it on its patrol, the newest greeting as it joins.
@@ -1208,7 +1437,7 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
     c.fore(layer)
     castle(wall, t, st)
     banners(wall, s, t, st)
-    if (st.tower) princess(wall, c.pr, st.towerX)
+    if (st.tower) princess(wall, pr, st.towerX)
     layer.px.forEach((p, i) => { if (p && !wall.px[i]) cv.px[i] = p })
   }
   if (c.knightFront) drawKnight()
@@ -1218,6 +1447,18 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
   if (say) rings(cv, t, at)
   if (c.roar || castAt(t - 11).roar || castAt(t - 6).roar) rings(cv, t, at, te => castAt(te).roar)
   c.top?.(cv)
+  if (pass) fireworks(cv, age, t, w, st)
+  if (down) {
+    const [hx, hy] = down.helm
+    if (age >= 6 && age < 24) dizzy(cv, hx, hy - 2, age - 6)
+    puff(cv, hx + 2 * kn.face, hy + 1, age - 1)
+    puff(cv, hx - kn.face, hy + 2, age - 7)
+  }
+  hit?.draw(cv)
+  if (commit) {
+    roar(cv, age, t, at)
+    confetti(cv, age, st)
+  }
 
   const g = cells(cv)
   const [text, ink] = sign(s, t)
