@@ -220,8 +220,12 @@ const HATCH_KEYS: Record<string, string> = { K: '#ffd166', N: GOLD, B: '#e63946'
  * to its next. */
 export type Fly = { x: number; y: number; face: 1 | -1; wing: number; since: number; until: number }
 /** The figure-eight for a width: its middle column, its swing either side, its period in frames; on a wide band
- * (`roam`) its castle end and far end, the left columns the slot boundaries fall on. */
-type Geo = { cx: number; a: number; p: number; roam: boolean; near: number; far: number }
+ * (`roam`) its castle end and far end, the left columns the slot boundaries fall on, and the courses worked out so
+ * far by slot. */
+type Geo = {
+  cx: number; a: number; p: number; roam: boolean; near: number; far: number
+  slots: Map<number, { c: Course; all: number[] }>
+}
 export type KnightPose = { x: number; y: number; face: 1 | -1; art: readonly string[]; plume: boolean }
 export type PrincessPose = 'hidden' | 'window' | 'wave0' | 'wave1'
 
@@ -250,7 +254,7 @@ function geoOf(w: number): Geo {
     const far = right - DW
     // The castle end is clear of the knight, so nothing overlaps him at a slot's ends.
     const near = Math.max(left, stageOf(w).knightX + 7)
-    g = { cx: left + a + (w < TINY ? reach - a : 0), a, p, roam: p === 160 && far > near + 2 * a + 8, near, far }
+    g = { cx: left + a + (w < TINY ? reach - a : 0), a, p, roam: p === 160 && far > near + 2 * a + 8, near, far, slots: new Map() }
     GEOS.set(w, g)
   }
   return g
@@ -295,24 +299,33 @@ function along1(c: Course, age: number): number {
 const faceAt = (c: Course, age: number): 1 | -1 => (c.out && age >= EVENT_LEN / 2 ? (-c.dir as 1 | -1) : c.dir)
 const endFace = (c: Course): 1 | -1 => (c.out ? (-c.dir as 1 | -1) : c.dir)
 
+/** Slot `k`'s course and the turns around it (worked out once per slot, kept on the patrol): half way along an
+ * out-and-back course, and at a slot's start when the last course ended facing the other way. */
+function roamSlot(k: number, g: Geo): { c: Course; all: number[] } {
+  let r = g.slots.get(k)
+  if (!r) {
+    const turns = (j: number) => {
+      const cj = courseOf(j, g)
+      const out: number[] = []
+      if (endFace(courseOf(j - 1, g)) !== faceAt(cj, 0)) out.push(j * EVENT_LEN)
+      if (cj.out) out.push(j * EVENT_LEN + EVENT_LEN / 2)
+      return out
+    }
+    r = { c: courseOf(k, g), all: [...turns(k - 1), ...turns(k), ...turns(k + 1), ...turns(k + 2)] }
+    if (g.slots.size > 64) g.slots.clear()
+    g.slots.set(k, r)
+  }
+  return r
+}
+
 /** The roaming patrol at `t` (see `courseOf`): its column along the slot's course, its height and wings as on the
  * figure-eight (the height held on the turn frames, ages 0 and 80), frames since its last turn and to its next. */
 function roam(t: number, g: Geo): Fly {
   const k = Math.floor(t / EVENT_LEN)
   const age = t - k * EVENT_LEN
-  const c = courseOf(k, g)
+  const { c, all } = roamSlot(k, g)
   let ev = t - mod(t, 2)
   if (mod(ev, EVENT_LEN / 2) === 0) ev -= 2
-  // Turns: half way along an out-and-back course, and at a slot's start when the last course ended facing the
-  // other way.
-  const turns = (j: number) => {
-    const cj = courseOf(j, g)
-    const out: number[] = []
-    if (endFace(courseOf(j - 1, g)) !== faceAt(cj, 0)) out.push(j * EVENT_LEN)
-    if (cj.out) out.push(j * EVENT_LEN + EVENT_LEN / 2)
-    return out
-  }
-  const all = [...turns(k - 1), ...turns(k), ...turns(k + 1), ...turns(k + 2)]
   const last = all.filter(u => u <= t).pop() ?? t - 3 * EVENT_LEN
   const next = all.find(u => u > t) ?? t + 3 * EVENT_LEN
   return {
@@ -760,6 +773,18 @@ function fly(p: Plan, age: number, h: Home): Fly {
   }
 }
 
+const SETUPS = new Map<string, unknown>()
+/** A piece's setup for its slot (its trip planned, where things go), worked out once per piece, slot and width: the
+ * breath looks back over many frames, each casting the scene again. */
+function setup<T>(name: string, h: Home, make: () => T): T {
+  const key = `${name}:${h.t0}:${h.w}`
+  if (SETUPS.has(key)) return SETUPS.get(key) as T
+  const made = make()
+  if (SETUPS.size > 64) SETUPS.clear()
+  SETUPS.set(key, made)
+  return made
+}
+
 const beat = (t: number) => (t + 1) >> 1
 /** The wing pose at `t` in a barrel roll begun at `r` (even): the beat run backwards for eight frames, which brings
  * it back in step. */
@@ -782,8 +807,10 @@ const blanch = (c: string) => mix(c, WHITE, 0.7)
 /** 0 strafe: it dives to the knight's height a fire's length off him, breathes on his shield (which he raises,
  * sparks flying off it), climbs and flies home. */
 const strafe: Piece = (age, h) => {
-  const x = Math.min(h.kn.x + 16, h.w - DW)
-  const p = plan(h, [{ x, y: 3, at: 58, hold: 40, face: -1 }, { x: x + 6, y: 0, at: 0 }])
+  const p = setup('strafe', h, () => {
+    const x = Math.min(h.kn.x + 16, h.w - DW)
+    return plan(h, [{ x, y: 3, at: 58, hold: 40, face: -1 }, { x: x + 6, y: 0, at: 0 }])
+  })
   const [a, d] = [p.arr[0]! + 4, p.dep[0]!]
   const len = p.ok && age >= a && age < d ? Math.min(CONE, age - a + 1, d - 1 - age) : 0
   return { f: fly(p, age, h), len }
@@ -796,7 +823,7 @@ const charge: Piece = (age, h) => {
   const k = h.kn
   const run = Math.max(6, Math.min(20, h.w - DW - 10 - k.x))
   const kx = k.x + run
-  const p = plan(h, [{ x: kx + 8, y: 3, at: 50, hold: 30, face: -1 }, { x: kx + 14, y: 0, at: 0 }])
+  const p = setup('charge', h, () => plan(h, [{ x: kx + 8, y: 3, at: 50, hold: 30, face: -1 }, { x: kx + 14, y: 0, at: 0 }]))
   if (!p.ok) return {}
   const [a, d] = [p.arr[0]!, p.dep[0]!]
   const leap = a + 6
@@ -846,12 +873,12 @@ const towerRun: Piece = (age, h) => {
   const { st } = h
   const tx = st.towerX
   const out = -DW - 1
-  const p = plan(h, [
+  const p = setup('tower', h, () => plan(h, [
     { x: tx + 10, y: 3, at: 24, face: -1 },
     { x: out, y: 3, at: 0, face: 1 },
     { x: out, y: 0, at: 0 },
     { x: st.wide ? st.knightX + 7 : tx + 6, y: 0, at: 0 },
-  ])
+  ]))
   if (!p.ok) return {}
   const [a0, a1, , a2] = p.arr as [number, number, number, number]
   const past = a1 + 2 + tx + 6 - out
@@ -881,16 +908,19 @@ const catapult: Piece = (age, h) => {
   const [bx, by] = tip(48).map(v => v - 1) as [number, number]
   // It waits over the field for the boulder if it can be there in time; else (coming from the far end) the boulder
   // is aimed where it will be as it flies home, landing twice as far off as where they meet.
-  const dx = kn.x + 10
-  const wait = Math.min(w - 4, kn.x + 30) - bx
-  const p = plan(h, [{ x: dx, y: 1, at: 40, hold: wait + 12, face: -1 }])
-  const hover = p.ok && p.arr[0]! <= 40 + dx - bx
-  let [n, meet] = [wait, 48 + dx - bx]
-  if (!hover) {
-    meet = 48 + 30
-    for (let m = 60; m <= 120; m++) if (bx + m - 48 + 2 >= h.at(m).x) { meet = m; break }
-    n = Math.min(w - 4 - bx, Math.max(30, Math.min(86, 2 * (meet - 48))))
-  }
+  const { p, hover, n, meet } = setup('catapult', h, () => {
+    const dx = kn.x + 10
+    const wait = Math.min(w - 4, kn.x + 30) - bx
+    const p = plan(h, [{ x: dx, y: 1, at: 40, hold: wait + 12, face: -1 }])
+    const hover = p.ok && p.arr[0]! <= 40 + dx - bx
+    let [n, meet] = [wait, 48 + dx - bx]
+    if (!hover) {
+      meet = 48 + 30
+      for (let m = 60; m <= 120; m++) if (bx + m - 48 + 2 >= h.at(m).x) { meet = m; break }
+      n = Math.min(w - 4 - bx, Math.max(30, Math.min(86, 2 * (meet - 48))))
+    }
+    return { p, hover, n, meet }
+  })
   const [lx, land] = [bx + n, 48 + n]
   const boulder = (a: number): [number, number] => {
     if (a < 48) return tip(a).map(v => v - 1) as [number, number]
@@ -929,8 +959,10 @@ const catapult: Piece = (age, h) => {
 /** 4 landing: it comes down on the far grass, folds its wings and roars: rings run out of its jaws, the grass
  * flattens in a wave either side, two birds burst out of the trees either side; then it takes off for home. */
 const landing: Piece = (age, h) => {
-  const lx = Math.min(h.w - DW - 8, reach(h) + 6)
-  const p = plan(h, [{ x: lx, y: GROUND, at: 52, hold: 50, face: -1 }])
+  const { lx, p } = setup('landing', h, () => {
+    const lx = Math.min(h.w - DW - 8, reach(h) + 6)
+    return { lx, p: plan(h, [{ x: lx, y: GROUND, at: 52, hold: 50, face: -1 }]) }
+  })
   if (!p.ok) return {}
   const [a, d] = [p.arr[0]!, p.dep[0]!]
   const f = fly(p, age, h)
@@ -957,9 +989,12 @@ const landing: Piece = (age, h) => {
  * snaps at the bale instead, which bursts into straw that falls into the grass; it flies home. */
 const sheep: Piece = (age, h) => {
   const { w, kn, st } = h
-  const s0 = Math.min(Math.max(w - 36, kn.x + 10), reach(h) + 10)
+  const { s0, p } = setup('sheep', h, () => {
+    const s0 = Math.min(Math.max(w - 36, kn.x + 10), reach(h) + 10)
+    const come = w - s0
+    return { s0, p: plan(h, [{ x: s0 + 12, y: 2, at: come + 16, face: -1 }, { x: s0 + 5, y: GROUND, at: come + 34, hold: 22 }]) }
+  })
   const come = w - s0
-  const p = plan(h, [{ x: s0 + 12, y: 2, at: come + 16, face: -1 }, { x: s0 + 5, y: GROUND, at: come + 34, hold: 22 }])
   const scatter = p.ok ? p.arr[0]! : come + 16
   const burst = p.ok ? p.arr[1]! + 8 : scatter + 24
   const wall = st.dx + 24
@@ -996,7 +1031,7 @@ const sheep: Piece = (age, h) => {
  * climbs back up and draws the rope in. */
 const pan: Piece = (age, h) => {
   const tx = h.st.towerX
-  const p = plan(h, [{ x: tx + 12, y: 0, at: 40, face: -1 }, { x: tx - 2, y: 0, at: 0, hold: 34 }])
+  const p = setup('pan', h, () => plan(h, [{ x: tx + 12, y: 0, at: 40, face: -1 }, { x: tx - 2, y: 0, at: 0, hold: 34 }]))
   const bonk = p.ok ? p.arr[1]! : 70
   const back = p.ok ? p.dep[1]! + 2 : 104
   const rope = age < 4 ? 0 : age < back + 16 ? Math.min(5, (age - 4) >> 1) : Math.max(0, 5 - ((age - back - 16) >> 1))
@@ -1037,11 +1072,10 @@ const clawd: Piece = (age, h) => {
   const { st, w } = h
   const x0 = st.dx + 24 - 13
   const xAt = (a: number) => x0 + Math.floor(((w + 1 - x0) * a) / 152)
-  let pass = -99
-  for (let a = 0; a < EVENT_LEN; a++) {
-    const g = h.at(a)
-    if (Math.abs(xAt(a) + 6 - (g.x + 8)) <= 2) { pass = a; break }
-  }
+  const pass = setup('clawd', h, () => {
+    for (let a = 0; a < EVENT_LEN; a++) if (Math.abs(xAt(a) + 6 - (h.at(a).x + 8)) <= 2) return a
+    return -99
+  })
   const x = xAt(age)
   const k = age - pass
   const lance = k >= -4 && k < -2 ? 1 : k >= -2 && k < 6 ? 2 : k >= 6 && k < 8 ? 1 : 0
