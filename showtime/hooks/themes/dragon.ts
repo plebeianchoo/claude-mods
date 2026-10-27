@@ -1591,7 +1591,8 @@ export const DRAGON: Theme = {
   happy: '⋗ ✦', sad: '⋗ …', dead: '✗', sleep: '⋗ zZ',
   confetti: ['✦', '*', '·', '˚'],
   palette: ['#e63946', GOLD, EMBER, '#ffd166'],
-  scene: (t, w, s) => dragonScene(t, w, s),
+  // Each epoch starts the schedule a whole number of slots on (the patrol's period divides a slot).
+  scene: (t, w, s) => dragonScene(t + EVENT_LEN * s.epoch, w, s),
   showcase: () => [
     ...PIECE_SHOW.map(([name, busy], k) => ({
       name: `piece ${name}`, t: firstSlot(k, EVENT_LEN, EVENT_KINDS, DRAGON_SEED, EGG_KINDS, EGG_CHANCE) + busy - 12,

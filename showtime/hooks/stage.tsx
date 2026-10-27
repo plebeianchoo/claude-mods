@@ -10,16 +10,18 @@ export type StageProps = {
   theme: string
   /** Cells the scene takes across. */
   columns: number
-  /** What the scene reacts to; the stage adds the ages. */
-  signals: Omit<Signals, 'newsAge' | 'actAge' | 'doneAge' | 'agentsAge' | 'toolAge'> & { newsId?: string }
+  /** What the scene reacts to; the stage adds the ages and the epoch. */
+  signals: Omit<Signals, 'newsAge' | 'actAge' | 'doneAge' | 'agentsAge' | 'toolAge' | 'epoch'> & { newsId?: string }
   finale?: Finale
   label?: string
   /** One frame, never redrawn (reduced motion). */
   still?: boolean
 }
 
-/** Each instance's last-seen signals and the tick they changed at. */
-const stages = new WeakMap<object, { act: Act; actAt: number; tool?: ToolKind; toolAt: number; done: number; doneAt: number; agents: number; agentsAt: number; newsId?: string; newsAt: number }>()
+/** Each instance's last-seen signals and the tick they changed at, and the epoch it drew when it mounted. */
+const stages = new WeakMap<object, { act: Act; actAt: number; tool?: ToolKind; toolAt: number; done: number; doneAt: number; agents: number; agentsAt: number; newsId?: string; newsAt: number; epoch: number }>()
+/** How many epochs the stage draws from. */
+const EPOCHS = 4096
 
 const Stage: ClientModule<StageProps, number> = (props, surface) => {
   const { Box, Text } = surface.elements
@@ -33,7 +35,7 @@ const Stage: ClientModule<StageProps, number> = (props, surface) => {
   const w = Math.max(16, Math.min(surface.columns || props.columns, props.columns))
   let mem = stages.get(surface)
   if (mem === undefined) {
-    mem = { act: props.signals.act, actAt: t, tool: props.signals.tool, toolAt: t, done: props.signals.done, doneAt: t, agents: props.signals.agents, agentsAt: t, newsId: props.signals.newsId, newsAt: t }
+    mem = { act: props.signals.act, actAt: t, tool: props.signals.tool, toolAt: t, done: props.signals.done, doneAt: t, agents: props.signals.agents, agentsAt: t, newsId: props.signals.newsId, newsAt: t, epoch: Math.floor(Math.random() * EPOCHS) }
     stages.set(surface, mem)
   }
   if (props.signals.act !== mem.act) { mem.act = props.signals.act; mem.actAt = t }
@@ -48,6 +50,7 @@ const Stage: ClientModule<StageProps, number> = (props, surface) => {
     agentsAge: t - mem.agentsAt,
     newsAge: props.signals.news ? t - mem.newsAt : 999,
     toolAge: props.signals.tool ? t - mem.toolAt : 999,
+    epoch: mem.epoch,
   }
   const rows = props.finale ? finaleScene(theme, props.finale, props.label ?? '', t, w) : theme.scene(t, w, s)
 
