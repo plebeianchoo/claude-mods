@@ -1005,38 +1005,59 @@ const landing: Piece = (age, h) => {
 }
 
 /** 5 sheep: a hay bale rolls in from the right with three sheep behind it; they graze; the dragon swoops at them and
- * they scatter (two off to the right, one bolting left behind the knight and the castle, if it can get there); it
- * snaps at the bale instead, which bursts into straw that falls into the grass; it flies home. */
+ * they scatter (two off the right edge, one bolting left behind the knight and the castle and off the left edge, if
+ * it can get there); it snaps at the bale, stopped by then, which bursts into straw that falls into the grass; it
+ * flies home. Every sheep is off an edge by the slot's end: on a wide band the flock stops further right than the
+ * bale, so it can run off in time. If the dragon can't make the trip, there's no bale: the flock comes in, grazes and
+ * ambles off. */
 const sheep: Piece = (age, h) => {
-  const { w, kn, st } = h
+  const { w, kn } = h
   const { s0, p } = setup('sheep', h, () => {
-    const s0 = Math.min(Math.max(w - 36, kn.x + 10), reach(h) + 10)
-    const come = w - s0
-    return { s0, p: plan(h, [{ x: s0 + 12, y: 2, at: come + 16, face: -1 }, { x: s0 + 5, y: GROUND, at: come + 34, hold: 22 }]) }
+    // The bale's spot: right of the knight, as far as the patrol reaches; on a wide band the bale takes so long to
+    // roll in that the dragon may not catch it there and be home in time, so it is tried further right (from where
+    // it is in by 106, as it must be for the snap at 34 after and the straw to settle in time).
+    const pref = Math.min(Math.max(w - 36, kn.x + 10), reach(h) + 10)
+    for (let s0 = Math.max(pref, w - 106); s0 <= Math.max(pref, w - 36); s0 += 2) {
+      const come = w - s0
+      const p = plan(h, [{ x: s0 + 12, y: 2, at: come + 16, face: -1 }, { x: s0 + 5, y: GROUND, at: come + 34, hold: 22 }])
+      // Its straw (12 frames from 8 after the snap) settled by the slot's end.
+      if (p.ok && p.arr[1]! + 20 <= EVENT_LEN) return { s0, p }
+    }
+    return { s0: pref, p: undefined }
   })
+  const ok = p !== undefined
   const come = w - s0
-  const scatter = p.ok ? p.arr[0]! : come + 16
-  const burst = p.ok ? p.arr[1]! + 8 : scatter + 24
-  const wall = st.dx + 24
-  const bolt = s0 + 6 - (wall - 3) <= BACK - scatter - 4
+  // The scatter, as the dragon swoops; without it, the flock ambles off at 97 (in at most 60, so it grazes a while).
+  const scatter = ok ? p.arr[0]! : EVENT_LEN - 63
+  const burst = ok ? p.arr[1]! + 8 : EVENT_LEN
+  // The flock stands six apart from 6 right of the bale, or as far right as it must (but whole on screen) for the
+  // nearest sheep running right (`r` of them bolting left first) to be off the right edge by the slot's end, a pixel
+  // a frame from two after the scatter. The nearest bolts if it can be off the left edge by then.
+  const spot = (r: number) => Math.max(s0 + 6, Math.min(w - 16, w + scatter + 2 - (EVENT_LEN - 1) - 6 * r))
+  const bolt = ok && spot(1) + 4 <= EVENT_LEN - 1 - scatter
+  const h0 = spot(bolt ? 1 : 0)
+  const arrive = w + 6 - h0
+  // Those running right leave at the scatter, or earlier if they must, to be off by the slot's end.
+  const leave = Math.min(scatter, EVENT_LEN - 3 - w + h0 + (bolt ? 6 : 0))
   const flock = Array.from({ length: 3 }, (_, i) => {
-    const home = s0 + 6 + 6 * i
+    const home = h0 + 6 * i
     const left = i === 0 && bolt
     let [x, face, art] = [Math.max(home, w + 6 + 6 * i - age), -1 as 1 | -1, SHEEP[mod(age >> 1, 2)]!]
-    if (age >= come && age < scatter) art = mod(age + 4 * i, 16) < 8 ? SHEEP_GRAZE : SHEEP[0]!
+    if (age >= arrive && age < (left ? scatter : leave)) art = mod(age + 4 * i, 16) < 8 ? SHEEP_GRAZE : SHEEP[0]!
     if (age >= scatter && left) [x, art] = [home - (age - scatter), SHEEP[mod(age, 2)]!]
-    if (age >= scatter + 2 && !left) [x, face, art] = [home + age - scatter - 2, 1, SHEEP[mod(age, 2)]!]
-    else if (age >= scatter && !left) [face, art] = [-1, SHEEP[0]!]
-    return { x, face, art, on: age < BACK && x < w && x > -4 }
+    if (age >= leave + 2 && !left) [x, face, art] = [home + age - leave - 2, 1, SHEEP[mod(ok ? age : age >> 1, 2)]!]
+    else if (age >= leave && !left) [face, art] = [-1, SHEEP[0]!]
+    return { x, face, art, on: x < w && x > -4 }
   })
   const bale = Math.max(s0, w - age)
+  const baled = ok && age < burst
   const herd = (cv: Canvas) => {
     for (const { x, face, art, on } of flock) if (on) sprite(cv, x, 8, art, SHEEP_KEYS, face)
-    if (age < burst) sprite(cv, bale, 8, BALE[age < come ? mod(age >> 1, 2) : 0]!, BALE_KEYS)
+    if (baled) sprite(cv, bale, 8, BALE[age < come ? mod(age >> 1, 2) : 0]!, BALE_KEYS)
   }
   const actors: Record<string, [number, number]> = {}
   flock.forEach(({ x, on }, i) => { if (on) actors[`sheep${i}`] = [x, 8] })
-  if (age < burst && age < BACK) actors.bale = [bale, 8]
+  if (baled) actors.bale = [bale, 8]
   const straw = (cv: Canvas) => {
     const i = age - burst
     if (i < 0) return
@@ -1047,8 +1068,8 @@ const sheep: Piece = (age, h) => {
   }
   return {
     actors,
-    f: fly(p, age, h), open: p.ok && age >= burst - 2 && age < burst + 1,
-    mid: age < BACK ? herd : undefined, top: age >= burst && age < burst + 12 ? straw : undefined,
+    f: ok ? fly(p, age, h) : h.at(age), open: ok && age >= burst - 2 && age < burst + 1,
+    mid: herd, top: age >= burst && age < burst + 12 ? straw : undefined,
   }
 }
 
@@ -1099,14 +1120,16 @@ const pan: Piece = (age, h) => {
 
 /** Egg 1, Clawd: Clawd rides out from behind the castle on a small horse and across the grass to the right edge
  * (behind the knight, in front of the dragon), tipping his lance at the dragon as he passes under it; on a band too
- * wide to cross at a pixel a frame, he rides half way out and back behind the castle. */
+ * wide to cross at a pixel a frame, he rides half way out and back, behind the castle and off the left edge. */
 const clawd: Piece = (age, h) => {
   const { st, w } = h
   const x0 = st.dx + 24 - 13
-  // Off the right edge by 152 if that is at most a pixel a frame; on a wider band he rides out half way and back.
+  // Off the right edge by 152 if that is at most a pixel a frame; on a wider band he rides out and back, turning
+  // at `turn`, to be off the left edge (the horse 9 wide) by the slot's end.
   const across = w + 1 - x0 <= 152
-  const xAt = (a: number) => x0 + (across ? Math.floor(((w + 1 - x0) * a) / 152) : Math.min(a, 152 - Math.min(152, a)))
-  const face: 1 | -1 = across || age < 76 ? 1 : -1
+  const turn = (EVENT_LEN - 10 - x0) >> 1
+  const xAt = (a: number) => x0 + (across ? Math.floor(((w + 1 - x0) * a) / 152) : Math.min(a, 2 * turn - a))
+  const face: 1 | -1 = across || age < turn ? 1 : -1
   const pass = setup('clawd', h, () => {
     for (let a = 0; a < EVENT_LEN; a++) if (Math.abs(xAt(a) + 6 - (h.at(a).x + 8)) <= 2) return a
     return -99
@@ -1123,7 +1146,7 @@ const clawd: Piece = (age, h) => {
     sprite(cv, at(1, 6), 5 + bob, CLAWD_MINI, CLAWD_KEYS, face)
     LANCE[lance]!.forEach(([dx, dy], i) => plot(cv, at(dx!), 6 + bob + dy!, i === 4 ? ARROW_HEAD : ROPE))
   }
-  return { fore: draw, knightFront: true, actors: x < w ? { horse: [x, 7] } : undefined }
+  return { fore: draw, knightFront: true, actors: x < w && x > -9 ? { horse: [x, 7] } : undefined }
 }
 
 /** Egg 2, hatchling: the pet's hatchling comes out from behind the princess's tower and the castle wall, chases after
