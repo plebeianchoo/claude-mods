@@ -15,10 +15,11 @@
 // home pose for `t` (`patrol`, `knightHome`, `princessHome`). Every 160 frames a set piece plays (strafe, charge,
 // tower, catapult, landing, sheep), now and then an easter egg instead (frying pan, Clawd, hatchling): one function
 // each, giving who is where at the slot's age, leaving home and back by its end. On a wide band the patrol roams:
-// slots whose pieces allow it start or end at the far end, so the dragon crosses the whole field. News (testPass,
-// testFail, commit) plays on top of all that for 28 frames: fireworks over the castle, the banners hung out and the
-// knight's sword salute; a fire blast knocking the knight down, dazed under circling stars (on a narrow band, an
-// arrow in the dragon); a roar, the royal banner under the princess's window, confetti off the battlements.
+// slots whose pieces allow it start or end at the far end, so the dragon crosses the field (at most 120 columns, a
+// pixel a frame). News (testPass, testFail, commit) plays on top of all that for 28 frames: fireworks over the
+// castle, the banners hung out and the knight's sword salute; a fire blast knocking the knight down, dazed under
+// circling stars (on a narrow band, an arrow in the dragon); a roar, the royal banner under the princess's window,
+// confetti off the battlements.
 import { canvas, cells, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { eggSlot, firstSlot, slotAt } from '../events'
@@ -251,9 +252,10 @@ function geoOf(w: number): Geo {
     const reach = Math.max(0, right - left - DW) >> 1
     const p = reach >= 20 ? 160 : 80
     const a = Math.min(reach, p / 8)
-    const far = right - DW
-    // The castle end is clear of the knight, so nothing overlaps him at a slot's ends.
+    // The castle end is clear of the knight, so nothing overlaps him at a slot's ends; the far end no further off
+    // than a crossing covers at a pixel a frame (it moves at a steady pace over three quarters of a slot).
     const near = Math.max(left, stageOf(w).knightX + 7)
+    const far = Math.min(right - DW, near + (3 * EVENT_LEN) / 4)
     g = { cx: left + a + (w < TINY ? reach - a : 0), a, p, roam: p === 160 && far > near + 2 * a + 8, near, far, slots: new Map() }
     GEOS.set(w, g)
   }
@@ -657,11 +659,13 @@ type Home = { t0: number; w: number; st: Stage; s: Signals; at: (age: number) =>
  * fire's length, roaring rings), the knight (in front of the dragon or not), the princess at her window; and what
  * else is drawn: under the hills, behind the castle (`mid`), in front of it but behind the knight and dragon
  * (`low`), in front of the dragon but behind the castle (`fore`, shown only where the castle isn't) and the knight
- * (if `knightFront`), and over all (`top`, then the knight's sword stroke, `slash`). */
+ * (if `knightFront`), and over all (`top`, then the knight's sword stroke, `slash`). `actors`: where the piece's
+ * own actors stand (left column, top row) while on screen, for the speed test. */
 type Cast = {
   f: Fly; behind: boolean; open: boolean; flash: boolean; over: boolean; len: number; roar: boolean
   kn: KnightPose; knightFront: boolean; pr: PrincessPose
   under?: Draw; mid?: Draw; low?: Draw; fore?: Draw; top?: Draw; slash?: Draw
+  actors?: Record<string, [number, number]>
 }
 /** A set piece: what changes at `age` of its slot, everyone home at 0 and from BACK on. */
 type Piece = (age: number, h: Home) => Partial<Cast>
@@ -827,7 +831,9 @@ const charge: Piece = (age, h) => {
   if (!p.ok) return {}
   const [a, d] = [p.arr[0]!, p.dep[0]!]
   const leap = a + 6
-  const [hit, start, back] = [leap + 4, leap - 2 - 2 * run, d + 2]
+  // He walks back once he has landed and the dragon has gone; if it leaves before it has flinched, nothing plays.
+  const [hit, start, back] = [leap + 4, leap - 2 - 2 * run, Math.max(d + 2, leap + 10)]
+  if (d < hit + 2) return {}
   // He walks home at most a pixel every three frames, and is there (turned round) by BACK; if the dragon came too
   // late for that, nothing plays.
   const walk = Math.min(3 * run, BACK - 4 - back)
@@ -853,16 +859,22 @@ const charge: Piece = (age, h) => {
 }
 
 /** The archers' three arrows, loosed `from` on (each from a bow on screen), arcing up over the field and falling
- * into the grass. */
-function arrows(cv: Canvas, age: number, from: number, st: Stage, w: number): void {
-  for (const [ax, delay] of [[21, 0], [8, 8], [21, 16]] as const) {
+ * into the grass: each one's start column and frames in flight, while in the air. */
+function arrowsAt(age: number, from: number, st: Stage, w: number): [number, number, number][] {
+  const out: [number, number, number][] = []
+  ;([[21, 0], [8, 8], [21, 16]] as const).forEach(([ax, delay], k) => {
     const [x0, i] = [ax + st.dx + 3, age - from - delay]
-    if (x0 < 1 || i < 0) continue
-    const y = (j: number) => 3 - Math.round(j / 2 - (j * j) / 48)
-    if (y(i) >= 10 || x0 + i >= w) continue
-    plot(cv, x0 + i - 2, y(Math.max(0, i - 2)), ARROW_SHAFT)
-    plot(cv, x0 + i - 1, y(Math.max(0, i - 1)), ARROW_SHAFT)
-    plot(cv, x0 + i, y(i), ARROW_HEAD)
+    if (x0 >= 1 && i >= 0 && arc(i) < 10 && x0 + i < w) out.push([x0, i, k])
+  })
+  return out
+}
+/** An arrow's row `j` frames into its flight. */
+const arc = (j: number) => 3 - Math.round(j / 2 - (j * j) / 48)
+function arrows(cv: Canvas, age: number, from: number, st: Stage, w: number): void {
+  for (const [x0, i] of arrowsAt(age, from, st, w)) {
+    plot(cv, x0 + i - 2, arc(Math.max(0, i - 2)), ARROW_SHAFT)
+    plot(cv, x0 + i - 1, arc(Math.max(0, i - 1)), ARROW_SHAFT)
+    plot(cv, x0 + i, arc(i), ARROW_HEAD)
   }
 }
 
@@ -887,9 +899,11 @@ const towerRun: Piece = (age, h) => {
     : age >= a0 + 2 && age < past ? 'hidden'
     : age >= past && age < past + 16 ? 'window'
     : h.pr
+  const actors: Record<string, [number, number]> = {}
+  if (st.wide) for (const [x0, i, k] of arrowsAt(age, a1 + 4, st, h.w)) actors[`arrow${k}`] = [x0 + i, arc(i)]
   return {
     f: fly(p, age, h), behind: age >= a1 && age < a2, pr, knightFront: true,
-    top: st.wide ? cv => arrows(cv, age, a1 + 4, st, h.w) : undefined,
+    top: st.wide ? cv => arrows(cv, age, a1 + 4, st, h.w) : undefined, actors,
   }
 }
 
@@ -932,7 +946,11 @@ const catapult: Piece = (age, h) => {
   const sink = Math.max(0, (age - land - 12) >> 2)
   const [ox, oy] = boulder(age)
   const rock = (cv: Canvas) => { if (sink < 3) sprite(cv, ox, oy + sink, BOULDER.slice(0, 3 - sink), ROCK) }
+  const actors: Record<string, [number, number]> = {}
+  if (age >= 10 && age < 130) actors.arm = tip(age)
+  if (age >= 10 && age < land + 24 && sink < 3) actors.boulder = [ox, oy + sink]
   return {
+    actors,
     f: { ...f, wing: rolled(h.t0 + age, h.t0 + roll) }, over: age >= roll + 2 && age < roll + 6,
     mid: age >= 10 && age < 130 ? cv => {
       // A beam two pixels thick (lit on top), a dark cup at its end.
@@ -968,18 +986,20 @@ const landing: Piece = (age, h) => {
   const f = fly(p, age, h)
   const roar = age >= a + 10 && age < Math.min(a + 40, d - 6)
   const [wave, flight] = [age - a - 10, age - a - 12]
+  // Two birds burst out of the trees either side of it.
+  const near = trees(h.w, Math.max(0, h.st.dx + 25))
+  const perches = [[near.filter(x => x < lx - 1).pop(), -1], [near.find(x => x > lx + DW), 1]] as const
+  const birds = h.st.wide && flight >= 0 && flight < 12
+    ? perches.flatMap(([x0, dir]): [number, number][] => (x0 === undefined ? [] : [[x0 - 1 + dir * flight, nearTop(x0) - 5 - flight]]))
+    : []
   return {
+    actors: Object.fromEntries(birds.map((b, i) => [`bird${i}`, b])),
     f: age >= a + 3 && age < d - 3 ? { ...f, wing: FOLDED } : f, open: roar, roar,
     mid: wave >= 0 && wave < 30 ? cv => {
       for (const x of [lx - 1 - wave, lx - 2 - wave, lx + DW + wave, lx + DW + 1 + wave]) plot(cv, x, 10, GRASS.deep)
     } : undefined,
-    top: h.st.wide && flight >= 0 && flight < 12 ? cv => {
-      const near = trees(h.w, Math.max(0, h.st.dx + 25))
-      const perches = [[near.filter(x => x < lx - 1).pop(), -1], [near.find(x => x > lx + DW), 1]] as const
-      for (const [x0, dir] of perches) {
-        if (x0 === undefined) continue
-        sprite(cv, x0 - 1 + dir * flight, nearTop(x0) - 5 - flight, BIRDS[mod(age, 4) < 2 ? 0 : 1]!, { B: BIRD })
-      }
+    top: birds.length > 0 ? cv => {
+      for (const [x, y] of birds) sprite(cv, x, y, BIRDS[mod(age, 4) < 2 ? 0 : 1]!, { B: BIRD })
     } : undefined,
   }
 }
@@ -999,19 +1019,24 @@ const sheep: Piece = (age, h) => {
   const burst = p.ok ? p.arr[1]! + 8 : scatter + 24
   const wall = st.dx + 24
   const bolt = s0 + 6 - (wall - 3) <= BACK - scatter - 4
+  const flock = Array.from({ length: 3 }, (_, i) => {
+    const home = s0 + 6 + 6 * i
+    const left = i === 0 && bolt
+    let [x, face, art] = [Math.max(home, w + 6 + 6 * i - age), -1 as 1 | -1, SHEEP[mod(age >> 1, 2)]!]
+    if (age >= come && age < scatter) art = mod(age + 4 * i, 16) < 8 ? SHEEP_GRAZE : SHEEP[0]!
+    if (age >= scatter && left) [x, art] = [home - (age - scatter), SHEEP[mod(age, 2)]!]
+    if (age >= scatter + 2 && !left) [x, face, art] = [home + age - scatter - 2, 1, SHEEP[mod(age, 2)]!]
+    else if (age >= scatter && !left) [face, art] = [-1, SHEEP[0]!]
+    return { x, face, art, on: age < BACK && x < w && x > -4 }
+  })
+  const bale = Math.max(s0, w - age)
   const herd = (cv: Canvas) => {
-    for (let i = 0; i < 3; i++) {
-      const home = s0 + 6 + 6 * i
-      const left = i === 0 && bolt
-      let [x, face, art] = [Math.max(home, w + 6 + 6 * i - age), -1 as 1 | -1, SHEEP[mod(age >> 1, 2)]!]
-      if (age >= come && age < scatter) art = mod(age + 4 * i, 16) < 8 ? SHEEP_GRAZE : SHEEP[0]!
-      if (age >= scatter && left) [x, art] = [home - (age - scatter), SHEEP[mod(age, 2)]!]
-      if (age >= scatter + 2 && !left) [x, face, art] = [home + age - scatter - 2, 1, SHEEP[mod(age, 2)]!]
-      else if (age >= scatter && !left) [face, art] = [-1, SHEEP[0]!]
-      if (x < w && x > -4) sprite(cv, x, 8, art, SHEEP_KEYS, face)
-    }
-    if (age < burst) sprite(cv, Math.max(s0, w - age), 8, BALE[age < come ? mod(age >> 1, 2) : 0]!, BALE_KEYS)
+    for (const { x, face, art, on } of flock) if (on) sprite(cv, x, 8, art, SHEEP_KEYS, face)
+    if (age < burst) sprite(cv, bale, 8, BALE[age < come ? mod(age >> 1, 2) : 0]!, BALE_KEYS)
   }
+  const actors: Record<string, [number, number]> = {}
+  flock.forEach(({ x, on }, i) => { if (on) actors[`sheep${i}`] = [x, 8] })
+  if (age < burst && age < BACK) actors.bale = [bale, 8]
   const straw = (cv: Canvas) => {
     const i = age - burst
     if (i < 0) return
@@ -1021,6 +1046,7 @@ const sheep: Piece = (age, h) => {
     }
   }
   return {
+    actors,
     f: fly(p, age, h), open: p.ok && age >= burst - 2 && age < burst + 1,
     mid: age < BACK ? herd : undefined, top: age >= burst && age < burst + 12 ? straw : undefined,
   }
@@ -1044,10 +1070,20 @@ const pan: Piece = (age, h) => {
   const pr: PrincessPose = (age >= 10 && age < 14) || (age >= back + 10 && age < back + 16) ? 'window'
     : age >= 10 && age < back + 16 ? 'hidden' : h.pr
   const f = fly(p, age, h)
-  const dazed = p.ok && age >= bonk && age < bonk + 32
+  // Dazed while it hovers there; the stars circle where its head is, steady while the head wobbles.
+  const dazed = p.ok && age >= bonk && age < Math.min(bonk + 32, p.dep[1]!)
   const wobble = dazed && mod(age - bonk, 8) >= 4 ? 1 : 0
   const fd = { ...f, y: f.y + wobble }
+  const stars = dazed && age > bonk
+    ? [0, 1, 2].map((k): [number, number] => {
+      const a = (age - bonk) * 0.3 + (k * 2 * Math.PI) / 3
+      return [f.x + 3 + Math.round(3 * Math.cos(a)), f.y + Math.round(1.5 * Math.sin(a))]
+    })
+    : []
+  const actors: Record<string, [number, number]> = Object.fromEntries(stars.map((xy, k) => [`star${k}`, xy]))
+  if (rows > 0) actors.princess = [tx + 1, y]
   return {
+    actors,
     f: fd, flash: p.ok && age >= bonk && age < bonk + 2, pr,
     low: rope > 0 ? cv => { for (let j = 0; j < rope; j++) plot(cv, tx + 4, 6 + j, ROPE) } : undefined,
     top: rows > 0 || (dazed && age > bonk) ? cv => {
@@ -1056,22 +1092,21 @@ const pan: Piece = (age, h) => {
         sprite(cv, tx + 1, y, PRINCESS_FULL.slice(0, rows), PRINCESS_KEYS, -1)
         if (rows >= 5) for (const [dx, dy, k] of PAN[pose]!) plot(cv, tx + 3 - dx, y + dy, PAN_KEYS[k]!)
       }
-      if (dazed && age > bonk) {
-        for (let k = 0; k < 3; k++) {
-          const a = (age - bonk) * 0.3 + (k * 2 * Math.PI) / 3
-          plot(cv, fd.x + 3 + Math.round(3 * Math.cos(a)), fd.y + Math.round(1.5 * Math.sin(a)), STAR)
-        }
-      }
+      for (const [x, y] of stars) plot(cv, x, y, STAR)
     } : undefined,
   }
 }
 
 /** Egg 1, Clawd: Clawd rides out from behind the castle on a small horse and across the grass to the right edge
- * (behind the knight, in front of the dragon), tipping his lance at the dragon as he passes under it. */
+ * (behind the knight, in front of the dragon), tipping his lance at the dragon as he passes under it; on a band too
+ * wide to cross at a pixel a frame, he rides half way out and back behind the castle. */
 const clawd: Piece = (age, h) => {
   const { st, w } = h
   const x0 = st.dx + 24 - 13
-  const xAt = (a: number) => x0 + Math.floor(((w + 1 - x0) * a) / 152)
+  // Off the right edge by 152 if that is at most a pixel a frame; on a wider band he rides out half way and back.
+  const across = w + 1 - x0 <= 152
+  const xAt = (a: number) => x0 + (across ? Math.floor(((w + 1 - x0) * a) / 152) : Math.min(a, 152 - Math.min(152, a)))
+  const face: 1 | -1 = across || age < 76 ? 1 : -1
   const pass = setup('clawd', h, () => {
     for (let a = 0; a < EVENT_LEN; a++) if (Math.abs(xAt(a) + 6 - (h.at(a).x + 8)) <= 2) return a
     return -99
@@ -1082,11 +1117,13 @@ const clawd: Piece = (age, h) => {
   const draw = (cv: Canvas) => {
     if (x >= w) return
     const bob = mod(age, 4) < 2 ? 0 : 1
-    sprite(cv, x, 7, [...HORSE, HOOVES[mod(age, 4)]!], HORSE_KEYS)
-    sprite(cv, x + 1, 5 + bob, CLAWD_MINI, CLAWD_KEYS)
-    LANCE[lance]!.forEach(([dx, dy], i) => plot(cv, x + dx!, 6 + bob + dy!, i === 4 ? ARROW_HEAD : ROPE))
+    // Mirrored about the horse (9 wide) when riding back.
+    const at = (dx: number, wide = 1) => (face > 0 ? x + dx : x + 9 - dx - wide)
+    sprite(cv, x, 7, [...HORSE, HOOVES[mod(age, 4)]!], HORSE_KEYS, face)
+    sprite(cv, at(1, 6), 5 + bob, CLAWD_MINI, CLAWD_KEYS, face)
+    LANCE[lance]!.forEach(([dx, dy], i) => plot(cv, at(dx!), 6 + bob + dy!, i === 4 ? ARROW_HEAD : ROPE))
   }
-  return { fore: draw, knightFront: true }
+  return { fore: draw, knightFront: true, actors: x < w ? { horse: [x, 7] } : undefined }
 }
 
 /** Egg 2, hatchling: the pet's hatchling comes out from behind the princess's tower and the castle wall, chases after
@@ -1127,7 +1164,10 @@ const hatchling: Piece = (age, h) => {
   const draw = (cv: Canvas) => {
     if (y > -4 && x < h.w) sprite(cv, x, y, turned ? [...art].reverse() : art, HATCH_KEYS, face)
   }
-  return { f: { ...h.at(age), wing: rolled(h.t0 + age, h.t0 + ROLL) }, over: turned, fore: draw, knightFront: true }
+  return {
+    f: { ...h.at(age), wing: rolled(h.t0 + age, h.t0 + ROLL) }, over: turned, fore: draw, knightFront: true,
+    actors: y > -4 && x < h.w ? { hatchling: [x, y] } : undefined,
+  }
 }
 
 const PIECES: Piece[] = [strafe, charge, towerRun, catapult, landing, sheep]
@@ -1153,6 +1193,14 @@ function cast(t: number, w: number, s: Signals, st: Stage, slot: Slot | null): C
   if (!st.wide && !NARROW.has(piece)) piece = towerRun
   const t0 = t - slot.age
   return { ...base, ...piece(slot.age, { t0, w, st, s, at: a => patrol(t0 + a, w), kn, pr }) }
+}
+
+/** For the speed test: where everyone stands at frame `t` on the schedule (left column, top row): the dragon, the
+ * knight, a wyvern on the patrol and the set piece's own actors while on screen. */
+export function posesAt(t: number, w: number, s: Signals): Record<string, [number, number]> {
+  const c = cast(t, w, s, stageOf(w), slotAt(t, EVENT_LEN, EVENT_KINDS, DRAGON_SEED, EGG_KINDS, EGG_CHANCE))
+  const v = patrol(t, w)
+  return { dragon: [c.f.x, c.f.y], knight: [c.kn.x, c.kn.y], wyvern: [v.x, v.y], ...c.actors }
 }
 
 // ---- reactions --------------------------------------------------------------------------------------------------

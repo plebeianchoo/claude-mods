@@ -2,8 +2,9 @@ import { expect, test } from 'claude-code/testing'
 
 import { IDLE_SIGNALS, THEMES } from '../hooks/themes'
 import type { Signals } from '../hooks/themes'
-import { dragonScene, EGG_KINDS, EVENT_KINDS, EVENT_LEN } from '../hooks/themes/dragon'
+import { DRAGON_SEED, dragonScene, EGG_CHANCE, EGG_KINDS, EVENT_KINDS, EVENT_LEN, posesAt } from '../hooks/themes/dragon'
 import { changed, jump, sigs } from './motion'
+import { eggSlot } from '../hooks/events'
 import type { Slot } from '../hooks/events'
 
 const sig = (over: Partial<Signals>): Signals => ({ ...IDLE_SIGNALS, ...over })
@@ -65,6 +66,35 @@ test('set pieces never jump, frame by frame', { timeoutMs: 60_000 }, () => {
       last = now
     }
   }
+})
+
+test('nothing moves more than a pixel a frame on the real schedule, at any width', { timeoutMs: 60_000 }, () => {
+  // Four rounds of slots from the start (every piece four times), and the slots around each egg's first showing.
+  const spans = [[0, 4 * EVENT_KINDS * EVENT_LEN], ...Array.from({ length: EGG_KINDS }, (_, e) => {
+    const t0 = eggSlot(e, EVENT_LEN, EVENT_KINDS, DRAGON_SEED, EGG_KINDS, EGG_CHANCE)
+    return [t0 - EVENT_LEN, t0 + 2 * EVENT_LEN]
+  })] as const
+  // The first time each actor moves too far.
+  const bad = new Map<string, string>()
+  // The breath changes no one's place, so bash is walked at fewer widths, to keep this cheap.
+  for (const [s, step] of [[sig({ act: 'think', actAge: 30 }), 6], [sig({ act: 'tool', tool: 'bash', actAge: 30, toolAge: 30 }), 36]] as const) {
+    for (let w = 24; w <= 260; w += step) {
+      for (const [from, to] of spans) {
+        let last = posesAt(from - 1, w, s)
+        for (let t = from; t < to; t++) {
+          const now = posesAt(t, w, s)
+          for (const [who, [x, y]] of Object.entries(now)) {
+            const p = last[who]
+            if (p && Math.max(Math.abs(x - p[0]), Math.abs(y - p[1])) > 1 && !bad.has(who)) {
+              bad.set(who, `${s.act} w=${w} t=${t} (${x - p[0]}, ${y - p[1]})`)
+            }
+          }
+          last = now
+        }
+      }
+    }
+  }
+  expect(Object.fromEntries(bad)).toEqual({})
 })
 
 test('the sheet showcases every set piece and egg', () => {
