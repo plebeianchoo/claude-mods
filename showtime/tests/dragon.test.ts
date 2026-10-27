@@ -98,3 +98,28 @@ test('reactions are over by newsAge 30, so clearing the news never snaps', () =>
     }
   }
 })
+
+test('reactions stay opaque, never jump and clear cleanly at every width', { timeoutMs: 30_000 }, () => {
+  // t0 40 starts in the strafe; 777 and 9001 in the charge's walk home; 1234 elsewhere.
+  for (const w of [16, 30, 44, 80, 152]) {
+    for (const news of ['testPass', 'testFail', 'commit'] as const) {
+      for (const t0 of [40, 777, 1234, 9001]) {
+        let last = sigs(THEMES.dragon.scene(t0 - 1, w, sig({})), true)
+        for (let newsAge = 0; newsAge <= 41; newsAge++) {
+          const g = THEMES.dragon.scene(t0 + newsAge, w, sig({ news, newsAge }))
+          const at = `${news} w=${w} t0=${t0} age=${newsAge}`
+          g.forEach((row, r) => row.forEach((c, x) => {
+            if (c.c === undefined && c.bg === undefined) expect(`${at} cell ${x},${r}`).toBe('painted')
+          }))
+          const now = sigs(g, true)
+          const j = jump(last, now, true)
+          expect(j, `${at} row ${j?.row} edge ${j?.x}`).toBeNull()
+          if (newsAge === 30 || newsAge === 35 || newsAge === 39) {
+            expect(changed(g, THEMES.dragon.scene(t0 + newsAge, w, sig({}))), at).toBe(0)
+          }
+          last = now
+        }
+      }
+    }
+  }
+})

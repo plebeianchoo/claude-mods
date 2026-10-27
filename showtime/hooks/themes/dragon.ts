@@ -644,11 +644,11 @@ type Home = { t0: number; w: number; st: Stage; s: Signals; at: (age: number) =>
  * fire's length, roaring rings), the knight (in front of the dragon or not), the princess at her window; and what
  * else is drawn: under the hills, behind the castle (`mid`), in front of it but behind the knight and dragon
  * (`low`), in front of the dragon but behind the castle (`fore`, shown only where the castle isn't) and the knight
- * (if `knightFront`), and over all. */
+ * (if `knightFront`), and over all (`top`, then the knight's sword stroke, `slash`). */
 type Cast = {
   f: Fly; behind: boolean; open: boolean; flash: boolean; over: boolean; len: number; roar: boolean
   kn: KnightPose; knightFront: boolean; pr: PrincessPose
-  under?: Draw; mid?: Draw; low?: Draw; fore?: Draw; top?: Draw
+  under?: Draw; mid?: Draw; low?: Draw; fore?: Draw; top?: Draw; slash?: Draw
 }
 /** A set piece: what changes at `age` of its slot, everyone home at 0 and from BACK on. */
 type Piece = (age: number, h: Home) => Partial<Cast>
@@ -822,7 +822,7 @@ const charge: Piece = (age, h) => {
   const top: Draw | undefined = arc >= 0 && arc < 3
     ? cv => { for (const [dx, dy] of SLASH[arc]!) plot(cv, kn.x + dx!, kn.y + dy!, WHITE) }
     : undefined
-  return { f: { ...f, y: f.y - knock }, flash: age >= hit && age < hit + 2, kn, top }
+  return { f: { ...f, y: f.y - knock }, flash: age >= hit && age < hit + 2, kn, slash: top }
 }
 
 /** The archers' three arrows, loosed `from` on (each from a bow on screen), arcing up over the field and falling
@@ -1174,23 +1174,27 @@ function puff(cv: Canvas, x: number, y: number, a: number): void {
   for (const [dx, dy] of pts) fadeAt(cv, x + dx!, py + dy!, SMOKE[(dx! + dy! + a) & 1]!, k)
 }
 
-/** testPass: three rockets go up from the castle a pixel a frame (one every two frames), each bursting at the top
+/** testPass: three rockets go up from the castle a pixel a frame (launched at 0, 1, 2; bursting at 4, 6, 8, the later
+ * ones from lower down), each bursting at the top
  * into an eight-rayed star (gold, green, pink) that grows a pixel a frame, thins to its tips, droops and fades by
  * REACT. */
 function fireworks(cv: Canvas, age: number, t: number, w: number, st: Stage): void {
   const xs = w >= FULL ? [4, 10, 22] : st.wide ? [3, 11, 27] : w >= TINY ? [3, 12, 21] : [2, w >> 1, w - 3]
   for (let k = 0; k < 3; k++) {
-    const [x, top, born] = [xs[k]!, k === 1 ? 3 : 2, 2 * k]
-    const bang = born + 6
+    const [x, top, born] = [xs[k]!, k === 1 ? 3 : 2, k]
+    const bang = 4 + 2 * k
     if (age < born) continue
     if (age < bang) {
-      // The rocket: a white head, a trail in its burst's colour flickering, a spark spitting off on alternate sides.
+      // The rocket: a white head, a trail in its burst's colour flickering, a spark spitting off on alternate sides,
+      // a smoke trail under it.
       const y = top + bang - age
       const ink = FIREWORK[k]!
       plot(cv, x, y, WHITE)
       plot(cv, x, y + 1, mod(t, 2) === 0 ? ink : PALE)
       plot(cv, x, y + 2, mix(ink, INK, 0.3))
       plot(cv, x + (mod(age, 2) === 0 ? 1 : -1), y + 2, ink)
+      // Its smoke trail back down to where it went up from, thinning.
+      for (let j = 3; j <= age - born + 2; j++) fadeAt(cv, x, y + j, SMOKE[0]!, 0.25 * (j - 2))
       continue
     }
     const [a, life] = [age - bang, REACT - 2 - bang]
@@ -1267,36 +1271,48 @@ function roar(cv: Canvas, age: number, t: number, at: (te: number) => Fly): void
   }
 }
 
-/** The knight caught by a fire blast at `age`, from `k` (where he would be): flames on his front for five frames,
- * knocked back three pixels (a pixel a frame), crouching, sitting with his sword dropped from 5 to 23, up again
- * and back at his place by REACT (his shield up on the way if fire is on him); soot on him fading over 16 frames.
- * Returns how to draw him and where his helm is. */
-function knockedDown(k: KnightPose, age: number): { draw: (cv: Canvas, t: number, shield: boolean) => void; helm: [number, number] } {
-  const back = -k.face
-  const off = age <= 3 ? age : age <= 24 ? 3 : REACT - age
-  const x = k.x + back * off
+/** The knight caught by a fire blast at `age`. `k0` is where he was when the news came, `k1` where he will be at
+ * REACT. Flames cover his front for five frames. He is knocked back three pixels from `k0` (a pixel a frame),
+ * crouches, and sits with his sword dropped (his place frozen, so he never drifts while down). Then he crouches
+ * again and walks, a pixel a frame, to `k1`, arriving a frame before REACT (so his shield's sparks, which follow it
+ * by a frame, never start on a step), his shield up on the way if fire is on him. Soot on
+ * him fades over 16 frames. Returns how to draw him, his column, where his helm is, whether he is dazed (stars) and
+ * whether he is walking back now and was on the frame before (his shield, its sparks). */
+function knockedDown(k0: KnightPose, k1: KnightPose, age: number): {
+  draw: (cv: Canvas, t: number, shield: boolean) => void; x: number; helm: [number, number]; dazed: boolean
+  walking: boolean; walked: boolean
+} {
+  const back = -k0.face
+  const sitX = k0.x + 3 * back
+  const dir = Math.sign(k1.x - sitX)
+  // He gets up in time to walk the gap (three pixels at his post, more if his place moved on meanwhile).
+  const walk = Math.max(7, REACT - 1 - Math.abs(k1.x - sitX))
+  const up = walk - 1
+  const face: 1 | -1 = dir > 0 ? 1 : dir < 0 ? -1 : k1.face
+  const x = age <= 3 ? k0.x + back * age : age < walk ? sitX : k1.x - dir * Math.max(0, REACT - 1 - age)
   const soot = Math.max(0, 0.55 * (1 - age / 16))
   const ink = soot > 0 ? (c: string) => mix(c, SOOT, soot) : undefined
-  const sit = age >= 5 && age <= 23
-  const crouch = age === 4 || age === 24
+  const sit = age >= 5 && age < up
+  const crouch = age === 4 || age === up
   // A wider sprite mirrored about its own width: keep his body where the standing one's would be.
   const draw = (cv: Canvas, t: number, shield: boolean) => {
-    if (sit) sprite(cv, k.face > 0 ? x : x - 2, KNIGHT_Y + 2, KNIGHT_SIT, KNIGHT_KEYS, k.face, ink)
-    else if (crouch) sprite(cv, x, KNIGHT_Y + 1, KNIGHT_CROUCH, KNIGHT_KEYS, k.face, ink)
-    else if (age >= 25) sprite(cv, x, KNIGHT_Y, shield ? KNIGHT_SHIELD : runArt(age), KNIGHT_KEYS, k.face, ink)
-    else sprite(cv, x, k.y, KNIGHT[0]!, KNIGHT_KEYS, k.face, ink)
+    if (sit) sprite(cv, k0.face > 0 ? x : x - 2, KNIGHT_Y + 2, KNIGHT_SIT, KNIGHT_KEYS, k0.face, ink)
+    else if (crouch) sprite(cv, x, KNIGHT_Y + 1, KNIGHT_CROUCH, KNIGHT_KEYS, age === 4 ? k0.face : face, ink)
+    else if (age >= walk) sprite(cv, x, KNIGHT_Y, shield ? KNIGHT_SHIELD : runArt(age), KNIGHT_KEYS, face, ink)
+    else sprite(cv, x, k0.y, KNIGHT[0]!, KNIGHT_KEYS, k0.face, ink)
     if (age < 5) {
       // The blast: flames over the side he faced, shrinking, flickering.
-      const front = k.face > 0 ? k.x + 7 : k.x - 1
+      const front = k0.face > 0 ? k0.x + 7 : k0.x - 1
       for (let i = 0; i < 3 - (age >> 1); i++) {
-        for (let y = k.y + 1 + i; y <= KNIGHT_Y + 7; y++) {
+        for (let y = k0.y + 1 + i; y <= KNIGHT_Y + 7; y++) {
           const n = noise(i * 5.3 + y * 1.7 + t * 0.77)
-          plot(cv, front + k.face * i - k.face * (age > 1 ? 1 : 0), y, n < 0.3 ? PALE : n < 0.7 ? FLAME : EMBER)
+          plot(cv, front + k0.face * i - k0.face * (age > 1 ? 1 : 0), y, n < 0.3 ? PALE : n < 0.7 ? FLAME : EMBER)
         }
       }
     }
   }
-  return { draw, helm: sit ? [x + 3, KNIGHT_Y + 2] : crouch ? [x + 3, KNIGHT_Y + 1] : [x + 3, KNIGHT_Y] }
+  const helm: [number, number] = [x + 3, sit ? KNIGHT_Y + 2 : crouch ? KNIGHT_Y + 1 : KNIGHT_Y]
+  return { draw, x, helm, dazed: age >= 6 && age < up, walking: age >= walk, walked: age - 1 >= walk }
 }
 
 /** testFail on the narrow stage (no knight): an arrow from the tower's side flies the last four pixels up into the
@@ -1351,7 +1367,7 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
   const age = s.news && s.newsAge < REACT ? s.newsAge : -1
   const [pass, fail, commit] = [age >= 0 && s.news === 'testPass', age >= 0 && s.news === 'testFail', age >= 0 && s.news === 'commit']
   const hit = fail && !st.wide ? arrowHit(c.f, age) : undefined
-  const down = fail && st.wide ? knockedDown(c.kn, age) : undefined
+  const down = fail && st.wide ? knockedDown(castAt(t - age).kn, castAt(t - age + REACT).kn, age) : undefined
   // Roaring it rears, wings raised (dipping to mid on the down beat), jaws open; it keeps to its path.
   const roaring = commit && age < 20
   const f = hit ? hit.f : roaring && c.f.wing !== FOLDED ? { ...c.f, wing: c.f.wing === 2 ? 1 : 0 } : c.f
@@ -1383,7 +1399,8 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
     const tipX = jx + fe.face * (l - 1)
     return st.wide && k.face > 0 && l > 0 && tipX >= k.x - 1 && tipX <= k.x + 7 && jy + ((l - 1) >> 1) >= k.y - 2
   }
-  const shield = !down && shieldAt(t)
+  // Knocked down he has no shield up, until he walks back (then as he would anyway).
+  const shield = down ? down.walking && shieldAt(t) : shieldAt(t)
   // testPass: at his post, he lifts his sword and holds it overhead, waving it forward and back on 8 frames.
   const salute = pass && st.wide && !shield && kn.face > 0 && kn.y === KNIGHT_Y && KNIGHT.some(a => a === kn.art) &&
     age >= 3 && age < 26 ? SALUTE[age === 3 || age >= 24 ? 0 : mod(age - 4, 8) < 4 ? 1 : 2]! : undefined
@@ -1399,7 +1416,7 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
   const drawDragon = () => dragon(cv, f, open, keys, c.flash || hit?.flash ? blanch : undefined, c.over)
   const drawKnight = () => {
     if (!st.wide) return
-    if (down) down.draw(cv, t, age >= 25 && shieldAt(t))
+    if (down) down.draw(cv, t, shield)
     else if (salute) sprite(cv, kn.x, kn.y - 3, salute, KNIGHT_KEYS)
     else knight(cv, kn, shield)
   }
@@ -1442,15 +1459,17 @@ export function dragonScene(t: number, w: number, s: Signals, opts: { slot?: Slo
   }
   if (c.knightFront) drawKnight()
   if (len > 0) fire(cv, f, len, t, a => fireAt(t - a) >= CONE)
-  if (shield && shieldAt(t - 1)) shieldSparks(cv, kn.x + 6, kn.y, t)
+  if (shield && shieldAt(t - 1) && (!down || down.walked)) shieldSparks(cv, (down ? down.x : kn.x) + 6, down ? KNIGHT_Y : kn.y, t)
   if (hue && spark > 0) sparks(cv, f, spark, t, hue)
   if (say) rings(cv, t, at)
   if (c.roar || castAt(t - 11).roar || castAt(t - 6).roar) rings(cv, t, at, te => castAt(te).roar)
   c.top?.(cv)
+  // The knight's own sword stroke, unless a blast has knocked him down.
+  if (!down) c.slash?.(cv)
   if (pass) fireworks(cv, age, t, w, st)
   if (down) {
     const [hx, hy] = down.helm
-    if (age >= 6 && age < 24) dizzy(cv, hx, hy - 2, age - 6)
+    if (down.dazed) dizzy(cv, hx, hy - 2, age - 6)
     puff(cv, hx + 2 * kn.face, hy + 1, age - 1)
     puff(cv, hx - kn.face, hy + 2, age - 7)
   }
