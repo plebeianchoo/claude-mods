@@ -115,6 +115,9 @@ export type Finale = 'answer' | 'aborted' | 'error'
 /** The companion's mood between turns. */
 export type Mood = 'hello' | 'ready' | 'aborted' | 'error' | 'sleep'
 
+/** A moment for the review sheet: a label, a frame and the signals then. */
+export type Showcase = { name: string; t: number; s?: Partial<Signals> }
+
 export type Theme = {
   name: ThemeName
   /** The mascot's color, and a second one for its props. */
@@ -137,6 +140,10 @@ export type Theme = {
   pet: PetArt
   /** The band's scene while a turn runs: `rows` rows of `w` cells. */
   scene: (t: number, w: number, s: Signals) => Grid
+  /** The scene paints every cell (a sky, a wall): tests judge its motion by colour, not by ink. */
+  opaque?: boolean
+  /** Moments the review sheet shows besides the standard strips (set pieces, easter eggs), for width `w`. */
+  showcase?: (w: number) => Showcase[]
 }
 
 /** Milliseconds per frame: the mascot's, the band's, the companion's between turns. */

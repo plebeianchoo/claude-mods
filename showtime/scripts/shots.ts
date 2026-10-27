@@ -22,6 +22,10 @@ const BACK = [0x1a, 0x1a, 0x1e] as const
 const GAP = 6
 const LABEL_H = 14
 const FRAMES = 12
+/** Showcase strips: frames per strip, frames between them, and their width in cells. */
+const SHOW_FRAMES = 6
+const SHOW_STEP = 4
+const SHOW_W = 80
 
 type Img = { w: number; h: number; px: Uint8Array }
 const image = (w: number, h: number): Img => {
@@ -106,17 +110,21 @@ const sig = (over: Partial<Signals>): Signals => ({ ...IDLE_SIGNALS, ...over })
 const STILL_SIGNALS = sig({ act: 'tool', tool: 'bash', done: 3, total: 7, agents: 1 })
 
 /** The review sheet's strips: a label and FRAMES consecutive frames each. */
-function strips(theme: Theme): { name: string; frames: Grid[] }[] {
+function strips(theme: Theme): { name: string; frames: Grid[]; w: number }[] {
   const acts: Act[] = ['think', 'tool', 'ask', 'say']
   const twelve = (f: (i: number) => Signals, t0 = 40) => Array.from({ length: FRAMES }, (_, i) => theme.scene(t0 + i, W, f(i)))
-  const out = acts.map(act => ({ name: act, frames: twelve(i => sig({ act, actAge: 30 + i })) }))
+  const out = acts.map(act => ({ name: act, frames: twelve(i => sig({ act, actAge: 30 + i })), w: W }))
   // think from t=0, so a hero that strolls in from the edge shows its walk (the other strips start at t=40)
-  out.push({ name: 'think t0', frames: twelve(i => sig({ act: 'think', actAge: i }), 0) })
-  out.push({ name: 'agents 2', frames: twelve(i => sig({ agents: 2, agentsAge: i })) })
-  out.push({ name: 'done 3/7', frames: twelve(i => sig({ done: 3, total: 7, doneAge: i })) })
-  out.push({ name: 'done 7/7', frames: twelve(i => sig({ done: 7, total: 7, doneAge: i })) })
-  for (const news of ['testFail', 'testPass', 'commit'] as const) for (const age of [0, 8, 20]) out.push({ name: `${news} ${age}`, frames: twelve(i => sig({ news, newsAge: age + i })) })
-  out.push({ name: 'tool bash', frames: twelve(i => sig({ act: 'tool', tool: 'bash', actAge: 30 + i, toolAge: 30 + i })) })
+  out.push({ name: 'think t0', frames: twelve(i => sig({ act: 'think', actAge: i }), 0), w: W })
+  out.push({ name: 'agents 2', frames: twelve(i => sig({ agents: 2, agentsAge: i })), w: W })
+  out.push({ name: 'done 3/7', frames: twelve(i => sig({ done: 3, total: 7, doneAge: i })), w: W })
+  out.push({ name: 'done 7/7', frames: twelve(i => sig({ done: 7, total: 7, doneAge: i })), w: W })
+  for (const news of ['testFail', 'testPass', 'commit'] as const) for (const age of [0, 8, 20]) out.push({ name: `${news} ${age}`, frames: twelve(i => sig({ news, newsAge: age + i })), w: W })
+  out.push({ name: 'tool bash', frames: twelve(i => sig({ act: 'tool', tool: 'bash', actAge: 30 + i, toolAge: 30 + i })), w: W })
+  for (const m of theme.showcase?.(SHOW_W) ?? []) {
+    const frames = Array.from({ length: SHOW_FRAMES }, (_, i) => theme.scene(m.t + i * SHOW_STEP, SHOW_W, sig({ ...m.s })))
+    out.push({ name: m.name, frames, w: SHOW_W })
+  }
   return out
 }
 
@@ -126,11 +134,12 @@ function sheet(theme: Theme): Img {
   const petH = PET_ROWS * SCALE * 2
   const stripH = LABEL_H + cellH + GAP
   const petStripH = LABEL_H + petH + GAP
-  const img = image(FRAMES * (W * SCALE + GAP) + GAP, rows.length * stripH + 4 * petStripH + GAP)
+  const width = Math.max(FRAMES * (W * SCALE + GAP), SHOW_FRAMES * (SHOW_W * SCALE + GAP)) + GAP
+  const img = image(width, rows.length * stripH + 4 * petStripH + GAP)
   rows.forEach((strip, r) => {
     const y = r * stripH
     label(img, `${theme.name} ${strip.name}`, GAP, y + 2)
-    strip.frames.forEach((g, i) => blit(img, g, GAP + i * (W * SCALE + GAP), y + LABEL_H))
+    strip.frames.forEach((g, i) => blit(img, g, GAP + i * (strip.w * SCALE + GAP), y + LABEL_H))
   })
   const y = rows.length * stripH
   const states = ['think', 'tool', 'ready', 'sleep'] as const
