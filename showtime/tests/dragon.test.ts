@@ -68,19 +68,38 @@ test('set pieces never jump, frame by frame', { timeoutMs: 60_000 }, () => {
   }
 })
 
-test('nothing moves more than a pixel a frame on the real schedule, at any width', { timeoutMs: 60_000 }, () => {
+/** Set-piece and egg actors' sizes (columns, rows), for telling when one is past an edge; 1×1 if not listed. */
+const SIZES: Record<string, [number, number]> = {
+  sheep: [4, 3], bale: [4, 3], horse: [9, 4], hatchling: [6, 4], bird: [3, 2], boulder: [3, 3], princess: [3, 6],
+}
+/** Whether an actor last at `p` (and at `q` the frame before) may be gone the next frame: one step from being past
+ * the left, right or top edge; or ending where it is by design: the bale bursting and the boulder and catapult arm
+ * settling, each once still, the princess back in at her window, an arrow in the grass, a dazed star as the daze
+ * clears. */
+function mayGo(who: string, p: [number, number], q: [number, number] | undefined, w: number): boolean {
+  const kind = who.replace(/\d+$/, '')
+  const [cols, rows] = SIZES[kind] ?? [1, 1]
+  const [x, y] = p
+  if (x >= w - 1 || x <= 1 - cols || y <= 1 - rows) return true
+  const still = q !== undefined && q[0] === x && q[1] === y
+  if (['bale', 'boulder', 'arm', 'princess'].includes(kind)) return still
+  return (kind === 'arrow' && y >= 9) || kind === 'star'
+}
+
+test('nothing moves more than a pixel a frame or vanishes on screen, on the real schedule, at any width', { timeoutMs: 60_000 }, () => {
   // Four rounds of slots from the start (every piece four times), and the slots around each egg's first showing.
   const spans = [[0, 4 * EVENT_KINDS * EVENT_LEN], ...Array.from({ length: EGG_KINDS }, (_, e) => {
     const t0 = eggSlot(e, EVENT_LEN, EVENT_KINDS, DRAGON_SEED, EGG_KINDS, EGG_CHANCE)
     return [t0 - EVENT_LEN, t0 + 2 * EVENT_LEN]
   })] as const
-  // The first time each actor moves too far.
+  // The first time each actor moves too far, or (by kind) vanishes while still on screen.
   const bad = new Map<string, string>()
+  const gone = new Map<string, string>()
   // The breath changes no one's place, so bash is walked at fewer widths, to keep this cheap.
   for (const [s, step] of [[sig({ act: 'think', actAge: 30 }), 6], [sig({ act: 'tool', tool: 'bash', actAge: 30, toolAge: 30 }), 36]] as const) {
     for (let w = 24; w <= 260; w += step) {
       for (const [from, to] of spans) {
-        let last = posesAt(from - 1, w, s)
+        let [before, last] = [posesAt(from - 2, w, s), posesAt(from - 1, w, s)]
         for (let t = from; t < to; t++) {
           const now = posesAt(t, w, s)
           for (const [who, [x, y]] of Object.entries(now)) {
@@ -89,12 +108,20 @@ test('nothing moves more than a pixel a frame on the real schedule, at any width
               bad.set(who, `${s.act} w=${w} t=${t} (${x - p[0]}, ${y - p[1]})`)
             }
           }
-          last = now
+          for (const who in last) {
+            if (now[who] || who === 'dragon' || who === 'knight' || who === 'wyvern') continue
+            const [kind, p] = [who.replace(/\d+$/, ''), last[who]!]
+            if (!gone.has(kind) && !mayGo(who, p, before[who], w)) {
+              gone.set(kind, `${s.act} w=${w} age=${t % EVENT_LEN} last at (${p[0]}, ${p[1]})`)
+            }
+          }
+          ;[before, last] = [last, now]
         }
       }
     }
   }
   expect(Object.fromEntries(bad)).toEqual({})
+  expect(Object.fromEntries(gone)).toEqual({})
 })
 
 test('the epoch moves the dragon schedule on by whole slots and changes no other theme', () => {
