@@ -2,6 +2,7 @@ import { expect, test } from 'claude-code/testing'
 
 import { withReactions } from '../hooks/reactions'
 import { IDLE_SIGNALS, blank, put, THEMES, THEME_NAMES, segments, textWidth } from '../hooks/themes'
+import { jump, sigs } from './motion'
 import type { Act, NewsKind, Signals } from '../hooks/themes'
 
 /** The sweeps walk all 38 themes at many widths: ~4 s on a 16-core box, ~12 s on a 4-core NUC. */
@@ -39,40 +40,37 @@ test('every scene fills its rows and width under every signal, and never throws'
   }
 })
 
-/** The foreground cells of a row as a string, for comparing frames. */
-function ink(g: ReturnType<(typeof THEMES)['clawd']['scene']>): string[] {
-  return g.map(row => row.map(c => (c.ch === ' ' ? ' ' : 'x')).join(''))
-}
-
-/** The first column of each run of non-space cells, to spot a shape jumping. */
-function edges(line: string): number[] {
-  const out: number[] = []
-  for (let x = 0; x < line.length; x++) if (line[x] === 'x' && (x === 0 || line[x - 1] !== 'x')) out.push(x)
-  return out
-}
-
 const W = 80
 
 test('polished scenes never hold a frame and never jump a shape more than a cell', { timeoutMs: SWEEP_MS }, () => {
   for (const name of THEME_NAMES) {
     if (!POLISHED.has(name)) continue
     const theme = THEMES[name]
+    const opaque = theme.opaque === true
     for (const act of ACTS) {
-      let last = ink(theme.scene(0, W, sig({ act, actAge: 30 })))
+      let last = sigs(theme.scene(0, W, sig({ act, actAge: 30 })), opaque)
       for (let t = 1; t < 60; t++) {
-        const now = ink(theme.scene(t, W, sig({ act, actAge: 30 + t })))
-        expect(now.join('\n')).not.toBe(last.join('\n'))
-        for (let r = 0; r < now.length; r++) {
-          const b = edges(now[r]!)
-          // Each edge in the new frame is within a cell of one in the old, in the same row or the one
-          // above or below (a sprite may hop a cell row); shapes that appear count once, at the edges.
-          const a = [last[r - 1], last[r], last[r + 1]].flatMap(line => (line ? edges(line) : []))
-          for (const x of b) {
-            const near = a.some(y => Math.abs(y - x) <= 1) || x <= 1 || x >= W - 2
-            expect(near, `${name} ${act} t=${t} row ${r} edge at ${x} jumped`).toBe(true)
-          }
-        }
+        const now = sigs(theme.scene(t, W, sig({ act, actAge: 30 + t })), opaque)
+        expect(now.map(r => r.join('')).join('\n')).not.toBe(last.map(r => r.join('')).join('\n'))
+        const j = jump(last, now, opaque)
+        expect(j, `${name} ${act} t=${t} row ${j?.row} edge at ${j?.x} jumped`).toBeNull()
         last = now
+      }
+    }
+  }
+})
+
+test('opaque scenes paint every cell', { timeoutMs: SWEEP_MS }, () => {
+  for (const name of THEME_NAMES) {
+    const theme = THEMES[name]
+    if (!theme.opaque) continue
+    for (const w of [16, 40, 80, 160]) {
+      for (const s of [sig({}), sig({ act: 'ask', actAge: 5 }), sig({ act: 'tool', tool: 'bash', actAge: 9 }), sig({ news: 'testPass', newsAge: 8 })]) {
+        for (const t of [0, 77, 1234]) {
+          theme.scene(t, w, s).forEach((row, r) => row.forEach((c, x) => {
+            expect(c.c !== undefined || c.bg !== undefined, `${name} w=${w} t=${t} cell ${x},${r} is bare`).toBe(true)
+          }))
+        }
       }
     }
   }
