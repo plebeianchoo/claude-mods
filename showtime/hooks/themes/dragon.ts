@@ -14,8 +14,9 @@
 // banner per task hangs from the battlements, furled grey while open, unrolling gold once done. Each actor has a
 // home pose for `t` (`patrol`, `knightHome`, `princessHome`). Every 160 frames a set piece plays (strafe, charge,
 // tower, catapult, landing, sheep), now and then an easter egg instead (frying pan, Clawd, hatchling): one function
-// each, giving who is where at the slot's age, leaving home and back by its end. News (testPass, testFail, commit)
-// shows only on the sign for now.
+// each, giving who is where at the slot's age, leaving home and back by its end. On a wide band the patrol roams:
+// slots whose pieces allow it start or end at the far end, so the dragon crosses the whole field. News (testPass,
+// testFail, commit) shows only on the sign for now.
 import { canvas, cells, frame, mod, noise, plot, put } from '../cells'
 import type { Canvas, Grid } from '../cells'
 import { eggSlot, firstSlot, slotAt } from '../events'
@@ -214,8 +215,9 @@ const HATCH_KEYS: Record<string, string> = { K: '#ffd166', N: GOLD, B: '#e63946'
 /** A flyer on the figure-eight: its left column, top pixel row, facing, wing pose, frames since its last turn and
  * to its next. */
 export type Fly = { x: number; y: number; face: 1 | -1; wing: number; since: number; until: number }
-/** The figure-eight for a width: its middle column, its swing either side, its period in frames. */
-type Geo = { cx: number; a: number; p: number }
+/** The figure-eight for a width: its middle column, its swing either side, its period in frames; on a wide band
+ * (`roam`) its castle end and far end, the left columns the slot boundaries fall on. */
+type Geo = { cx: number; a: number; p: number; roam: boolean; near: number; far: number }
 export type KnightPose = { x: number; y: number; face: 1 | -1; art: readonly string[]; plume: boolean }
 export type PrincessPose = 'hidden' | 'window' | 'wave0' | 'wave1'
 
@@ -241,18 +243,91 @@ function geoOf(w: number): Geo {
     const reach = Math.max(0, right - left - DW) >> 1
     const p = reach >= 20 ? 160 : 80
     const a = Math.min(reach, p / 8)
-    g = { cx: left + a + (w < TINY ? reach - a : 0), a, p }
+    const far = right - DW
+    // The castle end is clear of the knight, so nothing overlaps him at a slot's ends.
+    const near = Math.max(left, stageOf(w).knightX + 7)
+    g = { cx: left + a + (w < TINY ? reach - a : 0), a, p, roam: p === 160 && far > near + 2 * a + 8, near, far }
     GEOS.set(w, g)
   }
   return g
 }
 
+/** Which slot boundaries fall at the far end on a wide band. A boundary is far only when the piece before it can
+ * end there and the piece after it can start there: the tower and the frying pan need the castle at both ends of
+ * their slot, the strafe, charge and catapult at their end, the landing and the sheep at their start; Clawd and
+ * the hatchling don't mind. Pieces are numbered 0..5, eggs 6..8. */
+const [START_FAR, END_FAR] = [new Set([0, 1, 3, 7, 8]), new Set([4, 5, 7, 8])]
+const PIECE_IDS = new Map<number, number>()
+function pieceId(k: number): number {
+  let id = PIECE_IDS.get(k)
+  if (id === undefined) {
+    const sl = slotAt(k * EVENT_LEN, EVENT_LEN, EVENT_KINDS, DRAGON_SEED, EGG_KINDS, EGG_CHANCE)
+    id = sl.egg >= 0 ? EVENT_KINDS + sl.egg : sl.kind
+    if (PIECE_IDS.size > 512) PIECE_IDS.clear()
+    PIECE_IDS.set(k, id)
+  }
+  return id
+}
+/** Whether slot `k` starts at the far end. */
+const farStart = (k: number) => END_FAR.has(pieceId(k - 1)) && START_FAR.has(pieceId(k))
+
+/** Slot `k`'s course on a wide band, by its two ends: castle to castle or far to far, a swing of 2a out and back
+ * (turning half way); castle to far or back, across the band, easing out of and into each end. Every end is at
+ * rest, and the dragon turns there if the next course leaves the other way. */
+type Course = { from: number; dir: 1 | -1; out: boolean; len: number }
+function courseOf(k: number, g: Geo): Course {
+  const [a, b] = [farStart(k), farStart(k + 1)]
+  const from = a ? g.far : g.near
+  return a === b ? { from, dir: a ? -1 : 1, out: true, len: 2 * g.a } : { from, dir: a ? -1 : 1, out: false, len: g.far - g.near }
+}
+/** How far along its course (0..1) at `age`: out and back by a cosine; across at a steady pace, easing over a
+ * quarter of the slot at each end. */
+function along1(c: Course, age: number): number {
+  if (c.out) return (1 - Math.cos((2 * Math.PI * age) / EVENT_LEN)) / 2
+  const [e, n] = [EVENT_LEN / 4, EVENT_LEN]
+  const v = 1 / (n - e)
+  return age < e ? (v * age * age) / (2 * e) : age > n - e ? 1 - (v * (n - age) * (n - age)) / (2 * e) : v * (age - e / 2)
+}
+const faceAt = (c: Course, age: number): 1 | -1 => (c.out && age >= EVENT_LEN / 2 ? (-c.dir as 1 | -1) : c.dir)
+const endFace = (c: Course): 1 | -1 => (c.out ? (-c.dir as 1 | -1) : c.dir)
+
+/** The roaming patrol at `t` (see `courseOf`): its column along the slot's course, its height and wings as on the
+ * figure-eight (the height held on the turn frames, ages 0 and 80), frames since its last turn and to its next. */
+function roam(t: number, g: Geo): Fly {
+  const k = Math.floor(t / EVENT_LEN)
+  const age = t - k * EVENT_LEN
+  const c = courseOf(k, g)
+  let ev = t - mod(t, 2)
+  if (mod(ev, EVENT_LEN / 2) === 0) ev -= 2
+  // Turns: half way along an out-and-back course, and at a slot's start when the last course ended facing the
+  // other way.
+  const turns = (j: number) => {
+    const cj = courseOf(j, g)
+    const out: number[] = []
+    if (endFace(courseOf(j - 1, g)) !== faceAt(cj, 0)) out.push(j * EVENT_LEN)
+    if (cj.out) out.push(j * EVENT_LEN + EVENT_LEN / 2)
+    return out
+  }
+  const all = [...turns(k - 1), ...turns(k), ...turns(k + 1), ...turns(k + 2)]
+  const last = all.filter(u => u <= t).pop() ?? t - 3 * EVENT_LEN
+  const next = all.find(u => u > t) ?? t + 3 * EVENT_LEN
+  return {
+    x: c.from + c.dir * Math.round(c.len * along1(c, age)),
+    y: Math.round(1.5 + 1.5 * Math.sin((4 * Math.PI * ev) / g.p)),
+    face: faceAt(c, age),
+    wing: WING_CYCLE[mod((t + 1) >> 1, 4)]!,
+    since: t - last,
+    until: next - t,
+  }
+}
+
 /** The dragon's patrol pose at `t`: across by sin, its height by sin 2θ (y 0..3), facing the way it goes, its wings
  * on an eight-frame cycle. Each frame changes one thing at most besides its column: the wings change pose on odd
  * frames, the height on even ones, never on a turn (turns fall on even frames, the period being a multiple of 8).
- * Wyverns fly the same path, later. */
+ * On a wide band it roams instead (`roam`). Wyverns fly the same path, later. */
 export function patrol(t: number, w: number): Fly {
   const g = geoOf(w)
+  if (g.roam) return roam(t, g)
   const [half, s] = [g.p / 2, mod(t + g.p / 4, g.p)]
   const since = mod(s, half)
   const turn = (u: number) => mod(u + g.p / 4, half) === 0
@@ -553,7 +628,7 @@ export const EGG_CHANCE = 1 / 40
 /** The age a trip is back on its patrol by (early enough that sound rings, which look 11 frames back, are home by
  * the slot's end); how far behind its patrol pose it comes up when it has to turn first; the dragon's top row with
  * its feet on the grass. */
-const [BACK, APPROACH, GROUND] = [146, 8, 4]
+const [BACK, APPROACH, GROUND] = [146, 4, 4]
 
 type Draw = (cv: Canvas) => void
 /** Where a piece starts from: the slot's first frame, the width and stage, the turn's signals, the patrol by the
@@ -587,32 +662,49 @@ const span = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   evenUp(Math.max(Math.abs(a.x - b.x), 2 * Math.abs(a.y - b.y))) + 2
 
 /** Plans a trip through `ways`: it leaves the patrol as late as still reaches the first stop by its age, goes stop to
- * stop as fast as it may, and rejoins its patrol at the latest age by BACK it can reach where the patrol already
- * flies the way it would arrive (else at BACK, coming up from behind, APPROACH back), leaving the last stop as late
- * as that allows. Every age on the path is even; a turn holds the dragon still for two frames and falls on the
+ * stop as fast as it may, and rejoins its patrol by BACK at the age that lets it stay longest at its last stop (up to
+ * that stop's hold; the later age on a tie): straight in if the patrol there flies the way it would arrive, else
+ * coming up from behind, APPROACH back. Every age on the path is even; a turn holds the dragon still for two frames and falls on the
  * second, an even frame. */
 function plan(h: Home, ways: Way[]): Plan {
   const first = ways[0]!
   let from = evenUp(first.at) - 2
   while (from > 2 && span(h.at(from), first) > first.at - from) from -= 2
-  const arr: number[] = []
-  const dep: number[] = []
-  let [prev, time]: [{ x: number; y: number }, number] = [h.at(from), from]
-  for (const way of ways) {
-    const a = Math.max(evenUp(way.at), time + span(prev, way))
-    arr.push(a)
-    dep.push(a + evenUp(way.hold ?? 0))
-    ;[prev, time] = [way, dep[dep.length - 1]!]
-  }
+  const holds = ways.map(way => evenUp(way.hold ?? 0))
   const n = ways.length - 1
   const last = ways[n]!
   const into = (e: Fly) => Math.sign(e.x - last.x) === e.face
-  let to = BACK
-  while (to > arr[n]! && !(into(h.at(to)) && span(last, h.at(to)) <= to - arr[n]!)) to -= 2
-  if (to <= arr[n]!) to = BACK
+  const nearOf = (e: Fly, at: number): Way => ({ x: e.x - e.face * APPROACH, y: e.y, at: at - APPROACH - 2 })
+  const latestAt = (at: number) => {
+    const e = h.at(at)
+    return into(e) ? at - span(last, e) : nearOf(e, at).at - span(last, nearOf(e, at))
+  }
+  let [arr, dep, to] = [[] as number[], [] as number[], BACK]
+  // Twice: if it reaches its last stop too late to get home, the stays before it are cut by as much and the stops
+  // timed again.
+  for (let pass = 0; pass < 2; pass++) {
+    ;[arr, dep] = [[], []]
+    let [prev, time]: [{ x: number; y: number }, number] = [h.at(from), from]
+    ways.forEach((way, i) => {
+      const a = Math.max(evenUp(way.at), time + span(prev, way))
+      arr.push(a)
+      dep.push(a + holds[i]!)
+      ;[prev, time] = [way, a + holds[i]!]
+    })
+    // Rejoin where it may stay longest at its last stop (up to its hold), the later rejoin on a tie.
+    const want = dep[n]!
+    to = BACK
+    for (let at = BACK - 2; at > arr[n]!; at -= 2) if (Math.min(want, latestAt(at)) > Math.min(want, latestAt(to))) to = at
+    let late = arr[n]! - latestAt(to)
+    for (let i = n - 1; i >= 0 && late > 0; i--) {
+      const cut = Math.min(late + mod(late, 2), holds[i]!)
+      holds[i] = holds[i]! - cut
+      late -= cut
+    }
+  }
   const end = h.at(to)
-  const near: Way = { x: end.x - end.face * APPROACH, y: end.y, at: to - APPROACH - 2 }
-  const latest = into(end) ? to - span(last, end) : near.at - span(last, near)
+  const near = nearOf(end, to)
+  const latest = latestAt(to)
   dep[n] = Math.max(arr[n]!, Math.min(dep[n]!, latest))
   const raw: Way[] = [{ x: h.at(from).x, y: h.at(from).y, at: from }]
   ways.forEach((way, i) => {
@@ -667,6 +759,13 @@ const beat = (t: number) => (t + 1) >> 1
  * it back in step. */
 const rolled = (t: number, r: number) => WING_CYCLE[mod(t >= r && t < r + 8 ? 2 * beat(r) - beat(t) : beat(t), 4)]!
 
+/** The furthest right the patrol goes in the middle of the slot (ages 40 to 110). */
+function reach(h: Home): number {
+  let r = h.at(40).x
+  for (let a = 42; a <= 110; a += 2) r = Math.max(r, h.at(a).x)
+  return r
+}
+
 /** The knight at `x` (his feet `lift` above the grass) in `art`, facing `face`. */
 const knightAt = (x: number, lift: number, face: 1 | -1, art: readonly string[]): KnightPose =>
   ({ x, y: KNIGHT_Y - lift, face, art, plume: false })
@@ -696,6 +795,10 @@ const charge: Piece = (age, h) => {
   const [a, d] = [p.arr[0]!, p.dep[0]!]
   const leap = a + 6
   const [hit, start, back] = [leap + 4, leap - 2 - 2 * run, d + 2]
+  // He walks home at most a pixel every three frames, and is there (turned round) by BACK; if the dragon came too
+  // late for that, nothing plays.
+  const walk = Math.min(3 * run, BACK - 4 - back)
+  if (walk < run) return {}
   const knock = age >= hit && age < hit + 10 ? [1, 1, 2, 2, 2, 2, 1, 1, 1, 1][age - hit]! : 0
   const f = fly(p, age, h)
   let kn = k
@@ -705,8 +808,8 @@ const charge: Piece = (age, h) => {
     const lift = [1, 2, 3, 3, 3, 3, 3, 2, 1, 0][age - leap]!
     kn = knightAt(kx, lift, 1, age >= leap + 2 && age < leap + 7 ? KNIGHT_SLASH : runArt(age))
   } else if (age >= leap + 10 && age < back) kn = { ...k, x: kx }
-  else if (age >= back && age < back + 3 * run + 2) {
-    const x = kx - Math.min(run, Math.floor((age - back) / 3))
+  else if (age >= back && age < back + walk + 2) {
+    const x = kx - Math.min(run, Math.floor((run * (age - back)) / walk))
     kn = knightAt(x, 0, -1, x === kx || x === k.x ? runArt(0) : runArt(age >> 1))
   }
   const arc = age - leap - 2
@@ -770,23 +873,31 @@ const catapult: Piece = (age, h) => {
     return [px + Math.round(5 * Math.cos(r)), 6 - Math.round(5 * Math.sin(r))]
   }
   const [bx, by] = tip(48).map(v => v - 1) as [number, number]
-  const lx = Math.min(w - 4, kn.x + 30)
-  const n = lx - bx
-  const land = 48 + n
+  // It waits over the field for the boulder if it can be there in time; else (coming from the far end) the boulder
+  // is aimed where it will be as it flies home, landing twice as far off as where they meet.
+  const dx = kn.x + 10
+  const wait = Math.min(w - 4, kn.x + 30) - bx
+  const p = plan(h, [{ x: dx, y: 1, at: 40, hold: wait + 12, face: -1 }])
+  const hover = p.ok && p.arr[0]! <= 40 + dx - bx
+  let [n, meet] = [wait, 48 + dx - bx]
+  if (!hover) {
+    meet = 48 + 30
+    for (let m = 60; m <= 120; m++) if (bx + m - 48 + 2 >= h.at(m).x) { meet = m; break }
+    n = Math.min(w - 4 - bx, Math.max(30, Math.min(86, 2 * (meet - 48))))
+  }
+  const [lx, land] = [bx + n, 48 + n]
   const boulder = (a: number): [number, number] => {
     if (a < 48) return tip(a).map(v => v - 1) as [number, number]
     const u = Math.min(1, (a - 48) / n)
     return [bx + Math.min(n, a - 48), Math.round(by + (8 - by) * u * u - 6 * u * (1 - u))]
   }
-  const dx = kn.x + 10
-  const p = plan(h, [{ x: dx, y: 1, at: 40, hold: land - 36, face: -1 }])
-  const f = fly(p, age, h)
-  const roll = 48 + dx - bx - 6 - mod(dx - bx, 2)
+  const f = hover ? fly(p, age, h) : h.at(age)
+  const roll = meet - 6 - mod(meet, 2)
   const sink = Math.max(0, (age - land - 12) >> 2)
   const [ox, oy] = boulder(age)
   const rock = (cv: Canvas) => { if (sink < 3) sprite(cv, ox, oy + sink, BOULDER.slice(0, 3 - sink), ROCK) }
   return {
-    f: p.ok ? { ...f, wing: rolled(h.t0 + age, h.t0 + roll) } : f, over: p.ok && age >= roll + 2 && age < roll + 6,
+    f: { ...f, wing: rolled(h.t0 + age, h.t0 + roll) }, over: age >= roll + 2 && age < roll + 6,
     mid: age >= 10 && age < 130 ? cv => {
       // A beam two pixels thick (lit on top), a dark cup at its end.
       const rad = (deg(age) * Math.PI) / 180
@@ -812,13 +923,12 @@ const catapult: Piece = (age, h) => {
 /** 4 landing: it comes down on the far grass, folds its wings and roars: rings run out of its jaws, the grass
  * flattens in a wave either side, two birds burst out of the trees either side; then it takes off for home. */
 const landing: Piece = (age, h) => {
-  const g = geoOf(h.w)
-  const lx = Math.min(h.w - DW - 8, g.cx + g.a + 6)
+  const lx = Math.min(h.w - DW - 8, reach(h) + 6)
   const p = plan(h, [{ x: lx, y: GROUND, at: 52, hold: 50, face: -1 }])
   if (!p.ok) return {}
   const [a, d] = [p.arr[0]!, p.dep[0]!]
   const f = fly(p, age, h)
-  const roar = age >= a + 10 && age < a + 40
+  const roar = age >= a + 10 && age < Math.min(a + 40, d - 6)
   const [wave, flight] = [age - a - 10, age - a - 12]
   return {
     f: age >= a + 3 && age < d - 3 ? { ...f, wing: FOLDED } : f, open: roar, roar,
@@ -841,8 +951,7 @@ const landing: Piece = (age, h) => {
  * snaps at the bale instead, which bursts into straw that falls into the grass; it flies home. */
 const sheep: Piece = (age, h) => {
   const { w, kn, st } = h
-  const g = geoOf(w)
-  const s0 = Math.min(Math.max(w - 36, kn.x + 10), g.cx + g.a + 10)
+  const s0 = Math.min(Math.max(w - 36, kn.x + 10), reach(h) + 10)
   const come = w - s0
   const p = plan(h, [{ x: s0 + 12, y: 2, at: come + 16, face: -1 }, { x: s0 + 5, y: GROUND, at: come + 34, hold: 22 }])
   const scatter = p.ok ? p.arr[0]! : come + 16
