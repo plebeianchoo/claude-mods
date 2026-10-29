@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# SessionStart hook: inject the using-superpowers skill and the model-routing notice.
+
+set -euo pipefail
+
+# Determine plugin root directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Model routing opt-in notice — when the project carries the routing file, or
+# a user-level default exists at ~/.claude/superpowers/ (project file wins).
+# Knowledge is injected here so agents never depend on voluntarily reading docs.
+# The file is project-controlled (hostile) content: strip ALL control bytes
+# (not just \n\r\t) or an embedded \x01/\x0b/\x0c would invalidate the JSON
+# this hook emits and kill the whole bootstrap injection. LC_ALL=C keeps tr
+# byte-wise so invalid UTF-8 cannot make BSD tr abort mid-stream, and
+# iconv -c drops any invalid UTF-8 bytes that would equally break the JSON.
+# Git for Windows ships no iconv: piping through a missing binary made the
+# whole substitution fall back to '{}' and swallow the mapping, so the iconv
+# pass is applied only when iconv exists (tr already stripped control bytes).
+sanitize_json_file() {
+    if command -v iconv >/dev/null 2>&1; then
+        LC_ALL=C tr -d '[:cntrl:]' < "$1" 2>/dev/null | iconv -f UTF-8 -t UTF-8 -c 2>/dev/null || echo '{}'
+    else
+        LC_ALL=C tr -d '[:cntrl:]' < "$1" 2>/dev/null || echo '{}'
+    fi
+}
+routing_message=""
+routing_file="${PWD}/docs/superpowers/model-routing.json"
+routing_label="docs/superpowers/model-routing.json"
+if [ ! -f "$routing_file" ]; then
+    # User-level default: applies to every project without a project file.
+    routing_file="${HOME}/.claude/superpowers/model-routing.json"
+    routing_label="~/.claude/superpowers/model-routing.json"
+fi
+if [ -f "$routing_file" ]; then
+    routing_mapping=$(sanitize_json_file "$routing_file")
+    routing_message="\n\n<model-routing-active>This project routes plan-execution subagents to cheaper models. Mapping (${routing_label}): ${routing_mapping}. Plan-time: every plan task's json:metadata fence MUST carry \"modelTier\" — \"mechanical\" (1-2 files, complete spec with code in the steps, no design judgment; most tasks in a well-specified plan), \"standard\" (multi-file integration, pattern matching, debugging), or \"frontier\" (design/architecture judgment). Tie-break: spec completeness wins. Dispatch-time: pass the Agent model parameter resolved from the in-progress task's tier via the mapping (\"inherit\" = omit the parameter); spec and code-quality reviewers use the \"standard\" tier's model; the final whole-plan reviewer (after all tasks complete) stays at session level — omit the model parameter. A task metadata \"model\" pin overrides its tier. Plugin gates enforce both sides (kill switch: SUPERPOWERS_ROUTING_GUARD=0). Full rationale: docs/model-routing-flow.md in the plugin repo.</model-routing-active>"
+    # Per-tier thinking-effort map. IMPLICIT BY DEFAULT: whenever routing is
+    # active the notice carries the recommended map even if the file never
+    # mentions effort — the orchestrating model picks effort autonomously at
+    # dispatch time; the file key is an override, not an enabler (same
+    # pattern sonnetEffort followed). Sanitize collapsed the file to one
+    # line, so a bracket-bounded sed extract is safe.
+    effort_map=$(printf '%s' "$routing_mapping" | sed -n 's/.*"effort"[[:space:]]*:[[:space:]]*{\([^}]*\)}.*/{\1}/p')
+    if [ -n "$effort_map" ]; then
+        effort_label="${routing_label}, user-set"
+    else
+        effort_map='{"mechanical":"low","standard":"medium","frontier":"inherit"}'
+        effort_label="implicit default; add an \"effort\" key to ${routing_label} to override"
+    fi
+    # Enforcement is opt-in: "enforceEffort": true turns the dispatch gate's
+    # effort check on. Absent/false keeps the historical advisory wording, so
+    # existing installs read exactly what they read before.
+    # BRE only - BSD sed has no \| alternation, so capture the bare token and
+    # compare in the shell.
+    enforce_effort=$(printf '%s' "$routing_mapping" | sed -n 's/.*"enforceEffort"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p')
+    if [ "$enforce_effort" = "true" ]; then
+        effort_enforcement="ENFORCED: the dispatch gate resolves the effort your subagent_type pins (agent-definition frontmatter \`effort:\`) and blocks a dispatch that does not match the tier's effort. The Agent tool has no effort parameter, so route through an effort-pinned agent type — /onboard writes \`effort-low\`, \`effort-medium\` and \`effort-high\` into .claude/agents/ when enforcement is enabled, and they pin no model, so keep passing the model parameter as usual. Any agent definition carrying an \`effort:\` key works. Note that with enforcement on, such definitions also have their model parameter checked against the tier — an exemption they keep while enforcement is off."
+    else
+        effort_enforcement="Advisory only; no gate enforces effort unless the routing file sets \"enforceEffort\": true."
+    fi
+    routing_message="${routing_message} <effort-routing-active>Per-tier thinking effort for routed dispatches. Effort map (${effort_label}): ${effort_map} (\"inherit\" = session effort). Apply it wherever effort is controllable: Workflow agent() calls take a per-dispatch effort option; custom agent definitions can pin effort in frontmatter; the plain Agent tool has no effort parameter, so prefer effort-pinned agent types for routed-down dispatches. Capability and thinking effort are independent dials — raising effort on a routed-down model does not recover capability, so when a task outgrows its tier at the mapped effort, escalate the TIER (model), never the effort. In particular: Sonnet above medium costs Opus-class money for lower fidelity. ${effort_enforcement}</effort-routing-active>"
+    # Back-compat: honor an explicit sonnetEffort key from earlier onboardings
+    # as a Sonnet-specific override on top of the map.
+    sonnet_effort=$(printf '%s' "$routing_mapping" | sed -n 's/.*"sonnetEffort"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    if [ -n "$sonnet_effort" ]; then
+        routing_message="${routing_message%</effort-routing-active>} User-set \"sonnetEffort\": \"${sonnet_effort}\" overrides the map for any dispatch resolving to model \"sonnet\".</effort-routing-active>"
+    fi
+fi
+
+# Read using-superpowers content
+using_superpowers_content=$(cat "${PLUGIN_ROOT}/skills/using-superpowers/SKILL.md" 2>&1 || echo "Error reading using-superpowers skill")
+
+# Escape string for JSON embedding using bash parameter substitution.
+# Each ${s//old/new} is a single C-level pass - orders of magnitude
+# faster than the character-by-character loop this replaces.
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+using_superpowers_escaped=$(escape_for_json "$using_superpowers_content")
+routing_escaped=$(escape_for_json "$routing_message")
+session_context="<EXTREMELY_IMPORTANT>\nYou have superpowers.\n\n**Below is the full content of your 'superpowers:using-superpowers' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_superpowers_escaped}\n\n${routing_escaped}\n</EXTREMELY_IMPORTANT>"
+
+# Output context injection as JSON (Claude Code format).
+# Uses printf instead of heredoc to work around bash 5.3+ heredoc hang.
+printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+
+exit 0
