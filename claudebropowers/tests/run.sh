@@ -15,9 +15,9 @@ echo "session-start"
 out=$(cd "$WORK" && CLAUDE_PLUGIN_ROOT="$ROOT" HOME="$HOME_ROUTED" bash "$ROOT/hooks/session-start")
 check "valid JSON" 0 "$(printf '%s' "$out" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; echo $?)"
 ctx=$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])')
-check "carries using-superpowers" 0 "$(printf '%s' "$ctx" | grep -q 'name: using-superpowers'; echo $?)"
+check "carries using-claudebropowers" 0 "$(printf '%s' "$ctx" | grep -q 'name: using-claudebropowers'; echo $?)"
 check "carries routing notice when routing file exists" 0 "$(printf '%s' "$ctx" | grep -q '<model-routing-active>'; echo $?)"
-check "names the superpowers: prefix, not the old one" 0 "$(printf '%s' "$ctx" | grep -q "superpowers:using-superpowers" && ! printf '%s' "$ctx" | grep -q 'extended-cc'; echo $?)"
+check "names the claudebropowers: prefix, not the old one" 0 "$(printf '%s' "$ctx" | grep -q "claudebropowers:using-claudebropowers" && ! printf '%s' "$ctx" | grep -q 'extended-cc'; echo $?)"
 out=$(cd "$WORK" && CLAUDE_PLUGIN_ROOT="$ROOT" HOME="$HOME_BARE" bash "$ROOT/hooks/session-start")
 check "no routing notice without the file" 1 "$(printf '%s' "$out" | grep -q '<model-routing-active>'; echo $?)"
 
@@ -48,7 +48,7 @@ for s in "$ROOT"/skills/*/SKILL.md; do
   n=$(basename "$(dirname "$s")"); [ "$n" = shared ] && continue
   check "$n frontmatter name" 0 "$(sed -n 2p "$s" | grep -q "^name: $n$"; echo $?)"
 done
-check "no reference to the old prefix" 1 "$(grep -rq 'superpowers-extended-cc' "$ROOT/skills" "$ROOT/hooks"; echo $?)"
+check "no reference to the old prefixes" 1 "$(grep -rqE 'superpowers-extended-cc|(^|[^o])superpowers:' "$ROOT/skills" "$ROOT/hooks"; echo $?)"
 check "no reference to dropped files" 1 "$(grep -rqE 'visual-companion|checking-gates|specifying-gates|dispatching-parallel-agents|receiving-code-review' "$ROOT/skills" "$ROOT/hooks"; echo $?)"
 
 echo; [ "$fail" -eq 0 ] && echo "all passed" || { echo "$fail failed"; exit 1; }

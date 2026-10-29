@@ -17,7 +17,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**Context:** If working in an isolated worktree, it should have been created via the `superpowers:using-git-worktrees` skill at execution time.
+**Context:** If working in an isolated worktree, it should have been created via the `claudebropowers:using-git-worktrees` skill at execution time.
 
 **Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 - (User preferences for plan location override this default)
@@ -71,7 +71,7 @@ Key principle: TDD cycles happen WITHIN tasks, not as separate tasks. A task is 
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use claudebropowers:subagent-driven-development (recommended) or claudebropowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -200,7 +200,7 @@ AskUserQuestion:
 STOP. The user has chosen an execution method. You MUST invoke the corresponding skill using the Skill tool NOW. Do NOT implement tasks yourself — do NOT read files, make edits, or update task statuses. Your ONLY permitted action is invoking the skill below.
 
 **If Subagent-Driven chosen:**
-Invoke the Skill tool: `superpowers:subagent-driven-development`
+Invoke the Skill tool: `claudebropowers:subagent-driven-development`
 - The skill handles everything: subagent dispatch, review, task tracking
 - You stay in this session as the coordinator
 - Do NOT start working on tasks directly
@@ -209,7 +209,7 @@ Invoke the Skill tool: `superpowers:subagent-driven-development`
 Give the user this exact prompt to paste into a NEW session opened in the worktree, with the placeholders filled in. Put it in a fenced code block that holds the prompt and nothing else — the fence is what tells your human partner where the copy starts and stops. Model advice and notes go after the fence, never inside it:
 
 ```text
-Invoke superpowers:executing-plans for <plan path>. The plan author session "<this session's title>" is still running. On any ambiguity or design question, find it with ListAgents and ask it via SendMessage before guessing.
+Invoke claudebropowers:executing-plans for <plan path>. The plan author session "<this session's title>" is still running. On any ambiguity or design question, find it with ListAgents and ask it via SendMessage before guessing.
 ```
 
 A bare "run executing-plans" prompt loses the consultation link — the new session cannot know its author exists unless the prompt names it. On a Fable/Opus session with no frontier tasks, add one line: open it on a cheaper model (e.g. Sonnet). Keep this session alive to answer questions.
@@ -390,7 +390,7 @@ Both the plan `.md` and `.tasks.json` must be co-located in `docs/superpowers/pl
 
 Any new session can resume by running:
 ```
-/superpowers:executing-plans <plan-path>
+/claudebropowers:executing-plans <plan-path>
 ```
 
 The skill reads the `.tasks.json` file and continues from where it left off.

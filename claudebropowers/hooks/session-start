@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SessionStart hook: inject the using-superpowers skill and the model-routing notice.
+# SessionStart hook: inject the using-claudebropowers skill and the model-routing notice.
 
 set -euo pipefail
 
@@ -69,8 +69,8 @@ if [ -f "$routing_file" ]; then
     fi
 fi
 
-# Read using-superpowers content
-using_superpowers_content=$(cat "${PLUGIN_ROOT}/skills/using-superpowers/SKILL.md" 2>&1 || echo "Error reading using-superpowers skill")
+# Read using-claudebropowers content
+using_superpowers_content=$(cat "${PLUGIN_ROOT}/skills/using-claudebropowers/SKILL.md" 2>&1 || echo "Error reading using-claudebropowers skill")
 
 # Escape string for JSON embedding using bash parameter substitution.
 # Each ${s//old/new} is a single C-level pass - orders of magnitude
@@ -87,7 +87,7 @@ escape_for_json() {
 
 using_superpowers_escaped=$(escape_for_json "$using_superpowers_content")
 routing_escaped=$(escape_for_json "$routing_message")
-session_context="<EXTREMELY_IMPORTANT>\nYou have superpowers.\n\n**Below is the full content of your 'superpowers:using-superpowers' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_superpowers_escaped}\n\n${routing_escaped}\n</EXTREMELY_IMPORTANT>"
+session_context="<EXTREMELY_IMPORTANT>\nYou have claudebropowers.\n\n**Below is the full content of your 'claudebropowers:using-claudebropowers' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_superpowers_escaped}\n\n${routing_escaped}\n</EXTREMELY_IMPORTANT>"
 
 # Output context injection as JSON (Claude Code format).
 # Uses printf instead of heredoc to work around bash 5.3+ heredoc hang.

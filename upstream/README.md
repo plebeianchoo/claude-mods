@@ -9,7 +9,7 @@ git ignores them, and `check.sh` re-clones any that are missing.
 | `cat-spinner` | `cat-clawd-duo` (hooks/, cat.tsx) | https://github.com/swicken/cat-spinner |
 | `clawd-spinner` | `cat-clawd-duo` (hooks/clawd/) | https://github.com/saiharsha03/clawd-spinner |
 | `hoobnn-spinner` | `showtime` | https://github.com/hoobnn/hoobnn-agent-mods (`claude-code/spinner`; its `hooks/kit/` is upstream's synced copy of `claude-code/kit`) |
-| `superpowers-extended-cc` | `superpowers` (skills/, hooks/, docs/) | https://github.com/pcvelz/superpowers (a fork of obra/superpowers, which it merges) |
+| `superpowers-extended-cc` | `claudebropowers` (skills/, hooks/, docs/) | https://github.com/pcvelz/superpowers (a fork of obra/superpowers, which it merges) |
 
 `sources.tsv` records, per source, the last upstream commit I reviewed (the baseline);
 `maps/<name>.sed` maps a source's paths and renames onto my mod; `ported.tsv` lists the

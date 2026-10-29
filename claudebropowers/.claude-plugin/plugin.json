@@ -1,5 +1,5 @@
 {
-  "name": "superpowers",
+  "name": "claudebropowers",
   "version": "1.0.0",
   "description": "Jeremy's fork of superpowers (brainstorm, write plans, run them with subagents, debug, TDD, finish a branch) with model-tier routing hooks. Trimmed to what is used on linglong; no browser companion, no onboarding, no gate commands.",
   "author": {

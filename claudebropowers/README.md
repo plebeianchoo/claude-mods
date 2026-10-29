@@ -1,4 +1,4 @@
-# superpowers
+# claudebropowers
 
 My fork of [pcvelz/superpowers](https://github.com/pcvelz/superpowers) (itself a Claude Code
 fork of [obra/superpowers](https://github.com/obra/superpowers) by Jesse Vincent), taken at
@@ -7,11 +7,11 @@ The files in this directory are the source of truth: edit them in place, nothing
 
 ## What is in it
 
-Skills, invoked as `superpowers:<name>` (the Skill tool) or `/superpowers:<name>`:
+Skills, invoked as `claudebropowers:<name>` (the Skill tool) or `/claudebropowers:<name>`:
 
 | Skill | For |
 | --- | --- |
-| `using-superpowers` | injected at session start: use the Skill tool before acting |
+| `using-claudebropowers` | injected at session start: use the Skill tool before acting |
 | `brainstorming` | design before building: one question at a time, 2–3 approaches, a design doc |
 | `writing-plans` | a spec into numbered tasks (Claude Code native tasks, `json:metadata`, user-gate tagging) |
 | `subagent-driven-development` | run a plan task by task with implementer and reviewer subagents |
@@ -28,7 +28,7 @@ Hooks (`hooks/hooks.json`):
 
 | Hook | Event | Does |
 | --- | --- | --- |
-| `session-start` | SessionStart | injects `using-superpowers` and, when `~/.claude/superpowers/model-routing.json` exists (or a project `docs/superpowers/model-routing.json`), the model-routing notice |
+| `session-start` | SessionStart | injects `using-claudebropowers` and, when `~/.claude/superpowers/model-routing.json` exists (or a project `docs/superpowers/model-routing.json`), the model-routing notice |
 | `pre-taskcreate-model-tier` | PreToolUse TaskCreate | plan tasks must carry a valid `modelTier` |
 | `pre-agent-model-routing` | PreToolUse Agent | a dispatch's `model` must match the in-progress task's tier |
 | `pre-askuser-handoff-guard` | PreToolUse AskUserQuestion | after writing-plans, the handoff question keeps its two-option shape |
@@ -51,14 +51,14 @@ copies in `~/dotfiles/claude/hooks/superpowers/`.
 
 ## Working on it
 
-Installed from the local marketplace: `/plugin install superpowers --marketplace plebeianchoo/claude-mods`
-(here: `claude plugin install superpowers@claudebro-mods`).
+Installed from the local marketplace: `/plugin install claudebropowers --marketplace plebeianchoo/claude-mods`
+(here: `claude plugin install claudebropowers@claudebro-mods`).
 
 ```bash
-claude plugin validate superpowers/.claude-plugin/plugin.json
-bash superpowers/tests/run.sh                 # hook smoke tests
+claude plugin validate claudebropowers/.claude-plugin/plugin.json
+bash claudebropowers/tests/run.sh                 # hook smoke tests
 git commit …
-claude plugin marketplace update claudebro-mods && claude plugin update superpowers@claudebro-mods
+claude plugin marketplace update claudebro-mods && claude plugin update claudebropowers@claudebro-mods
 ```
 then `/reload-plugins` in open sessions.
 
