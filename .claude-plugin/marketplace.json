@@ -21,6 +21,11 @@
       "name": "peek",
       "source": "./peek",
       "description": "Images inline in the terminal: a show_image tool for Claude and /img <path>. Sends PNG bytes, so it works over ssh and in tmux with passthrough; no network, no updater."
+    },
+    {
+      "name": "superpowers",
+      "source": "./superpowers",
+      "description": "Brainstorm, write plans, run them with subagents, debug, TDD, finish a branch, with model-tier routing hooks (superpowers fork, trimmed)."
     }
   ]
 }

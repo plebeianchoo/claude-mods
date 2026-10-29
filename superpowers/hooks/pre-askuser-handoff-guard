@@ -1,0 +1,405 @@
+#!/usr/bin/env bash
+# PreToolUse hook on AskUserQuestion: enforce the writing-plans Execution Handoff structure.
+#
+# When writing-plans completes and creates tasks, the skill's HARD-GATE mandates exactly
+# one AskUserQuestion structure at the handoff point:
+#
+#   question: "Plan complete and saved to ... How would you like to execute it?"
+#   options:
+#     - label: "Subagent-Driven (this session)"
+#     - label: "Parallel Session (separate)"
+#
+# Agents under load frequently improvise a custom phased menu instead — bypassing the
+# execution-method choice and skipping the subagent pipeline (where model routing operates).
+# The failure this gate prevents: a long plan ends in a custom multi-option menu
+# instead of the handoff choice, and the subagent pipeline never engages.
+#
+# Decision order:
+#   1. SUPERPOWERS_ROUTING_GUARD=0 → allow.
+#   2. tool_name != "AskUserQuestion" → allow.
+#   3. Routing file absent (two-location lookup, same as sibling gates) → allow (dormant).
+#   4. Scan transcript: compute arm_pos (last writing-plans signal + TaskCreate after it).
+#      Not armed → allow.
+#   5. Armed + this call carries compliant two-option structure → allow.
+#   6. Armed + question contains "CLARIFICATION" token → allow (legitimate mid-plan question).
+#   7. Otherwise → block (exit 2) with teach message and verbatim required YAML.
+#
+# Opt-in umbrella: same routing file that gates model-routing (docs/superpowers/model-routing.json
+# or ~/.claude/superpowers/model-routing.json). Present → active. Absent → dormant.
+#
+# Escape hatch: SUPERPOWERS_ROUTING_GUARD=0
+
+TRACE_LOG="${SUPERPOWERS_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
+mkdir -p "$(dirname "$TRACE_LOG")" 2>/dev/null || true
+trace() {
+    local tid="${1:-?}" event="${2:-?}" reason="${3:-}"
+    printf '%s | pre-handoff | task=%s | %s%s\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$tid" "$event" \
+        "${reason:+ | $reason}" >> "$TRACE_LOG" 2>/dev/null || true
+}
+
+ALLOW='{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}'
+
+if [[ "${SUPERPOWERS_ROUTING_GUARD:-1}" == "0" ]]; then
+    trace "?" "skip" "guard=0"
+    echo "$ALLOW"; exit 0
+fi
+
+trap 'trace "?" "error" "trap-ERR"; echo "$ALLOW"; exit 0' ERR
+
+INPUT=$(cat)
+
+# One jq pass for the scalar input fields (was three separate jq spawns).
+# One field per line, embedded CR/LF flattened to spaces. NOTE: \x01
+# separators are not an option here — bash 3.2 uses \x01 internally
+# (CTLESC) and IFS=$'\x01' silently fails to split on stock macOS bash.
+# jq parse failure fails the assignment → ERR trap → allow.
+# Trailing `tr -d '\r'` strips the CRLF that native Windows jq/python3
+# emit (no-op elsewhere); `exit "${PIPESTATUS[N]}"` re-exports the
+# producer's exit status so the fail-open fallbacks keep firing.
+FIELDS=$(echo "$INPUT" | jq -r '[(.tool_name // ""), (.cwd // ""), (.transcript_path // "")] | map(tostring | gsub("\\r|\\n"; " ")) | .[]' 2>/dev/null | tr -d '\r'; exit "${PIPESTATUS[1]}")
+{ IFS= read -r TOOL_NAME; IFS= read -r CWD; IFS= read -r TRANSCRIPT_PATH; } <<< "$FIELDS" || true
+
+[[ "$TOOL_NAME" != "AskUserQuestion" ]] && { trace "?" "skip" "tool=$TOOL_NAME"; echo "$ALLOW"; exit 0; }
+
+# Locate routing file: project first, then user-level default. First found wins.
+[[ -z "$CWD" ]] && CWD="$PWD"
+ROUTING_FILE="$CWD/docs/superpowers/model-routing.json"
+if [[ ! -f "$ROUTING_FILE" ]]; then
+    ROUTING_FILE="$HOME/.claude/superpowers/model-routing.json"
+fi
+
+if [[ ! -f "$ROUTING_FILE" ]]; then
+    trace "?" "skip" "no-routing-file"
+    echo "$ALLOW"; exit 0
+fi
+
+[[ -z "$TRANSCRIPT_PATH" || ! -f "$TRANSCRIPT_PATH" ]] && {
+    trace "?" "skip" "no-transcript"
+    echo "$ALLOW"; exit 0
+}
+
+# Walk the transcript to determine armed state.
+# arm_pos:    last position of a writing-plans signal (Skill tool_use OR user message
+#             containing the skill invocation string, as slash commands inject user messages)
+# disarm_pos: last position of an execution signal (subagent-driven-development /
+#             executing-plans / execute-plan Skill tool_use, matching user messages,
+#             OR a prior compliant handoff AskUserQuestion with both required option labels)
+# last_taskcreate_pos: position of the most recent TaskCreate tool_use. Armed
+#             requires it AFTER arm_pos — a stale TaskCreate from an earlier,
+#             already-handed-off plan cycle must not arm the guard again when
+#             writing-plans is re-invoked for a second plan in the same session.
+#
+# Note: user message content may be a plain string OR a list of {"type":"text","text":"..."}
+# blocks — both are handled.
+#
+# The file is streamed in BINARY with a substring pre-filter: a line that
+# contains none of the signal substrings cannot change arm/disarm state, so it
+# skips json.loads. Keeps the scan linear-in-bytes, avoids loading hundreds of
+# MB into memory, and — unlike text-mode readlines() — one invalid-UTF-8 byte
+# poisons only its own line instead of silently disarming the whole guard.
+PY_SCAN='
+import json, re, sys
+
+path = sys.argv[1]
+
+# Pre-filter: every signal this scan reacts to lives on a line containing one
+# of these literals. Tool_use signals always carry the tool name
+# ("Skill"/"TaskCreate"/"AskUserQuestion"); every user-message signal string
+# starts with "superpowers:". One compiled-regex search per line
+# is the cheapest formulation that needs no per-line Python overhead.
+SIG = re.compile(b"Skill|TaskCreate|AskUserQuestion|superpowers:")
+
+try:
+    f = open(path, "rb")
+except Exception:
+    print("false\nerror")
+    sys.exit(0)
+
+arm_pos = None
+disarm_pos = None
+last_taskcreate_pos = None
+
+def extract_text(content_val):
+    """Return plain text from a content field that is either a string or a list of blocks."""
+    if isinstance(content_val, str):
+        return content_val
+    if isinstance(content_val, list):
+        parts = []
+        for block in content_val:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return " ".join(parts)
+    return ""
+
+with f:
+    for pos, line in enumerate(f):
+        if not SIG.search(line):
+            continue
+        try:
+            e = json.loads(line)
+        except Exception:
+            continue
+
+        etype = e.get("type", "")
+
+        # --- assistant messages: scan tool_use entries ---
+        if etype == "assistant":
+            for c in (e.get("message") or {}).get("content") or []:
+                if not isinstance(c, dict) or c.get("type") != "tool_use":
+                    continue
+                name = c.get("name", "")
+                inp = c.get("input") or {}
+
+                # writing-plans arm signals
+                if name == "Skill":
+                    skill_val = inp.get("skill", "") or ""
+                    if (skill_val == "writing-plans"
+                            or skill_val.endswith(":write-plan")
+                            or "writing-plans" in skill_val):
+                        arm_pos = pos
+
+                # TaskCreate (compared against arm_pos at the end)
+                if name == "TaskCreate":
+                    last_taskcreate_pos = pos
+
+                # Execution disarm signals — Skill tool_use
+                if name == "Skill":
+                    skill_val = inp.get("skill", "") or ""
+                    if (skill_val in ("subagent-driven-development", "executing-plans", "execute-plan")
+                            or skill_val.endswith(":subagent-driven-development")
+                            or skill_val.endswith(":executing-plans")
+                            or skill_val.endswith(":execute-plan")):
+                        disarm_pos = pos
+
+                # Compliant prior handoff: AskUserQuestion whose options include both required labels
+                if name == "AskUserQuestion":
+                    questions = inp.get("questions") or []
+                    if questions:
+                        q0 = questions[0] if isinstance(questions[0], dict) else {}
+                        options = q0.get("options") or []
+                        labels = [str(o.get("label", "")) if isinstance(o, dict) else str(o) for o in options]
+                        has_subagent = any("Subagent-Driven" in lbl for lbl in labels)
+                        has_parallel = any("Parallel Session" in lbl for lbl in labels)
+                        if has_subagent and has_parallel:
+                            disarm_pos = pos
+
+        # --- user messages: check for slash-command skill invocations ---
+        if etype == "user":
+            msg = e.get("message") or {}
+            # content may be string or list of blocks
+            raw_content = msg.get("content", "")
+            text = extract_text(raw_content)
+
+            # A Skill invocation injects the skill BODY as a user message that starts
+            # with "Base directory for this skill:". The body of writing-plans names
+            # executing-plans and subagent-driven-development in its handoff section,
+            # so scanning it disarmed the guard right after it armed (live: plan
+            # session 2026-09-12, trace "not-armed | arm_pos=704" at the real
+            # handoff). A skill body is a mention, not an invocation; every other
+            # user message keeps the full-text scan so a human instruction that
+            # names the skill late in a long message still counts.
+            if text.lstrip().startswith("Base directory for this skill:"):
+                continue
+
+            # writing-plans arm via user message (slash command injection pattern)
+            if "superpowers:writing-plans" in text or "superpowers:write-plan" in text:
+                arm_pos = pos
+
+            # execution disarm via user message
+            if ("superpowers:subagent-driven-development" in text
+                    or "superpowers:executing-plans" in text):
+                disarm_pos = pos
+
+# armed iff: arm_pos set AND (no disarm OR disarm before arm)
+#            AND the most recent TaskCreate came after the most recent arm
+armed = (
+    arm_pos is not None
+    and (disarm_pos is None or disarm_pos < arm_pos)
+    and last_taskcreate_pos is not None
+    and last_taskcreate_pos > arm_pos
+)
+
+print(("true" if armed else "false") + "\n" + str(arm_pos))
+'
+
+SCAN_RESULT=$(python3 -c "$PY_SCAN" "$TRANSCRIPT_PATH" 2>/dev/null | tr -d '\r'; exit "${PIPESTATUS[0]}") || SCAN_RESULT=$'false\nerror'
+{ IFS= read -r ARMED; IFS= read -r ARM_POS; } <<< "$SCAN_RESULT" || true
+
+if [[ "$ARMED" != "true" ]]; then
+    trace "?" "not-armed" "arm_pos=${ARM_POS:-null}"
+    echo "$ALLOW"; exit 0
+fi
+
+# Armed — inspect this call's questions[0]. Two jq passes (was five); the
+# label fallback is evaluated per option element so a mixed label/text list
+# no longer drops the fallback keys.
+Q0_QUESTION=$(echo "$INPUT" | jq -r '.tool_input.questions[0].question // ""' 2>/dev/null | tr -d '\r'; exit "${PIPESTATUS[1]}")
+OPTIONS_LABELS=$(echo "$INPUT" | jq -r '.tool_input.questions[0].options // [] | .[] | (.label // .text // .value // empty)' 2>/dev/null | tr -d '\r'; exit "${PIPESTATUS[1]}")
+
+# Check for the two required label strings.
+HAS_SUBAGENT=0
+HAS_PARALLEL=0
+while IFS= read -r lbl; do
+    case "$lbl" in
+        *"Subagent-Driven"*) HAS_SUBAGENT=1 ;;
+        *"Parallel Session"*) HAS_PARALLEL=1 ;;
+    esac
+done <<< "$OPTIONS_LABELS"
+
+if [[ "$HAS_SUBAGENT" == "1" && "$HAS_PARALLEL" == "1" ]]; then
+    # Structure is compliant — now police the RECOMMENDATION DIRECTION against
+    # measured context usage. Agents cannot reliably self-read their context
+    # (observed: 4.8% real reported as ~0.4%), so the number comes from the
+    # transcript: the last assistant entry's usage (input + cache tokens) IS
+    # the current context size. Fail-open on any measurement gap.
+    # Window: a PreToolUse hook is never told the window, and a 1M-context
+    # session (Opus/Fable "[1m]") is indistinguishable by model id. So the
+    # window is only KNOWN when something proves it:
+    #   - SUPERPOWERS_CONTEXT_WINDOW is set (explicit, never overridden), or
+    #   - any usage in the transcript exceeds 200k: impossible inside a 200k
+    #     window, so 1M (live: 462k measured read as 231%), or
+    #   - an auto-compact fired at <=200k: a 1M window compacts near 967k, so 200k.
+    # Unproven, the same token count means two things (live 2026-09-18: 196k
+    # on a 1M session read as "98%", forced a Parallel recommendation, and the
+    # model then refused to edit its own plan file on the strength of that
+    # number). An unproven window therefore only blocks when the 200k and the
+    # 1M reading agree, which is never the case for a Subagent recommendation.
+    CTX_WINDOW_SET="${SUPERPOWERS_CONTEXT_WINDOW:+1}"
+    CTX_WINDOW="${SUPERPOWERS_CONTEXT_WINDOW:-200000}"
+    CTX_PCT_LIMIT="${SUPERPOWERS_HANDOFF_CTX_PCT:-60}"
+    CTX_MEASURE=$(python3 - "$TRANSCRIPT_PATH" "$CTX_WINDOW" "${CTX_WINDOW_SET:-0}" 2>/dev/null <<'PYEOF'
+import json, sys
+path, window, known = sys.argv[1], int(sys.argv[2]), sys.argv[3] == "1"
+try:
+    f = open(path, "rb")
+except Exception:
+    sys.exit(0)
+last = None
+peak = 0
+compacted_small = False
+with f:
+    for line in f:
+        if b'"usage"' not in line and b'compact' not in line:
+            continue
+        try:
+            e = json.loads(line)
+        except Exception:
+            continue
+        if e.get("type") == "assistant":
+            u = (e.get("message") or {}).get("usage") or {}
+            total = sum(int(u.get(k) or 0) for k in
+                        ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+            if total > 0:
+                last = total
+                peak = max(peak, total)
+        elif e.get("subtype") == "compact_boundary":
+            meta = e.get("compactMetadata") or {}
+            pre = int(meta.get("preTokens") or 0)
+            if meta.get("trigger") == "auto" and 0 < pre <= 200000:
+                compacted_small = True
+if last is not None and window > 0:
+    if not known:
+        if peak > 200000:
+            window, known = 1000000, True
+        elif compacted_small:
+            known = True
+    print("%d %d %d" % (round(last * 100 / window), window, 1 if known else 0))
+PYEOF
+    ) || CTX_MEASURE=""
+    CTX_PCT=""; CTX_KNOWN=1
+    [[ -n "$CTX_MEASURE" ]] && read -r CTX_PCT CTX_WINDOW CTX_KNOWN <<< "$CTX_MEASURE"
+    RECOMMENDED=""
+    while IFS= read -r lbl; do
+        case "$lbl" in
+            *Recommended*Subagent-Driven*|*Subagent-Driven*Recommended*) RECOMMENDED="subagent" ;;
+            *Recommended*Parallel*|*Parallel*Recommended*) RECOMMENDED="parallel" ;;
+        esac
+    done <<< "$OPTIONS_LABELS"
+    if [[ -n "$CTX_PCT" && -n "$RECOMMENDED" ]]; then
+        if [[ "$RECOMMENDED" == "subagent" && "$CTX_PCT" -ge "$CTX_PCT_LIMIT" && "$CTX_KNOWN" != "1" ]]; then
+            trace "?" "handoff-compliant" "window unproven, ctx=${CTX_PCT}% of 200k or less of 1M, rec=subagent"
+            echo "$ALLOW"; exit 0
+        fi
+        if [[ "$RECOMMENDED" == "subagent" && "$CTX_PCT" -ge "$CTX_PCT_LIMIT" ]]; then
+            trace "?" "block" "ctx=${CTX_PCT}% >= ${CTX_PCT_LIMIT}%, subagent recommended"
+            {
+                echo "HANDOFF RECOMMENDATION CONTRADICTS MEASURED CONTEXT"
+                echo ""
+                echo "Measured context usage: ${CTX_PCT}% of the ${CTX_WINDOW}-token window (from the"
+                echo "transcript's own usage data — not an estimate). At >=${CTX_PCT_LIMIT}% this session is"
+                echo "too full to coordinate subagent execution reliably."
+                echo ""
+                echo "Re-issue the same AskUserQuestion with \" (Recommended)\" on Parallel Session"
+                echo "and cite ${CTX_PCT}% in its reason line."
+                echo "Window override: SUPERPOWERS_CONTEXT_WINDOW; threshold: SUPERPOWERS_HANDOFF_CTX_PCT."
+            } >&2
+            exit 2
+        fi
+        if [[ "$RECOMMENDED" == "parallel" && "$CTX_PCT" -lt "$CTX_PCT_LIMIT" ]]; then
+            trace "?" "block" "ctx=${CTX_PCT}% < ${CTX_PCT_LIMIT}%, parallel recommended"
+            {
+                echo "HANDOFF RECOMMENDATION CONTRADICTS MEASURED CONTEXT"
+                echo ""
+                if [[ "$CTX_KNOWN" == "1" ]]; then
+                    echo "Measured context usage: ${CTX_PCT}% of the ${CTX_WINDOW}-token window — this session"
+                else
+                    echo "Measured context usage: at most ${CTX_PCT}% (of a 200k window; a 1M window would be a fifth of that) — this session"
+                fi
+                echo "has room, and Parallel Session drops the per-task review loop for no gain."
+                echo "Context pressure is the only reason to recommend it; task count is not."
+                echo ""
+                echo "Re-issue the same AskUserQuestion with \" (Recommended)\" on Subagent-Driven,"
+                if [[ "$CTX_KNOWN" == "1" ]]; then
+                    echo "citing ${CTX_PCT}% in its reason line."
+                else
+                    echo "citing \"at most ${CTX_PCT}%\" in its reason line."
+                fi
+                echo "Window override: SUPERPOWERS_CONTEXT_WINDOW; threshold: SUPERPOWERS_HANDOFF_CTX_PCT."
+            } >&2
+            exit 2
+        fi
+    fi
+    trace "?" "handoff-compliant" "labels ok, ctx=${CTX_PCT:-n/a}% rec=${RECOMMENDED:-none}"
+    echo "$ALLOW"; exit 0
+fi
+
+# Escape hatch: legitimate mid-plan clarification question.
+if [[ "$Q0_QUESTION" == *"CLARIFICATION"* ]]; then
+    trace "?" "clarification-escape" "CLARIFICATION token in question"
+    echo "$ALLOW"; exit 0
+fi
+
+trace "?" "block" "armed=true, required labels missing"
+
+{
+    echo "EXECUTION HANDOFF VIOLATION — WRONG AskUserQuestion STRUCTURE"
+    echo ""
+    echo "writing-plans was invoked and tasks were created, but this AskUserQuestion"
+    echo "is not the mandated Execution Handoff. The skill's HARD-GATE permits exactly"
+    echo "one structure here."
+    echo ""
+    echo "Required structure (copy this exactly):"
+    echo ""
+    echo "  AskUserQuestion:"
+    echo "    question: \"Plan complete and saved to docs/superpowers/plans/<filename>.md. How would you like to execute it?\""
+    echo "    header: \"Execution\""
+    echo "    options:"
+    echo "      - label: \"Subagent-Driven (this session)\""
+    echo "        description: \"Runs here: fresh subagent per task, spec and quality review after every task. That review loop is what the other option gives up. Good default.\""
+    echo "      - label: \"Parallel Session (separate)\""
+    echo "        description: \"You open a second session that runs executing-plans WITHOUT the per-task review loop, while this one stays alive to answer its questions. Choose it when this session is nearly out of context, or when the plan has no frontier tasks and a cheaper model should do the work.\""
+    echo ""
+    echo "Options:"
+    echo "  1. Re-issue AskUserQuestion with exactly that structure. This is the"
+    echo "     mandated handoff — both options feed the subagent pipeline where"
+    echo "     model routing and task dispatch operate."
+    echo "  2. If this is a genuine mid-plan clarification (not the handoff), include"
+    echo "     the literal token CLARIFICATION in the question text and retry."
+    echo "  3. The user can disable with SUPERPOWERS_ROUTING_GUARD=0."
+    echo ""
+    echo "Tier/handoff rationale: docs/model-routing-flow.md"
+    echo "(Trace log: $TRACE_LOG)"
+} >&2
+
+exit 2
